@@ -1,0 +1,8 @@
+using MediatR;
+
+namespace Legi.Identity.Application.Users.Queries.GetPublicProfile;
+
+public record GetPublicProfileQuery(
+    Guid UserId,
+    Guid? CurrentUserId = null // Null se não autenticado
+) : IRequest<GetPublicProfileResponse>;
