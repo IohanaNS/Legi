@@ -2,8 +2,8 @@
 
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Mediator;
 using Legi.Identity.Domain.Repositories;
-using MediatR;
 
 namespace Legi.Identity.Application.Auth.Commands.Login;
 

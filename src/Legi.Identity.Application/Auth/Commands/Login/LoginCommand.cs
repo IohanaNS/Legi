@@ -1,6 +1,6 @@
-namespace Legi.Identity.Application.Auth.Commands.Login;
+using Legi.Identity.Application.Common.Mediator;
 
-using MediatR;
+namespace Legi.Identity.Application.Auth.Commands.Login;
 
 public record LoginCommand(
     string EmailOrUsername,

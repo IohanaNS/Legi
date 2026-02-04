@@ -1,9 +1,9 @@
 using System.Security.Claims;
+using Legi.Identity.Application.Common.Mediator;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
 using Legi.Identity.Application.Users.Commands.UpdateProfile;
 using Legi.Identity.Application.Users.Queries.GetCurrentUser;
 using Legi.Identity.Application.Users.Queries.GetPublicProfile;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

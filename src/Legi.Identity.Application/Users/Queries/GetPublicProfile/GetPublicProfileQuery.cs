@@ -1,4 +1,4 @@
-using MediatR;
+using Legi.Identity.Application.Common.Mediator;
 
 namespace Legi.Identity.Application.Users.Queries.GetPublicProfile;
 

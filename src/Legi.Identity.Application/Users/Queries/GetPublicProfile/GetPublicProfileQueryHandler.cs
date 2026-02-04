@@ -1,5 +1,5 @@
+using Legi.Identity.Application.Common.Mediator;
 using Legi.Identity.Domain.Repositories;
-using MediatR;
 
 namespace Legi.Identity.Application.Users.Queries.GetPublicProfile;
 

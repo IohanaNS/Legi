@@ -1,4 +1,4 @@
-using MediatR;
+using Legi.Identity.Application.Common.Mediator;
 using Microsoft.Extensions.Logging;
 
 namespace Legi.Identity.Application.Common.Behaviors;
@@ -6,7 +6,7 @@ namespace Legi.Identity.Application.Common.Behaviors;
 public sealed class UnhandledExceptionBehavior<TRequest, TResponse>(
     ILogger<UnhandledExceptionBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+    where TRequest : IRequest<TResponse>
 {
     public async Task<TResponse> Handle(
         TRequest request,

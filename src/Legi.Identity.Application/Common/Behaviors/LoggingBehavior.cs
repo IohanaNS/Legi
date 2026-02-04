@@ -1,11 +1,11 @@
-using MediatR;
+using Legi.Identity.Application.Common.Mediator;
 using Microsoft.Extensions.Logging;
 
 namespace Legi.Identity.Application.Common.Behaviors;
 
 public sealed class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+    where TRequest : IRequest<TResponse>
 {
     private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
 

@@ -1,7 +1,7 @@
 using Legi.Identity.Application.Common.Exceptions;
+using Legi.Identity.Application.Common.Mediator;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Repositories;
-using MediatR;
 
 namespace Legi.Identity.Application.Users.Commands.DeleteAccount;
 
