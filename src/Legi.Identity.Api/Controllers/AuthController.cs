@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Auth.Commands.Logout;
 using Legi.Identity.Application.Auth.Commands.RefreshToken;
@@ -5,9 +6,8 @@ using Legi.Identity.Application.Auth.Commands.Register;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
-namespace Legi.Identity.API.Controllers;
+namespace Legi.Identity.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/identity/auth")]

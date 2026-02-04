@@ -1,13 +1,13 @@
+using System.Security.Claims;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
 using Legi.Identity.Application.Users.Commands.UpdateProfile;
+using Legi.Identity.Application.Users.Queries.GetCurrentUser;
 using Legi.Identity.Application.Users.Queries.GetPublicProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using Legi.Identity.Application.Users.Queries.GetCurrentUser;
 
-namespace Legi.Identity.API.Controllers;
+namespace Legi.Identity.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/identity/users")]

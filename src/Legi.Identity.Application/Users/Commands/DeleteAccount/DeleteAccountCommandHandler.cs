@@ -5,19 +5,12 @@ using MediatR;
 
 namespace Legi.Identity.Application.Users.Commands.DeleteAccount;
 
-public class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountCommand>
+public class DeleteAccountCommandHandler(IUserRepository userRepository) : IRequestHandler<DeleteAccountCommand>
 {
-    private readonly IUserRepository _userRepository;
-
-    public DeleteAccountCommandHandler(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
     public async Task Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
         // Get user
-        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
 
         if (user is null)
             throw new NotFoundException("User", request.UserId);
@@ -26,6 +19,6 @@ public class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountCommand>
         user.AddDomainEvent(new UserDeletedDomainEvent(user.Id));
 
         // Delete user (cascade will delete refresh tokens)
-        await _userRepository.DeleteAsync(user, cancellationToken);
+        await userRepository.DeleteAsync(user, cancellationToken);
     }
 }

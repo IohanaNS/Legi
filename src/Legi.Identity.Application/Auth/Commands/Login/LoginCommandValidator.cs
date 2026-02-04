@@ -1,7 +1,8 @@
 // Application/Auth/Commands/Login/LoginCommandValidator.cs
 
 using FluentValidation;
-using Legi.Identity.Application.Auth.Commands.Login;
+
+namespace Legi.Identity.Application.Auth.Commands.Login;
 
 public class LoginCommandValidator : AbstractValidator<LoginCommand>
 {

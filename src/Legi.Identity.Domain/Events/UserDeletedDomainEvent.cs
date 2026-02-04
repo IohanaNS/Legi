@@ -2,14 +2,8 @@ using Legi.Identity.Domain.Common;
 
 namespace Legi.Identity.Domain.Events;
 
-public sealed class UserDeletedDomainEvent : IDomainEvent
+public sealed class UserDeletedDomainEvent(Guid userId) : IDomainEvent
 {
-    public Guid UserId { get; }
-    public DateTime OccurredOn { get; }
-
-    public UserDeletedDomainEvent(Guid userId)
-    {
-        UserId = userId;
-        OccurredOn = DateTime.UtcNow;
-    }
+    public Guid UserId { get; } = userId;
+    public DateTime OccurredOn { get; } = DateTime.UtcNow;
 }
