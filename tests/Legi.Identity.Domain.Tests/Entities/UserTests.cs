@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Events;
-using Legi.Identity.Domain.ValueObjects;
 using Legi.Identity.Domain.Tests.Factories;
 using Legi.SharedKernel;
 
@@ -168,7 +167,7 @@ public class UserTests
     {
         // Arrange
         var user = CreateValidUser();
-        var tokenHash = "valid_token";
+        const string tokenHash = "valid_token";
         user.AddRefreshToken(tokenHash, DateTime.UtcNow.AddDays(7));
 
         // Act
@@ -176,7 +175,7 @@ public class UserTests
 
         // Assert
         token.Should().NotBeNull();
-        token!.TokenHash.Should().Be(tokenHash);
+        token.TokenHash.Should().Be(tokenHash);
         token.IsActive.Should().BeTrue();
     }
 

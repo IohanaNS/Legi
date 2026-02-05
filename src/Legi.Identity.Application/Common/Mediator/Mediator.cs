@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Legi.Identity.Application.Common.Mediator;
 
 /// <summary>
@@ -93,6 +91,6 @@ public class Mediator(IServiceProvider serviceProvider) : IMediator
         }
 
         // Fall back to IRequestHandler<TRequest, Unit>
-        await Send<Unit>(request as IRequest<Unit> ?? throw new InvalidOperationException($"Request does not implement IRequest<Unit>"), cancellationToken);
+        await Send(request as IRequest<Unit> ?? throw new InvalidOperationException($"Request does not implement IRequest<Unit>"), cancellationToken);
     }
 }

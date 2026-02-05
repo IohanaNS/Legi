@@ -32,7 +32,7 @@ public class LoginCommandHandler(
 
         // 4. Create and add RefreshToken to User (aggregate)
         var refreshTokenHash = jwtTokenService.GenerateRefreshToken();
-        var refreshToken = user.AddRefreshToken(
+        user.AddRefreshToken(
             refreshTokenHash,
             DateTime.UtcNow.AddDays(7)
         );

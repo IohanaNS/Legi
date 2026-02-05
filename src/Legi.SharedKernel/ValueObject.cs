@@ -15,12 +15,10 @@ public abstract class ValueObject
             .SequenceEqual(other.GetEqualityComponents());
     }
 
-    public override int GetHashCode()
-    {
-        return GetEqualityComponents()
-            .Select(x => x?.GetHashCode() ?? 0)
+    public override int GetHashCode() =>
+        GetEqualityComponents()
+            .Select(x => x.GetHashCode())
             .Aggregate((x, y) => x ^ y);
-    }
 
     public static bool operator ==(ValueObject? left, ValueObject? right)
     {
