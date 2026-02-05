@@ -1,9 +1,9 @@
 using FluentValidation;
 using Legi.Identity.Application.Common.Exceptions;
-using Legi.Identity.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Text.Json;
+using Legi.SharedKernel;
 
 namespace Legi.Identity.Api.Middleware;
 

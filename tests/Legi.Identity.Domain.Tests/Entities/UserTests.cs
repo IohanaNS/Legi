@@ -1,9 +1,9 @@
 using FluentAssertions;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Events;
-using Legi.Identity.Domain.Exceptions;
 using Legi.Identity.Domain.ValueObjects;
 using Legi.Identity.Domain.Tests.Factories;
+using Legi.SharedKernel;
 
 namespace Legi.Identity.Domain.Tests.Entities;
 

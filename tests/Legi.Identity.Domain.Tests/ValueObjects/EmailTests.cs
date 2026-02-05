@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Legi.Identity.Domain.Exceptions;
 using Legi.Identity.Domain.ValueObjects;
+using Legi.SharedKernel;
 
 namespace Legi.Identity.Domain.Tests.ValueObjects;
 

@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
-using Legi.Identity.Domain.Common;
-using Legi.Identity.Domain.Exceptions;
+using Legi.SharedKernel;
 
 namespace Legi.Identity.Domain.ValueObjects;
 

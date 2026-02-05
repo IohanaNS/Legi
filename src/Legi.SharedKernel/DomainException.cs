@@ -1,4 +1,4 @@
-namespace Legi.Identity.Domain.Exceptions;
+namespace Legi.SharedKernel;
 
 public class DomainException : Exception
 {

@@ -1,4 +1,4 @@
-namespace Legi.Identity.Domain.Common;
+namespace Legi.SharedKernel;
 
 public abstract class BaseEntity
 {

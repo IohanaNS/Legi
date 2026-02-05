@@ -1,4 +1,4 @@
-using Legi.Identity.Domain.Common;
+using Legi.SharedKernel;
 
 namespace Legi.Identity.Domain.Events;
 
