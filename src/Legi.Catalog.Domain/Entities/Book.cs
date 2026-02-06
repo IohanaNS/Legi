@@ -7,10 +7,10 @@ namespace Legi.Catalog.Domain.Entities;
 public class Book : BaseAuditableEntity
 {
     public const int MaxTags = 30;
+    public const int MaxAuthors = 10;
 
     public Isbn Isbn { get; private set; } = null!;
     public string Title { get; private set; } = null!;
-    public string Author { get; private set; } = null!;
     public string? Synopsis { get; private set; }
     public int? PageCount { get; private set; }
     public string? Publisher { get; private set; }
@@ -20,7 +20,10 @@ public class Book : BaseAuditableEntity
     public int ReviewsCount { get; private set; }
     public Guid CreatedByUserId { get; private set; }
 
-    private readonly List<Tag> _tags = new();
+    private readonly List<Author> _authors = [];
+    public IReadOnlyCollection<Author> Authors => _authors.AsReadOnly();
+
+    private readonly List<Tag> _tags = [];
     public IReadOnlyCollection<Tag> Tags => _tags.AsReadOnly();
 
     private Book() { }
@@ -28,7 +31,7 @@ public class Book : BaseAuditableEntity
     public static Book Create(
         Isbn isbn,
         string title,
-        string author,
+        IEnumerable<Author> authors,
         Guid createdByUserId,
         string? synopsis = null,
         int? pageCount = null,
@@ -42,11 +45,15 @@ public class Book : BaseAuditableEntity
         if (title.Length > 500)
             throw new DomainException("Title must be at most 500 characters");
 
-        if (string.IsNullOrWhiteSpace(author))
-            throw new DomainException("Author is required");
-
-        if (author.Length > 255)
-            throw new DomainException("Author must be at most 255 characters");
+        var authorsList = authors?.ToList() ?? [];
+        
+        switch (authorsList.Count)
+        {
+            case 0:
+                throw new DomainException("At least one author is required");
+            case > MaxAuthors:
+                throw new DomainException($"Book cannot have more than {MaxAuthors} authors");
+        }
 
         if (pageCount.HasValue && pageCount.Value <= 0)
             throw new DomainException("Page count must be greater than zero");
@@ -56,7 +63,6 @@ public class Book : BaseAuditableEntity
             Id = Guid.NewGuid(),
             Isbn = isbn,
             Title = title.Trim(),
-            Author = author.Trim(),
             Synopsis = synopsis?.Trim(),
             PageCount = pageCount,
             Publisher = publisher?.Trim(),
@@ -68,6 +74,12 @@ public class Book : BaseAuditableEntity
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
+
+        // Add authors (with duplicate check by slug)
+        foreach (var author in authorsList)
+        {
+            book.AddAuthorInternal(author);
+        }
 
         if (tags != null)
         {
@@ -81,11 +93,71 @@ public class Book : BaseAuditableEntity
             book.Id,
             book.Isbn.Value,
             book.Title,
-            book.Author,
+            book._authors.Select(a => a.Name).ToList(),
             book.CreatedByUserId));
 
         return book;
     }
+
+    #region Author Management
+
+    public void AddAuthor(Author author)
+    {
+        AddAuthorInternal(author);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private void AddAuthorInternal(Author author)
+    {
+        if (_authors.Count >= MaxAuthors)
+            throw new DomainException($"Book cannot have more than {MaxAuthors} authors");
+
+        // Check if author already exists (by slug)
+        if (_authors.Any(a => a.Slug == author.Slug))
+            return; // Silently ignore duplicates
+
+        _authors.Add(author);
+    }
+
+    public void RemoveAuthor(Author author)
+    {
+        if (_authors.Count <= 1)
+            throw new DomainException("Book must have at least one author");
+
+        var existingAuthor = _authors.FirstOrDefault(a => a.Slug == author.Slug);
+        if (existingAuthor == null) return;
+        _authors.Remove(existingAuthor);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void SetAuthors(IEnumerable<Author> authors)
+    {
+        var authorsList = authors?.ToList() ?? [];
+
+        switch (authorsList.Count)
+        {
+            case 0:
+                throw new DomainException("At least one author is required");
+            case > MaxAuthors:
+                throw new DomainException($"Book cannot have more than {MaxAuthors} authors");
+        }
+
+        _authors.Clear();
+        foreach (var author in authorsList)
+        {
+            AddAuthorInternal(author);
+        }
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Helper property to get a formatted author string for display.
+    /// </summary>
+    public string AuthorDisplay => string.Join(", ", _authors.Select(a => a.Name));
+
+    #endregion
+
+    #region Tag Management
 
     public void AddTag(Tag tag)
     {
@@ -120,12 +192,10 @@ public class Book : BaseAuditableEntity
     public void RemoveTag(Tag tag)
     {
         var existingTag = _tags.FirstOrDefault(t => t.Slug == tag.Slug);
-        if (existingTag != null)
-        {
-            _tags.Remove(existingTag);
-            UpdatedAt = DateTime.UtcNow;
-            RaiseTagsUpdatedEvent();
-        }
+        if (existingTag == null) return;
+        _tags.Remove(existingTag);
+        UpdatedAt = DateTime.UtcNow;
+        RaiseTagsUpdatedEvent();
     }
 
     public void ClearTags()
@@ -142,9 +212,12 @@ public class Book : BaseAuditableEntity
             _tags.Select(t => t.Name).ToList()));
     }
 
+    #endregion
+
+    #region Details Update
+
     public void UpdateDetails(
         string? title = null,
-        string? author = null,
         string? synopsis = null,
         int? pageCount = null,
         string? publisher = null,
@@ -159,17 +232,6 @@ public class Book : BaseAuditableEntity
                 throw new DomainException("Title must be at most 500 characters");
 
             Title = title.Trim();
-        }
-
-        if (author != null)
-        {
-            if (string.IsNullOrWhiteSpace(author))
-                throw new DomainException("Author cannot be empty");
-
-            if (author.Length > 255)
-                throw new DomainException("Author must be at most 255 characters");
-
-            Author = author.Trim();
         }
 
         if (synopsis != null)
@@ -198,12 +260,16 @@ public class Book : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    #endregion
+
+    #region Rating & Reviews
+
     /// <summary>
     /// Recalculates the average rating. Called when ratings change in the Library service.
     /// </summary>
     public void RecalculateRating(decimal newAverage, int totalRatings)
     {
-        if (newAverage is < 0 or > 5)
+        if (newAverage < 0 || newAverage > 5)
             throw new DomainException("Average rating must be between 0 and 5");
 
         if (totalRatings < 0)
@@ -227,4 +293,6 @@ public class Book : BaseAuditableEntity
         ReviewsCount = count;
         UpdatedAt = DateTime.UtcNow;
     }
+
+    #endregion
 }

@@ -34,11 +34,6 @@ public class BookConfiguration : IEntityTypeConfiguration<Book>
             .HasMaxLength(500)
             .IsRequired();
 
-        builder.Property(b => b.Author)
-            .HasColumnName("author")
-            .HasMaxLength(255)
-            .IsRequired();
-
         builder.Property(b => b.Synopsis)
             .HasColumnName("synopsis")
             .HasColumnType("text");
@@ -79,16 +74,15 @@ public class BookConfiguration : IEntityTypeConfiguration<Book>
             .HasColumnName("updated_at")
             .IsRequired();
 
-        // IMPORTANT: Ignore the domain Tags collection
-        // Tags are managed separately via BookTagEntity in the repository
+        // IMPORTANT: Ignore the domain collections
+        // These are managed separately via junction tables in the repository
         builder.Ignore(b => b.Tags);
+        builder.Ignore(b => b.Authors);
+        builder.Ignore(b => b.AuthorDisplay);
 
         // Indexes for common queries
         builder.HasIndex(b => b.Title)
             .HasDatabaseName("ix_books_title");
-
-        builder.HasIndex(b => b.Author)
-            .HasDatabaseName("ix_books_author");
 
         builder.HasIndex(b => b.CreatedByUserId)
             .HasDatabaseName("ix_books_created_by_user_id");

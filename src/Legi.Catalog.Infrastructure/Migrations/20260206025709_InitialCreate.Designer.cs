@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Legi.Catalog.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    [Migration("20260205232546_InitialCreate")]
+    [Migration("20260206025709_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -30,12 +30,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<string>("Author")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("author");
 
                     b.Property<decimal>("AverageRating")
                         .ValueGeneratedOnAdd()
@@ -94,9 +88,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Author")
-                        .HasDatabaseName("ix_books_author");
-
                     b.HasIndex("AverageRating")
                         .HasDatabaseName("ix_books_average_rating");
 
@@ -107,6 +98,83 @@ namespace Legi.Catalog.Infrastructure.Migrations
                         .HasDatabaseName("ix_books_title");
 
                     b.ToTable("books", (string)null);
+                });
+
+            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.AuthorEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BooksCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("books_count");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("slug");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BooksCount")
+                        .HasDatabaseName("ix_authors_books_count");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_authors_name");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("ix_authors_slug");
+
+                    b.ToTable("authors", (string)null);
+                });
+
+            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookAuthorEntity", b =>
+                {
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("book_id");
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("author_id");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.Property<int>("Order")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("order");
+
+                    b.HasKey("BookId", "AuthorId");
+
+                    b.HasIndex("AuthorId")
+                        .HasDatabaseName("ix_book_authors_author_id");
+
+                    b.HasIndex("BookId", "Order")
+                        .HasDatabaseName("ix_book_authors_book_order");
+
+                    b.ToTable("book_authors", (string)null);
                 });
 
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>
@@ -206,6 +274,25 @@ namespace Legi.Catalog.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookAuthorEntity", b =>
+                {
+                    b.HasOne("Legi.Catalog.Infrastructure.Persistence.Entities.AuthorEntity", "Author")
+                        .WithMany("BookAuthors")
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Legi.Catalog.Domain.Entities.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Book");
+                });
+
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>
                 {
                     b.HasOne("Legi.Catalog.Domain.Entities.Book", "Book")
@@ -223,6 +310,11 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.Navigation("Book");
 
                     b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.AuthorEntity", b =>
+                {
+                    b.Navigation("BookAuthors");
                 });
 
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.TagEntity", b =>

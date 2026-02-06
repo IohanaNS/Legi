@@ -13,10 +13,9 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         var book = await context.Books
             .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
 
-        if (book != null)
-        {
-            await LoadTagsIntoDomainAsync(book, cancellationToken);
-        }
+        if (book == null) return book;
+        await LoadAuthorsIntoDomainAsync(book, cancellationToken);
+        await LoadTagsIntoDomainAsync(book, cancellationToken);
 
         return book;
     }
@@ -29,10 +28,9 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         var book = await context.Books
             .FirstOrDefaultAsync(b => b.Isbn.Value == normalizedIsbn, cancellationToken);
 
-        if (book != null)
-        {
-            await LoadTagsIntoDomainAsync(book, cancellationToken);
-        }
+        if (book == null) return book;
+        await LoadAuthorsIntoDomainAsync(book, cancellationToken);
+        await LoadTagsIntoDomainAsync(book, cancellationToken);
 
         return book;
     }
@@ -48,6 +46,7 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
     public async Task AddAsync(Book book, CancellationToken cancellationToken = default)
     {
         await context.Books.AddAsync(book, cancellationToken);
+        await SynchronizeAuthorsAsync(book, cancellationToken);
         await SynchronizeTagsAsync(book, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
     }
@@ -55,13 +54,123 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
     public async Task UpdateAsync(Book book, CancellationToken cancellationToken = default)
     {
         context.Books.Update(book);
+        await SynchronizeAuthorsAsync(book, cancellationToken);
         await SynchronizeTagsAsync(book, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    #region Author Synchronization
+
+    /// <summary>
+    /// Loads authors from the database and populates the domain Book's Authors collection.
+    /// </summary>
+    private async Task LoadAuthorsIntoDomainAsync(Book book, CancellationToken cancellationToken)
+    {
+        var bookAuthors = await context.BookAuthors
+            .Include(ba => ba.Author)
+            .Where(ba => ba.BookId == book.Id)
+            .OrderBy(ba => ba.Order)
+            .ToListAsync(cancellationToken);
+
+        // Access the private _authors field via reflection
+        var authorsField = typeof(Book).GetField("_authors",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        if (authorsField != null)
+        {
+            var authorsList = (List<Author>)authorsField.GetValue(book)!;
+            authorsList.Clear();
+
+            foreach (var bookAuthor in bookAuthors)
+            {
+                var author = Author.Create(bookAuthor.Author.Name);
+                authorsList.Add(author);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes the domain Book's Authors with the persistence layer.
+    /// </summary>
+    private async Task SynchronizeAuthorsAsync(Book book, CancellationToken cancellationToken)
+    {
+        var domainAuthors = book.Authors.ToList();
+
+        // Get existing book-author relationships
+        var existingBookAuthors = await context.BookAuthors
+            .Where(ba => ba.BookId == book.Id)
+            .Include(ba => ba.Author)
+            .ToListAsync(cancellationToken);
+
+        var existingSlugs = existingBookAuthors.Select(ba => ba.Author.Slug).ToHashSet();
+        var domainSlugs = domainAuthors.Select(a => a.Slug).ToHashSet();
+
+        // Remove authors that are no longer in the domain
+        var authorsToRemove = existingBookAuthors
+            .Where(ba => !domainSlugs.Contains(ba.Author.Slug))
+            .ToList();
+
+        foreach (var bookAuthor in authorsToRemove)
+        {
+            context.BookAuthors.Remove(bookAuthor);
+
+            // Decrement books count
+            bookAuthor.Author.BooksCount = Math.Max(0, bookAuthor.Author.BooksCount - 1);
+        }
+
+        // Add new authors and update order for existing ones
+        for (var i = 0; i < domainAuthors.Count; i++)
+        {
+            var domainAuthor = domainAuthors[i];
+            
+            if (existingSlugs.Contains(domainAuthor.Slug))
+            {
+                // Update order if changed
+                var existingBookAuthor = existingBookAuthors
+                    .First(ba => ba.Author.Slug == domainAuthor.Slug);
+                existingBookAuthor.Order = i;
+            }
+            else
+            {
+                // Find or create the AuthorEntity
+                var authorEntity = await context.Authors
+                    .FirstOrDefaultAsync(a => a.Slug == domainAuthor.Slug, cancellationToken);
+
+                if (authorEntity == null)
+                {
+                    authorEntity = new AuthorEntity
+                    {
+                        Name = domainAuthor.Name,
+                        Slug = domainAuthor.Slug,
+                        BooksCount = 0,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await context.Authors.AddAsync(authorEntity, cancellationToken);
+                    await context.SaveChangesAsync(cancellationToken); // Save to get the Id
+                }
+
+                // Create the book-author relationship
+                var bookAuthor = new BookAuthorEntity
+                {
+                    BookId = book.Id,
+                    AuthorId = authorEntity.Id,
+                    Order = i,
+                    AddedAt = DateTime.UtcNow
+                };
+                await context.BookAuthors.AddAsync(bookAuthor, cancellationToken);
+
+                // Increment books count
+                authorEntity.BooksCount++;
+            }
+        }
+    }
+
+    #endregion
+
+    #region Tag Synchronization
+
     /// <summary>
     /// Loads tags from the database and populates the domain Book's Tags collection.
-    /// Uses reflection to access the private _tags field since Tags is read-only.
     /// </summary>
     private async Task LoadTagsIntoDomainAsync(Book book, CancellationToken cancellationToken)
     {
@@ -71,7 +180,7 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
             .ToListAsync(cancellationToken);
 
         // Access the private _tags field via reflection
-        var tagsField = typeof(Book).GetField("_tags", 
+        var tagsField = typeof(Book).GetField("_tags",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         if (tagsField != null)
@@ -81,7 +190,6 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
 
             foreach (var bookTag in bookTags)
             {
-                // Recreate the domain Tag Value Object from persistence data
                 var tag = Tag.Create(bookTag.Tag.Name);
                 tagsList.Add(tag);
             }
@@ -90,11 +198,9 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
 
     /// <summary>
     /// Synchronizes the domain Book's Tags with the persistence layer.
-    /// This handles creating new tags, linking existing tags, and removing old links.
     /// </summary>
     private async Task SynchronizeTagsAsync(Book book, CancellationToken cancellationToken)
     {
-        // Get current tags from domain
         var domainTags = book.Tags.ToList();
 
         // Get existing book-tag relationships
@@ -114,7 +220,7 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         foreach (var bookTag in tagsToRemove)
         {
             context.BookTags.Remove(bookTag);
-            
+
             // Decrement usage count
             bookTag.Tag.UsageCount = Math.Max(0, bookTag.Tag.UsageCount - 1);
         }
@@ -132,7 +238,6 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
 
             if (tagEntity == null)
             {
-                // Create new tag in the global registry
                 tagEntity = new TagEntity
                 {
                     Name = domainTag.Name,
@@ -157,4 +262,6 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
             tagEntity.UsageCount++;
         }
     }
+
+    #endregion
 }

@@ -9,6 +9,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<Book> Books => Set<Book>();
     public DbSet<TagEntity> Tags => Set<TagEntity>();
     public DbSet<BookTagEntity> BookTags => Set<BookTagEntity>();
+    public DbSet<AuthorEntity> Authors => Set<AuthorEntity>();
+    public DbSet<BookAuthorEntity> BookAuthors => Set<BookAuthorEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

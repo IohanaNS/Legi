@@ -143,7 +143,8 @@ Book (Aggregate Root)
 ├── Id: Guid
 ├── ISBN: ISBN (VO)
 ├── Title: string
-├── Author: string
+├── Authors: List<Author> (VO) - máximo 10, mínimo 1
+├── AuthorDisplay: string (computed - join dos nomes)
 ├── Synopsis: string?
 ├── PageCount: int?
 ├── Publisher: string?
@@ -151,7 +152,7 @@ Book (Aggregate Root)
 ├── AverageRating: decimal (0-5, desnormalizado)
 ├── RatingsCount: int (desnormalizado)
 ├── ReviewsCount: int (desnormalizado)
-├── Tags: List<Tag> (VO)
+├── Tags: List<Tag> (VO) - máximo 30
 ├── CreatedByUserId: Guid
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
@@ -168,25 +169,76 @@ BookReview (Aggregate Root)
 
 **Value Objects:**
 - `ISBN` - 10 ou 13 dígitos, checksum válido
-- `Tag` - name (normalizado), slug (gerado)
+- `Author` - name (2-255 chars), slug (gerado, único por valor)
+- `Tag` - name (2-50 chars), slug (gerado, único por valor)
 - `Rating` - inteiro 0-5
+
+**Persistence Entities (Infrastructure):**
+
+Separação entre domínio (Value Objects) e persistência (Entities) para search/autocomplete:
+
+```
+AuthorEntity (não é domínio)
+├── Id: int (PK, SERIAL)
+├── Name: string
+├── Slug: string (unique)
+├── BooksCount: int (desnormalizado)
+└── CreatedAt: DateTime
+
+TagEntity (não é domínio)
+├── Id: int (PK, SERIAL)
+├── Name: string
+├── Slug: string (unique)
+├── UsageCount: int (desnormalizado)
+└── CreatedAt: DateTime
+
+BookAuthorEntity (junction)
+├── BookId: Guid (PK, FK)
+├── AuthorId: int (PK, FK)
+├── Order: int (0 = autor primário)
+└── AddedAt: DateTime
+
+BookTagEntity (junction)
+├── BookId: Guid (PK, FK)
+├── TagId: int (PK, FK)
+└── AddedAt: DateTime
+```
 
 **Regras:**
 - ISBN é obrigatório e único
+- Livro deve ter pelo menos 1 autor (máximo 10)
 - Máximo 30 tags por livro
+- Autores são únicos por slug (evita duplicação: "J.K. Rowling" vs "J.K.Rowling")
+- Tags são únicas por slug (evita duplicação)
 - Um usuário só pode ter uma review por livro
 - Reviews passam por filtro de conteúdo ofensivo
 - AverageRating recalculado quando ratings mudam
 
 **Domain Events:**
-- `BookCreatedDomainEvent`
+- `BookCreatedDomainEvent` (com lista de autores)
 - `BookTagsUpdatedDomainEvent`
 - `BookRatingRecalculatedDomainEvent`
 - `ReviewCreatedDomainEvent`
 - `ReviewUpdatedDomainEvent`
 - `ReviewDeletedDomainEvent`
 
+**Arquitetura Híbrida (Author/Tag):**
+
+A separação entre Value Objects no domínio e Entities na persistência permite:
+- **Domínio limpo**: `Author` e `Tag` são Value Objects imutáveis, sem identidade própria
+- **Persistência otimizada**: `AuthorEntity` e `TagEntity` têm ID para:
+  - Evitar duplicação (normalização)
+  - Busca rápida (autocomplete)
+  - Contadores desnormalizados (popularidade)
+  - Páginas de autor/tag com todos os livros
+
+O repositório `BookRepository` sincroniza:
+- Ao salvar: cria/atualiza entidades de autor/tag, mantém contadores
+- Ao carregar: converte entidades em Value Objects para o domínio
+
 ### 2.2 API Endpoints
+
+**Books:**
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -194,16 +246,68 @@ BookReview (Aggregate Root)
 | GET | `/api/v1/catalog/books` | Buscar livros | 🔓 |
 | GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 |
 | POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 |
+
+**Reviews:**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
 | GET | `/api/v1/catalog/books/{bookId}/reviews` | Listar reviews | 🔓 |
 | POST | `/api/v1/catalog/books/{bookId}/reviews` | Criar review | 🔒 |
 | PUT | `/api/v1/catalog/reviews/{reviewId}` | Editar review | 🔒 |
 | DELETE | `/api/v1/catalog/reviews/{reviewId}` | Excluir review | 🔒 |
 
-**Query Params para busca:**
+**Authors (Search/Autocomplete):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| GET | `/api/v1/catalog/authors` | Buscar autores (autocomplete) | 🔓 |
+| GET | `/api/v1/catalog/authors/popular` | Autores populares | 🔓 |
+| GET | `/api/v1/catalog/authors/{slug}` | Detalhes do autor | 🔓 |
+| GET | `/api/v1/catalog/authors/{slug}/books` | Livros por autor | 🔓 |
+
+**Tags (Search/Autocomplete):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| GET | `/api/v1/catalog/tags` | Buscar tags (autocomplete) | 🔓 |
+| GET | `/api/v1/catalog/tags/popular` | Tags populares | 🔓 |
+
+**Query Params para busca de livros:**
 - `q` - busca em título, autor, ISBN
-- `tags` - filtro por tags (separadas por vírgula)
+- `authors` - filtro por slugs de autores (separados por vírgula)
+- `tags` - filtro por slugs de tags (separados por vírgula)
 - `sortBy` - relevance | title | rating | recent
 - `page`, `pageSize` - paginação
+
+**Formato de Request (Create Book):**
+```json
+{
+  "isbn": "9780451524935",
+  "title": "1984",
+  "authors": ["George Orwell"],
+  "tags": ["dystopia", "classic"],
+  "synopsis": "...",
+  "pageCount": 328
+}
+```
+
+**Formato de Response (Book):**
+```json
+{
+  "bookId": "...",
+  "isbn": "9780451524935",
+  "title": "1984",
+  "authors": [
+    { "name": "George Orwell", "slug": "george-orwell" }
+  ],
+  "authorDisplay": "George Orwell",
+  "tags": [
+    { "name": "dystopia", "slug": "dystopia" }
+  ],
+  "averageRating": 4.5,
+  "ratingsCount": 1250
+}
+```
 
 ### 2.3 Database Schema
 
@@ -213,7 +317,6 @@ CREATE TABLE books (
     id UUID PRIMARY KEY,
     isbn VARCHAR(13) NOT NULL UNIQUE,
     title VARCHAR(500) NOT NULL,
-    author VARCHAR(255) NOT NULL,
     synopsis TEXT,
     page_count INT CHECK (page_count > 0),
     publisher VARCHAR(255),
@@ -226,25 +329,54 @@ CREATE TABLE books (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX ix_books_isbn ON books(isbn);
-CREATE INDEX ix_books_title ON books USING GIN (to_tsvector('portuguese', title));
-CREATE INDEX ix_books_author ON books USING GIN (to_tsvector('portuguese', author));
+CREATE UNIQUE INDEX ix_books_isbn ON books(isbn);
+CREATE INDEX ix_books_title ON books(title);
 CREATE INDEX ix_books_average_rating ON books(average_rating DESC);
+CREATE INDEX ix_books_created_by_user_id ON books(created_by_user_id);
 
--- Tabela: tags
+-- Tabela: authors (global registry para search/autocomplete)
+CREATE TABLE authors (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    books_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX ix_authors_slug ON authors(slug);
+CREATE INDEX ix_authors_name ON authors(name);
+CREATE INDEX ix_authors_books_count ON authors(books_count DESC);
+
+-- Tabela: book_authors (N:N entre books e authors)
+CREATE TABLE book_authors (
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
+    "order" INT NOT NULL DEFAULT 0,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (book_id, author_id)
+);
+
+CREATE INDEX ix_book_authors_author_id ON book_authors(author_id);
+CREATE INDEX ix_book_authors_book_order ON book_authors(book_id, "order");
+
+-- Tabela: tags (global registry para search/autocomplete)
 CREATE TABLE tags (
-    id UUID PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
     slug VARCHAR(50) NOT NULL UNIQUE,
     usage_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Tabela: book_tags
+CREATE UNIQUE INDEX ix_tags_slug ON tags(slug);
+CREATE INDEX ix_tags_name ON tags(name);
+CREATE INDEX ix_tags_usage_count ON tags(usage_count DESC);
+
+-- Tabela: book_tags (N:N entre books e tags)
 CREATE TABLE book_tags (
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (book_id, tag_id)
 );
 
@@ -264,6 +396,42 @@ CREATE TABLE book_reviews (
 
 CREATE INDEX ix_book_reviews_book_id ON book_reviews(book_id);
 CREATE INDEX ix_book_reviews_user_id ON book_reviews(user_id);
+```
+
+**Diagrama de Relacionamentos:**
+
+```
+┌──────────────────────┐
+│       books          │
+├──────────────────────┤
+│ id (PK, UUID)        │
+│ isbn (unique)        │
+│ title                │
+│ ...                  │
+└──────────────────────┘
+         │                           │
+         │ 1:N                       │ 1:N
+         ▼                           ▼
+┌──────────────────────┐    ┌──────────────────────┐
+│   book_authors       │    │     book_tags        │
+├──────────────────────┤    ├──────────────────────┤
+│ book_id (PK, FK)     │    │ book_id (PK, FK)     │
+│ author_id (PK, FK)   │    │ tag_id (PK, FK)      │
+│ order                │    │ added_at             │
+│ added_at             │    └──────────────────────┘
+└──────────────────────┘             │
+         │                           │ N:1
+         │ N:1                       ▼
+         ▼                  ┌──────────────────────┐
+┌──────────────────────┐    │       tags           │
+│      authors         │    ├──────────────────────┤
+├──────────────────────┤    │ id (PK, SERIAL)      │
+│ id (PK, SERIAL)      │    │ name                 │
+│ name                 │    │ slug (unique)        │
+│ slug (unique)        │    │ usage_count          │
+│ books_count          │    │ created_at           │
+│ created_at           │    └──────────────────────┘
+└──────────────────────┘
 ```
 
 ---
@@ -313,7 +481,7 @@ UserList (Aggregate Root)
 BookSnapshot (Read Model - não é aggregate)
 ├── BookId: Guid
 ├── Title: string
-├── Author: string
+├── AuthorDisplay: string (desnormalizado: "Autor 1, Autor 2")
 ├── CoverUrl: string?
 ├── PageCount: int?
 └── UpdatedAt: DateTime
@@ -394,7 +562,7 @@ CREATE TYPE progress_type AS ENUM ('page', 'percentage');
 CREATE TABLE book_snapshots (
     book_id UUID PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
-    author VARCHAR(255) NOT NULL,
+    author_display VARCHAR(500) NOT NULL,
     cover_url VARCHAR(500),
     page_count INT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -659,18 +827,20 @@ record UserDeletedIntegrationEvent(Guid UserId, DateTime DeletedAt);
 
 // Catalog → Library
 record BookCreatedIntegrationEvent(
-    Guid BookId, 
-    string Title, 
-    string Author, 
-    string? CoverUrl, 
+    Guid BookId,
+    string Title,
+    List<string> Authors,  // Nomes dos autores
+    string AuthorDisplay,  // "Autor 1, Autor 2"
+    string? CoverUrl,
     int? PageCount
 );
 
 record BookUpdatedIntegrationEvent(
-    Guid BookId, 
-    string Title, 
-    string Author, 
-    string? CoverUrl, 
+    Guid BookId,
+    string Title,
+    List<string> Authors,
+    string AuthorDisplay,
+    string? CoverUrl,
     int? PageCount
 );
 
@@ -811,17 +981,17 @@ Legi.{Service}.Api/
 | Serviço | Endpoints |
 |---------|-----------|
 | Identity | 8 |
-| Catalog | 8 |
+| Catalog | 14 (books: 4, reviews: 4, authors: 4, tags: 2) |
 | Library | 18 |
 | Social | 15 |
-| **Total** | **49** |
+| **Total** | **55** |
 
 ## 8. Resumo de Tabelas
 
 | Serviço | Tabelas |
 |---------|---------|
 | Identity | 2 (users, refresh_tokens) |
-| Catalog | 4 (books, tags, book_tags, book_reviews) |
+| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) |
 | Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_book_lists) |
 | Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) |
-| **Total** | **16** |
+| **Total** | **18** |

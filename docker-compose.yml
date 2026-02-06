@@ -1,20 +1,111 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: legi-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: legi_identity_dev
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    # Identity Service Database
+    identity-db:
+        image: postgres:16-alpine
+        container_name: legi-identity-db
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: legi_identity_dev
+        ports:
+            - "5432:5432"
+        volumes:
+            - identity_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+        networks:
+            - legi-network
+    
+    # Catalog Service Database
+    catalog-db:
+        image: postgres:16-alpine
+        container_name: legi-catalog-db
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: legi_catalog_dev
+        ports:
+            - "5433:5432"
+        volumes:
+            - catalog_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+        networks:
+            - legi-network
+    
+    # Library Service Database (for future use)
+    # library-db:
+    #   image: postgres:16-alpine
+    #   container_name: legi-library-db
+    #   environment:
+    #     POSTGRES_USER: postgres
+    #     POSTGRES_PASSWORD: postgres
+    #     POSTGRES_DB: legi_library_dev
+    #   ports:
+    #     - "5434:5432"
+    #   volumes:
+    #     - library_db_data:/var/lib/postgresql/data
+    #   healthcheck:
+    #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+    #     interval: 5s
+    #     timeout: 5s
+    #     retries: 5
+    #   networks:
+    #     - legi-network
+    
+    # Social Service Database (for future use)
+    # social-db:
+    #   image: postgres:16-alpine
+    #   container_name: legi-social-db
+    #   environment:
+    #     POSTGRES_USER: postgres
+    #     POSTGRES_PASSWORD: postgres
+    #     POSTGRES_DB: legi_social_dev
+    #   ports:
+    #     - "5435:5432"
+    #   volumes:
+    #     - social_db_data:/var/lib/postgresql/data
+    #   healthcheck:
+    #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+    #     interval: 5s
+    #     timeout: 5s
+    #     retries: 5
+    #   networks:
+    #     - legi-network
+    
+    # RabbitMQ for async messaging (for future use)
+    # rabbitmq:
+    #   image: rabbitmq:3-management-alpine
+    #   container_name: legi-rabbitmq
+    #   environment:
+    #     RABBITMQ_DEFAULT_USER: legi
+    #     RABBITMQ_DEFAULT_PASS: legi_dev
+    #   ports:
+    #     - "5672:5672"   # AMQP
+    #     - "15672:15672" # Management UI
+    #   volumes:
+    #     - rabbitmq_data:/var/lib/rabbitmq
+    #   healthcheck:
+    #     test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+    #     interval: 10s
+    #     timeout: 5s
+    #     retries: 5
+    #   networks:
+    #     - legi-network
 
 volumes:
-  postgres_data:
+    identity_db_data:
+    catalog_db_data:
+    # library_db_data:
+    # social_db_data:
+    # rabbitmq_data:
+
+networks:
+    legi-network:
+        driver: bridge
