@@ -32,12 +32,12 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         builder.Property(rt => rt.RevokedAt)
             .HasColumnName("revoked_at");
 
-        // Shadow property para FK (não exposta na entidade)
+        // Shadow property for FK (not exposed to the entity)
         builder.Property<Guid>("UserId")
             .HasColumnName("user_id")
             .IsRequired();
 
-        // Índices
+        // Indexes
         builder.HasIndex(rt => rt.TokenHash)
             .HasDatabaseName("ix_refresh_tokens_token_hash")
             .IsUnique();

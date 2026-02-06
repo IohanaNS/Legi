@@ -4,18 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Legi.Identity.Infrastructure.Persistence.Repositories;
 
-public class UserRepository : IUserRepository
+public class UserRepository(IdentityDbContext context) : IUserRepository
 {
-    private readonly IdentityDbContext _context;
-
-    public UserRepository(IdentityDbContext context)
-    {
-        _context = context;
-    }
-
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Users
+        return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
@@ -24,7 +17,7 @@ public class UserRepository : IUserRepository
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return await _context.Users
+        return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Email.Value == normalizedEmail, cancellationToken);
     }
@@ -33,7 +26,7 @@ public class UserRepository : IUserRepository
     {
         var normalizedUsername = username.Trim().ToLowerInvariant();
 
-        return await _context.Users
+        return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Username.Value == normalizedUsername, cancellationToken);
     }
@@ -42,14 +35,14 @@ public class UserRepository : IUserRepository
     {
         var normalized = emailOrUsername.Trim().ToLowerInvariant();
 
-        return await _context.Users
+        return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Email.Value == normalized || u.Username.Value == normalized, cancellationToken);
     }
 
     public async Task<User?> GetByRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
-        return await _context.Users
+        return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.TokenHash == tokenHash), cancellationToken);
     }
@@ -58,25 +51,25 @@ public class UserRepository : IUserRepository
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return await _context.Users
+        return await context.Users
             .AnyAsync(u => u.Email.Value == normalizedEmail, cancellationToken);
     }
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
-        await _context.Users.AddAsync(user, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.Users.AddAsync(user, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.Users.Update(user);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(User user, CancellationToken cancellationToken = default)
     {
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.Users.Remove(user);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

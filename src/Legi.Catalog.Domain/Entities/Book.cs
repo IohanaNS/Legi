@@ -203,7 +203,7 @@ public class Book : BaseAuditableEntity
     /// </summary>
     public void RecalculateRating(decimal newAverage, int totalRatings)
     {
-        if (newAverage < 0 || newAverage > 5)
+        if (newAverage is < 0 or > 5)
             throw new DomainException("Average rating must be between 0 and 5");
 
         if (totalRatings < 0)

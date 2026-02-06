@@ -16,7 +16,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("id")
             .ValueGeneratedNever();
 
-        // Value Object Email - usando OwnsOne
         builder.OwnsOne(u => u.Email, email =>
         {
             email.Property(e => e.Value)
@@ -66,17 +65,17 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("updated_at")
             .IsRequired();
 
-        // Relacionamento com RefreshTokens
+        // Relationship with RefreshTokens
         builder.HasMany(u => u.RefreshTokens)
             .WithOne()
             .HasForeignKey("UserId")
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configura acesso ao campo privado _refreshTokens
+        // Configures access to the private field _refreshTokens
         builder.Navigation(u => u.RefreshTokens)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        // Índices
+        // Indexes
         builder.HasIndex(u => u.CreatedAt)
             .HasDatabaseName("ix_users_created_at")
             .IsDescending();
