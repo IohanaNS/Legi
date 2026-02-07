@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Legi.Catalog.Application\Legi.Catalog.Application.csproj" />
       <ProjectReference Include="..\Legi.Catalog.Domain\Legi.Catalog.Domain.csproj" />
     </ItemGroup>
 

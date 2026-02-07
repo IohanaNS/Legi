@@ -7,12 +7,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="Controllers\" />
-    </ItemGroup>
-
-    <ItemGroup>
       <ProjectReference Include="..\Legi.Catalog.Infrastructure\Legi.Catalog.Infrastructure.csproj" />
       <ProjectReference Include="..\Legi.Catalog.Application\Legi.Catalog.Application.csproj" />
+      <ProjectReference Include="..\Legi.Identity.Api\Legi.Identity.Api.csproj" />
     </ItemGroup>
 
     <ItemGroup>

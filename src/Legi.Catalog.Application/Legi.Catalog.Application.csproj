@@ -4,8 +4,12 @@
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <RootNamespace>Identity.Catalog.Application</RootNamespace>
         <OutputType>Library</OutputType>
     </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Legi.Catalog.Domain\Legi.Catalog.Domain.csproj" />
+      <ProjectReference Include="..\Legi.Identity.Application\Legi.Identity.Application.csproj" />
+    </ItemGroup>
 
 </Project>

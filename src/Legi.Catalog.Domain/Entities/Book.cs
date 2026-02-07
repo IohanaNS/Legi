@@ -43,9 +43,9 @@ public class Book : BaseAuditableEntity
             throw new DomainException("Title is required");
 
         if (title.Length > 500)
-            throw new DomainException("Title must be at most 500 characters");
+               throw new DomainException("Title must be at most 500 characters");
 
-        var authorsList = authors?.ToList() ?? [];
+        var authorsList = authors.ToList();
         
         switch (authorsList.Count)
         {
@@ -132,7 +132,7 @@ public class Book : BaseAuditableEntity
 
     public void SetAuthors(IEnumerable<Author> authors)
     {
-        var authorsList = authors?.ToList() ?? [];
+        var authorsList = authors.ToList();
 
         switch (authorsList.Count)
         {
