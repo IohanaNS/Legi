@@ -12,14 +12,18 @@ dotnet build
 
 # Build specific project
 dotnet build src/Legi.Identity.Api/Legi.Identity.Api.csproj
+dotnet build src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
 
-# Run the API (starts on https://localhost:5001, http://localhost:5000)
+# Run the Identity API
 dotnet run --project src/Legi.Identity.Api/Legi.Identity.Api.csproj
 
-# Start PostgreSQL database
+# Run the Catalog API
+dotnet run --project src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
+
+# Start PostgreSQL databases
 docker-compose up -d
 
-# Stop PostgreSQL database
+# Stop PostgreSQL databases
 docker-compose down
 ```
 
@@ -43,71 +47,134 @@ dotnet test /p:CollectCoverage=true
 ### Database Migrations
 
 ```bash
-# Add a new migration
+# Identity service
 dotnet ef migrations add MigrationName --project src/Legi.Identity.Infrastructure --startup-project src/Legi.Identity.Api
-
-# Apply migrations
 dotnet ef database update --project src/Legi.Identity.Infrastructure --startup-project src/Legi.Identity.Api
-
-# Remove last migration
 dotnet ef migrations remove --project src/Legi.Identity.Infrastructure --startup-project src/Legi.Identity.Api
+
+# Catalog service
+dotnet ef migrations add MigrationName --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
+dotnet ef database update --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
+dotnet ef migrations remove --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
 ```
 
 ## Architecture
 
-This is a **Clean Architecture** project with **Domain-Driven Design (DDD)** principles. The solution follows strict layering with dependencies flowing inward toward the Domain.
+This is a **Clean Architecture** solution with **Domain-Driven Design (DDD)** principles, organized as multiple bounded contexts (services) sharing a common kernel. Dependencies flow inward toward the Domain.
 
-### Layer Structure
+### Solution Structure
 
 ```
-Domain (Core - No Dependencies)
+Legi.SharedKernel              (shared base classes + mediator)
+├── Legi.Identity.*            (Identity bounded context)
+│   ├── Domain
+│   ├── Application
+│   ├── Infrastructure
+│   └── Api
+├── Legi.Catalog.*             (Catalog bounded context)
+│   ├── Domain
+│   ├── Application
+│   ├── Infrastructure
+│   └── Api
+└── tests/
+    ├── Legi.Identity.Domain.Tests
+    └── Legi.Identity.Application.Tests
+```
+
+### Layer Structure (per bounded context)
+
+```
+SharedKernel (Base classes, Mediator - No Dependencies)
   ↑
-Application (Depends on Domain only)
+Domain (Entities, Value Objects, Repository interfaces - Depends on SharedKernel only)
   ↑
-Infrastructure (Implements Application interfaces)
+Application (Commands, Queries, Behaviors - Depends on Domain only)
   ↑
-API (Presentation - Orchestrates everything)
+Infrastructure (EF Core, Repositories, External services - Implements Application/Domain interfaces)
+  ↑
+API (Controllers, Middleware - Orchestrates everything)
 ```
 
 ### Key Patterns
 
-- **CQRS**: Commands and Queries are separated using MediatR
-- **Mediator Pattern**: MediatR dispatches all requests through a pipeline with behaviors
-- **Repository Pattern**: Data access abstracted via `IUserRepository`
-- **Aggregate Root**: `User` entity manages its `RefreshToken` collection
-- **Value Objects**: `Email` encapsulates validation and ensures value equality
-- **Domain Events**: Entities raise events (`UserRegisteredDomainEvent`, etc.)
+- **CQRS**: Separate read/write repositories and command/query handlers
+- **Custom Mediator**: Lightweight mediator in `Legi.SharedKernel.Mediator` (no MediatR dependency) dispatches requests through a pipeline of behaviors
+- **Repository Pattern**: Write repositories (`IBookRepository`, `IUserRepository`) and read repositories (`IBookReadRepository`, `IAuthorReadRepository`, `ITagReadRepository`)
+- **Aggregate Roots**: `User` manages `RefreshToken` collection; `Book` manages `Author` and `Tag` collections
+- **Value Objects**: `Email`, `Username`, `Isbn`, `Author`, `Tag` — each with factory methods and validation
+- **Domain Events**: Entities raise events (`BookCreatedDomainEvent`, `UserRegisteredDomainEvent`, etc.)
 - **Pipeline Behaviors**: `ValidationBehavior` (FluentValidation), `LoggingBehavior`, `UnhandledExceptionBehavior`
 
-### Project Responsibilities
+### Legi.SharedKernel
 
-**Legi.Identity.Domain** (Core business logic)
+Shared abstractions with zero external dependencies:
+- `BaseEntity`: Id (Guid), domain event collection
+- `BaseAuditableEntity`: Adds `CreatedAt`, `UpdatedAt`
+- `ValueObject`: Abstract base with component-based equality
+- `IDomainEvent`: Marker interface with `OccurredOn`
+- `DomainException`: Base domain exception
+- `Mediator/`: Full mediator implementation — `IMediator`, `Mediator`, `IRequest`, `IRequestHandler`, `IPipelineBehavior`, `RequestHandlerDelegate`, `Unit`
+
+### Identity Service
+
+**Legi.Identity.Domain**
 - Entities: `User` (aggregate root), `RefreshToken`
-- Value Objects: `Email`
+- Value Objects: `Email`, `Username`
 - Repository interfaces: `IUserRepository`
-- Domain events and exceptions
-- NO external dependencies
+- Domain events: `UserRegisteredDomainEvent`, `UserProfileUpdatedDomainEvent`, `UserDeletedDomainEvent`
 
-**Legi.Identity.Application** (Use cases)
-- Commands: `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`, `UpdateProfileCommand`, `DeleteAccountCommand`
-- Queries: `GetCurrentUserQuery`, `GetPublicProfileQuery`
+**Legi.Identity.Application**
+- Auth Commands: `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`
+- User Commands: `UpdateProfileCommand`, `DeleteAccountCommand`
+- User Queries: `GetCurrentUserQuery`, `GetPublicProfileQuery`
 - Each command/query has: Handler, Validator (FluentValidation), Request/Response DTOs
-- Interfaces for infrastructure: `IJwtTokenService`, `IPasswordHasher`
-- Pipeline behaviors for cross-cutting concerns
+- Interfaces: `IJwtTokenService`, `IPasswordHasher`
+- Behaviors: `ValidationBehavior`, `LoggingBehavior`, `UnhandledExceptionBehavior`
+- Exceptions: `ConflictException`, `NotFoundException`, `UnauthorizedException`
 
-**Legi.Identity.Infrastructure** (Technical implementation)
-- `IdentityDbContext`: EF Core with PostgreSQL
+**Legi.Identity.Infrastructure**
+- `IdentityDbContext`: EF Core with PostgreSQL (port 5432)
 - Entity configurations using Fluent API (maps Value Objects, relationships)
 - `UserRepository`: Implements `IUserRepository`
-- `JwtTokenService`: JWT token generation with claims
+- `JwtTokenService`: JWT access token generation + refresh token generation
 - `PasswordHasher`: BCrypt-based password hashing
 - `JwtSettings`: Configuration via Options pattern
 
-**Legi.Identity.Api** (HTTP interface)
-- `AuthController`: `/api/v1/identity/auth` - register, login, refresh, logout
-- `UsersController`: `/api/v1/identity/users` - profile management
-- JWT Bearer authentication configured
-- Swagger/OpenAPI documentation at `/swagger`
+**Legi.Identity.Api**
+- `AuthController`: `/api/v1/identity/auth` — register, login, refresh, logout
+- `UsersController`: `/api/v1/identity/users` — profile management
+- JWT Bearer authentication, rate limiting (AspNetCoreRateLimit)
+- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails
+- Swagger/OpenAPI at `/swagger`
+
+### Catalog Service
+
+**Legi.Catalog.Domain**
+- Entities: `Book` (aggregate root with max 10 authors, max 30 tags)
+- Value Objects: `Isbn` (ISBN-10/13 with checksum), `Author` (name + slug), `Tag` (name + slug)
+- Repository interfaces: `IBookRepository` (write), `IBookReadRepository`, `IAuthorReadRepository`, `ITagReadRepository`
+- Enums: `BookSortBy` (Relevance, Title, AverageRating, RatingsCount, CreatedAt)
+- Domain events: `BookCreatedDomainEvent`, `BookRatingRecalculatedDomainEvent`, `BookTagsUpdatedDomainEvent`
+- DTOs: `BookSearchResult`, `BookDetailsResult` (in Domain for read repository contracts)
+
+**Legi.Catalog.Application**
+- Commands: `CreateBookCommand`
+- Queries: `SearchBooksQuery` (with pagination, filtering, sorting), `GetBookDetailsQuery`
+- DTOs: `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`
+- Behaviors: `ValidationBehavior`, `LoggingBehavior`
+- Exceptions: `ConflictException`, `NotFoundException`
+
+**Legi.Catalog.Infrastructure**
+- `CatalogDbContext`: EF Core with PostgreSQL (port 5433)
+- Persistence entities (separate from domain): `AuthorEntity`, `TagEntity`, `BookAuthorEntity`, `BookTagEntity`
+- Entity configurations: `BookConfiguration`, `AuthorConfiguration`, `TagConfiguration`, `BookAuthorConfiguration`, `BookTagConfiguration`
+- `BookRepository`: Write operations, syncs authors/tags via junction tables, uses reflection to populate domain collections
+- `BookReadRepository`: Read operations with LINQ joins for search, filtering, sorting, pagination
+- `AuthorReadRepository`, `TagReadRepository`: Read-only repositories for search and popularity queries
+
+**Legi.Catalog.Api**
+- `BooksController`: `/api/v1/catalog/books` — create book
+- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400)
 
 ## Adding New Features
 
@@ -116,7 +183,7 @@ API (Presentation - Orchestrates everything)
 1. **Domain Layer**: Add business logic to entity or create new entity
 2. **Application Layer**:
    - Create folder: `Application/[Feature]/Commands/[CommandName]/`
-   - Add `[CommandName]Command.cs` record implementing `IRequest<TResponse>`
+   - Add `[CommandName]Command.cs` record implementing `IRequest<TResponse>` (from `Legi.SharedKernel.Mediator`)
    - Add `[CommandName]CommandHandler.cs` implementing `IRequestHandler<TCommand, TResponse>`
    - Add `[CommandName]CommandValidator.cs` inheriting `AbstractValidator<TCommand>`
    - Add `[CommandName]Response.cs` record for the response DTO
@@ -133,21 +200,25 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 2. Add repository interface in `Domain/Repositories/`
 3. Create repository implementation in `Infrastructure/Persistence/Repositories/`
 4. Create entity configuration in `Infrastructure/Persistence/Configurations/` using Fluent API
-5. Add `DbSet<Entity>` to `IdentityDbContext`
+5. Add `DbSet<Entity>` to the appropriate `DbContext`
 6. Create and apply migration
 
 ## Important Domain Rules
 
-### User Entity
-- Maximum of 5 active refresh tokens per user
-- Email is a Value Object with regex validation
+### User Entity (Identity)
+- Maximum of 5 active refresh tokens per user (LRU eviction)
+- Email is a Value Object with regex validation, normalized to lowercase
+- Username is a Value Object: 3-30 chars, `[a-z][a-z0-9_]*`
 - Password changes revoke all refresh tokens
 - Profile updates raise `UserProfileUpdatedDomainEvent`
 
-### RefreshToken
-- 7-day expiration (configurable via `JwtSettings.RefreshTokenExpirationDays`)
-- Can be revoked explicitly via logout
-- Stored as hashed value, not plaintext
+### Book Entity (Catalog)
+- Maximum 10 authors, minimum 1 author
+- Maximum 30 tags
+- Title required, max 500 characters
+- ISBN validated with checksum (ISBN-10 or ISBN-13), unique
+- AverageRating: 0-5, rounded to 2 decimal places
+- Authors and Tags are Value Objects identified by slug (kebab-case)
 
 ### Authentication Flow
 - Login returns both access token (JWT, 60min) and refresh token (7 days)
@@ -156,6 +227,14 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - Logout revokes the specific refresh token used
 
 ## Configuration
+
+### Docker Services
+
+```bash
+docker-compose up -d   # Starts identity-db (port 5432) and catalog-db (port 5433)
+```
+
+Future services (commented out in docker-compose): library-db, social-db, rabbitmq.
 
 ### Environment Variables (REQUIRED)
 
@@ -175,18 +254,12 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
    ```bash
    Jwt__Secret=YOUR_GENERATED_SECRET_HERE
    ConnectionStrings__IdentityDb=Host=localhost;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
+   ConnectionStrings__CatalogDb=Host=localhost;Port=5433;Database=legi_catalog_dev;Username=postgres;Password=postgres
    ```
 
 4. The `.env` file is gitignored and will never be committed.
 
-### Database Connection
-Use environment variables:
-```bash
-ConnectionStrings__IdentityDb=Host=localhost;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-```
-
 ### JWT Settings
-Use environment variables (REQUIRED):
 ```bash
 Jwt__Secret=YOUR_GENERATED_SECRET_MINIMUM_32_CHARACTERS
 Jwt__Issuer=Legi.Identity
@@ -209,3 +282,4 @@ Jwt__RefreshTokenExpirationDays=7
 - **Application.Tests**: Test command/query handlers, validators
 - Use xUnit with coverlet for code coverage
 - Mock repositories and infrastructure services in Application tests
+- Test factories provide reusable test data builders

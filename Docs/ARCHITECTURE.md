@@ -2,35 +2,60 @@
 
 Sistema de gerenciamento pessoal de leitura com recursos sociais.
 
+## Status de Implementação
+
+| Serviço | Status | Observação |
+|---------|--------|------------|
+| **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
+| **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
+| **Catalog** | 🔧 Em progresso | Book CRUD parcial, search/details handlers prontos, endpoints parciais |
+| **Library** | 📋 Planejado | Não iniciado |
+| **Social** | 📋 Planejado | Não iniciado |
+
 ## Stack Tecnológica
 
-| Camada | Tecnologia |
-|--------|------------|
-| Backend | .NET 8, ASP.NET Core |
-| Frontend | React + TypeScript |
-| Banco de Dados | PostgreSQL |
-| Mensageria | RabbitMQ |
-| API Gateway | YARP |
-| API Externa | Open Library |
+| Camada         | Tecnologia                      |
+|----------------|---------------------------------|
+| Backend        | .NET 8, ASP.NET Core            |
+| Frontend       | React + TypeScript (planejado)  |
+| Banco de Dados | PostgreSQL (db separado por serviço) |
+| Mensageria     | RabbitMQ (planejado)            |
+| API Gateway    | YARP (planejado)                |
+| API Externa    | Open Library + Google Books Api (planejado) |
+| Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR) |
+| Validação      | FluentValidation                |
+| ORM            | Entity Framework Core 8 + Npgsql |
+| Auth           | JWT Bearer + BCrypt             |
+| Testes         | xUnit + coverlet                |
 
 ## Bounded Contexts
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         API Gateway                              │
+│                       API Gateway (planejado)                   │
 └──────────┬──────────┬──────────┬──────────┬────────────────────┘
            │          │          │          │
            ▼          ▼          ▼          ▼
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
+     │    ✅    │ │    🔧    │ │    📋    │ │    📋    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ identity │ │ catalog  │ │ library  │ │  social  │
-     │    db    │ │    db    │ │    db    │ │    db    │
+     │  db:5432 │ │  db:5433 │ │    db    │ │    db    │
      └──────────┘ └──────────┘ └──────────┘ └──────────┘
+
+Todos os serviços dependem de:
+┌──────────────────────────────────────────────────────────────────┐
+│                      Legi.SharedKernel                           │
+│  BaseEntity, BaseAuditableEntity, ValueObject, IDomainEvent,    │
+│  DomainException, Mediator (IMediator, IRequest,                │
+│  IRequestHandler, IPipelineBehavior, RequestHandlerDelegate,    │
+│  Unit)                                                          │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 | Serviço | Responsabilidade | Tipo |
@@ -40,9 +65,44 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Library** | Biblioteca pessoal, progresso, listas | Core |
 | **Social** | Follows, feed, likes, comments, descoberta | Core |
 
+### Estrutura de Camadas (por serviço)
+
+```
+SharedKernel (Base classes, Mediator — Sem Dependências)
+  ↑
+Domain (Entities, Value Objects, Repository interfaces — Depende apenas do SharedKernel)
+  ↑
+Application (Commands, Queries, Behaviors — Depende apenas do Domain)
+  ↑
+Infrastructure (EF Core, Repositories, Services externos — Implementa interfaces do Domain/Application)
+  ↑
+API (Controllers, Middleware — Orquestra tudo)
+```
+
 ---
 
-## 1. Identity Service
+## 0. SharedKernel ✅
+
+Abstrações compartilhadas com zero dependências externas.
+
+**Base Classes:**
+- `BaseEntity` — Id (Guid), coleção de domain events
+- `BaseAuditableEntity` — Adiciona `CreatedAt`, `UpdatedAt`
+- `ValueObject` — Base abstrata com igualdade por componentes
+- `IDomainEvent` — Interface marker com `OccurredOn`
+- `DomainException` — Exceção base de domínio
+
+**Mediator (custom, sem MediatR):**
+- `IMediator` / `Mediator` — Despacha requests para handlers via pipeline de behaviors (reflection-based)
+- `IRequest<TResponse>` / `IRequest` — Marker interfaces para commands/queries
+- `IRequestHandler<TRequest, TResponse>` — Handler interface
+- `IPipelineBehavior<TRequest, TResponse>` — Cross-cutting concerns (validation, logging)
+- `RequestHandlerDelegate<TResponse>` — Delegate para pipeline continuation
+- `Unit` — Tipo void para C#
+
+---
+
+## 1. Identity Service ✅
 
 ### 1.1 Domínio
 
@@ -74,7 +134,7 @@ RefreshToken (Entity)
 - `Username` - 3-30 chars, lowercase, letras/números/underscore, começa com letra
 
 **Regras:**
-- Máximo 5 refresh tokens ativos por usuário
+- Máximo 5 refresh tokens ativos por usuário (LRU eviction)
 - Password: mínimo 8 chars, 1 maiúscula, 1 número
 - Ao trocar senha, todos refresh tokens são revogados
 
@@ -83,7 +143,24 @@ RefreshToken (Entity)
 - `UserProfileUpdatedDomainEvent`
 - `UserDeletedDomainEvent`
 
-### 1.2 API Endpoints
+### 1.2 Application
+
+**Auth Commands:** `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`
+**User Commands:** `UpdateProfileCommand`, `DeleteAccountCommand`
+**User Queries:** `GetCurrentUserQuery`, `GetPublicProfileQuery`
+**Behaviors:** `ValidationBehavior`, `LoggingBehavior`, `UnhandledExceptionBehavior`
+**Interfaces:** `IJwtTokenService`, `IPasswordHasher`
+**Exceptions:** `ConflictException`, `NotFoundException`, `UnauthorizedException`
+
+### 1.3 Infrastructure
+
+- `IdentityDbContext` — EF Core + PostgreSQL (porta 5432)
+- `UserRepository` — Implementa `IUserRepository`
+- `JwtTokenService` — Gera access token (JWT, HMAC-SHA256) + refresh token (64 bytes Base64)
+- `PasswordHasher` — BCrypt hash/verify
+- `JwtSettings` — Options pattern (Secret, Issuer, Audience, expirations)
+
+### 1.4 API Endpoints
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -96,7 +173,9 @@ RefreshToken (Entity)
 | DELETE | `/api/v1/identity/users/me` | Deletar conta | 🔒 |
 | GET | `/api/v1/identity/users/{userId}` | Perfil público | 🔓 |
 
-### 1.3 Database Schema
+**Middleware:** `ExceptionHandlingMiddleware`, Rate Limiting (AspNetCoreRateLimit)
+
+### 1.5 Database Schema
 
 ```sql
 -- Tabela: users
@@ -132,17 +211,17 @@ CREATE INDEX ix_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
 ---
 
-## 2. Catalog Service
+## 2. Catalog Service 🔧
 
 ### 2.1 Domínio
 
 **Aggregates:**
 
 ```
-Book (Aggregate Root)
+Book (Aggregate Root) ✅
 ├── Id: Guid
 ├── ISBN: ISBN (VO)
-├── Title: string
+├── Title: string (max 500)
 ├── Authors: List<Author> (VO) - máximo 10, mínimo 1
 ├── AuthorDisplay: string (computed - join dos nomes)
 ├── Synopsis: string?
@@ -157,7 +236,7 @@ Book (Aggregate Root)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-BookReview (Aggregate Root)
+BookReview (Aggregate Root) 📋 PLANEJADO
 ├── Id: Guid
 ├── BookId: Guid
 ├── UserId: Guid
@@ -168,12 +247,12 @@ BookReview (Aggregate Root)
 ```
 
 **Value Objects:**
-- `ISBN` - 10 ou 13 dígitos, checksum válido
-- `Author` - name (2-255 chars), slug (gerado, único por valor)
-- `Tag` - name (2-50 chars), slug (gerado, único por valor)
-- `Rating` - inteiro 0-5
+- `ISBN` ✅ - 10 ou 13 dígitos, checksum válido
+- `Author` ✅ - name (2-255 chars), slug (gerado, kebab-case)
+- `Tag` ✅ - name (2-50 chars), slug (gerado, kebab-case)
+- `Rating` 📋 - inteiro 0-5 (planejado, para BookReview)
 
-**Persistence Entities (Infrastructure):**
+**Persistence Entities (Infrastructure) ✅:**
 
 Separação entre domínio (Value Objects) e persistência (Entities) para search/autocomplete:
 
@@ -210,17 +289,16 @@ BookTagEntity (junction)
 - Máximo 30 tags por livro
 - Autores são únicos por slug (evita duplicação: "J.K. Rowling" vs "J.K.Rowling")
 - Tags são únicas por slug (evita duplicação)
-- Um usuário só pode ter uma review por livro
-- Reviews passam por filtro de conteúdo ofensivo
+- Um usuário só pode ter uma review por livro (planejado)
 - AverageRating recalculado quando ratings mudam
 
 **Domain Events:**
-- `BookCreatedDomainEvent` (com lista de autores)
-- `BookTagsUpdatedDomainEvent`
-- `BookRatingRecalculatedDomainEvent`
-- `ReviewCreatedDomainEvent`
-- `ReviewUpdatedDomainEvent`
-- `ReviewDeletedDomainEvent`
+- `BookCreatedDomainEvent` ✅ (com lista de autores)
+- `BookTagsUpdatedDomainEvent` ✅
+- `BookRatingRecalculatedDomainEvent` ✅
+- `ReviewCreatedDomainEvent` 📋
+- `ReviewUpdatedDomainEvent` 📋
+- `ReviewDeletedDomainEvent` 📋
 
 **Arquitetura Híbrida (Author/Tag):**
 
@@ -234,20 +312,44 @@ A separação entre Value Objects no domínio e Entities na persistência permit
 
 O repositório `BookRepository` sincroniza:
 - Ao salvar: cria/atualiza entidades de autor/tag, mantém contadores
-- Ao carregar: converte entidades em Value Objects para o domínio
+- Ao carregar: converte entidades em Value Objects para o domínio (via reflection)
 
-### 2.2 API Endpoints
+### 2.2 Application
 
-**Books:**
+**Commands implementados:**
+- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores, tags
 
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| POST | `/api/v1/catalog/books` | Cadastrar livro | 🔒 |
-| GET | `/api/v1/catalog/books` | Buscar livros | 🔓 |
-| GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 |
-| POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 |
+**Queries implementadas:**
+- `SearchBooksQuery` ✅ — Busca com filtros, paginação, sorting (`BookSortBy`: Relevance, Title, AverageRating, RatingsCount, CreatedAt)
+- `GetBookDetailsQuery` ✅ — Detalhes completos por ID
 
-**Reviews:**
+**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`
+**Behaviors:** `ValidationBehavior`, `LoggingBehavior`
+**Exceptions:** `ConflictException`, `NotFoundException`
+
+**Repositories (Domain interfaces):**
+- `IBookRepository` ✅ (write: Add, Update, GetById, GetByIsbn)
+- `IBookReadRepository` ✅ (read: Search, GetDetailsById, GetDetailsByIsbn)
+- `IAuthorReadRepository` ✅ (Search, GetPopular, GetBySlug)
+- `ITagReadRepository` ✅ (Search, GetPopular)
+
+### 2.3 API Endpoints
+
+**Books (implementados):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| POST | `/api/v1/catalog/books` | Cadastrar livro | 🔒 (TODO: JWT) | ✅ |
+
+**Books (planejados — handlers já implementados na Application layer):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/catalog/books` | Buscar livros | 🔓 | 📋 endpoint |
+| GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 | 📋 endpoint |
+| POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 | 📋 |
+
+**Reviews (planejados):**
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -256,7 +358,7 @@ O repositório `BookRepository` sincroniza:
 | PUT | `/api/v1/catalog/reviews/{reviewId}` | Editar review | 🔒 |
 | DELETE | `/api/v1/catalog/reviews/{reviewId}` | Excluir review | 🔒 |
 
-**Authors (Search/Autocomplete):**
+**Authors (planejados — read repositories já implementados na Infrastructure):**
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -265,7 +367,7 @@ O repositório `BookRepository` sincroniza:
 | GET | `/api/v1/catalog/authors/{slug}` | Detalhes do autor | 🔓 |
 | GET | `/api/v1/catalog/authors/{slug}/books` | Livros por autor | 🔓 |
 
-**Tags (Search/Autocomplete):**
+**Tags (planejados — read repositories já implementados na Infrastructure):**
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -309,10 +411,12 @@ O repositório `BookRepository` sincroniza:
 }
 ```
 
-### 2.3 Database Schema
+**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400)
+
+### 2.4 Database Schema
 
 ```sql
--- Tabela: books
+-- Tabela: books ✅
 CREATE TABLE books (
     id UUID PRIMARY KEY,
     isbn VARCHAR(13) NOT NULL UNIQUE,
@@ -334,7 +438,7 @@ CREATE INDEX ix_books_title ON books(title);
 CREATE INDEX ix_books_average_rating ON books(average_rating DESC);
 CREATE INDEX ix_books_created_by_user_id ON books(created_by_user_id);
 
--- Tabela: authors (global registry para search/autocomplete)
+-- Tabela: authors ✅ (global registry para search/autocomplete)
 CREATE TABLE authors (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -347,7 +451,7 @@ CREATE UNIQUE INDEX ix_authors_slug ON authors(slug);
 CREATE INDEX ix_authors_name ON authors(name);
 CREATE INDEX ix_authors_books_count ON authors(books_count DESC);
 
--- Tabela: book_authors (N:N entre books e authors)
+-- Tabela: book_authors ✅ (N:N entre books e authors)
 CREATE TABLE book_authors (
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
@@ -359,7 +463,7 @@ CREATE TABLE book_authors (
 CREATE INDEX ix_book_authors_author_id ON book_authors(author_id);
 CREATE INDEX ix_book_authors_book_order ON book_authors(book_id, "order");
 
--- Tabela: tags (global registry para search/autocomplete)
+-- Tabela: tags ✅ (global registry para search/autocomplete)
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
@@ -372,7 +476,7 @@ CREATE UNIQUE INDEX ix_tags_slug ON tags(slug);
 CREATE INDEX ix_tags_name ON tags(name);
 CREATE INDEX ix_tags_usage_count ON tags(usage_count DESC);
 
--- Tabela: book_tags (N:N entre books e tags)
+-- Tabela: book_tags ✅ (N:N entre books e tags)
 CREATE TABLE book_tags (
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
@@ -382,7 +486,7 @@ CREATE TABLE book_tags (
 
 CREATE INDEX ix_book_tags_tag_id ON book_tags(tag_id);
 
--- Tabela: book_reviews
+-- Tabela: book_reviews 📋 PLANEJADO
 CREATE TABLE book_reviews (
     id UUID PRIMARY KEY,
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
@@ -436,7 +540,7 @@ CREATE INDEX ix_book_reviews_user_id ON book_reviews(user_id);
 
 ---
 
-## 3. Library Service
+## 3. Library Service 📋 PLANEJADO
 
 ### 3.1 Domínio
 
@@ -581,7 +685,7 @@ CREATE TABLE user_books (
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, book_id),
-    CHECK ((current_progress IS NULL AND current_progress_type IS NULL) OR 
+    CHECK ((current_progress IS NULL AND current_progress_type IS NULL) OR
            (current_progress IS NOT NULL AND current_progress_type IS NOT NULL))
 );
 
@@ -603,7 +707,7 @@ CREATE TABLE reading_posts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (content IS NOT NULL OR progress_value IS NOT NULL),
-    CHECK ((progress_value IS NULL AND progress_type IS NULL) OR 
+    CHECK ((progress_value IS NULL AND progress_type IS NULL) OR
            (progress_value IS NOT NULL AND progress_type IS NOT NULL))
 );
 
@@ -641,7 +745,7 @@ CREATE INDEX ix_user_book_lists_list_id ON user_book_lists(list_id);
 
 ---
 
-## 4. Social Service
+## 4. Social Service 📋 PLANEJADO
 
 ### 4.1 Domínio
 
@@ -787,7 +891,7 @@ CREATE TABLE user_tag_preferences (
 
 ---
 
-## 5. Comunicação Entre Serviços
+## 5. Comunicação Entre Serviços 📋 PLANEJADO
 
 ### 5.1 Eventos de Integração
 
@@ -846,9 +950,9 @@ record BookUpdatedIntegrationEvent(
 
 // Library → Catalog
 record UserBookRatedIntegrationEvent(
-    Guid BookId, 
-    Guid UserId, 
-    int Rating, 
+    Guid BookId,
+    Guid UserId,
+    int Rating,
     int? PreviousRating
 );
 
@@ -881,9 +985,24 @@ record ContentCommentedIntegrationEvent(
 
 ## 6. Padrões e Convenções
 
-### 6.1 Estrutura de Projeto (por serviço)
+### 6.1 Estrutura de Projeto
 
 ```
+Legi.SharedKernel/
+├── BaseEntity.cs
+├── BaseAuditableEntity.cs
+├── ValueObject.cs
+├── IDomainEvent.cs
+├── DomainException.cs
+└── Mediator/
+    ├── IMediator.cs
+    ├── Mediator.cs
+    ├── IRequest.cs
+    ├── IRequestHandler.cs
+    ├── IPipelineBehavior.cs
+    ├── RequestHandlerDelegate.cs
+    └── Unit.cs
+
 Legi.{Service}.Domain/
 ├── Entities/
 ├── ValueObjects/
@@ -915,6 +1034,7 @@ Legi.{Service}.Application/
 Legi.{Service}.Infrastructure/
 ├── Persistence/
 │   ├── Configurations/
+│   ├── Entities/          (persistence entities, separados do domínio)
 │   ├── Migrations/
 │   └── Repositories/
 ├── Security/
@@ -978,20 +1098,20 @@ Legi.{Service}.Api/
 
 ## 7. Resumo de Endpoints
 
-| Serviço | Endpoints |
-|---------|-----------|
-| Identity | 8 |
-| Catalog | 14 (books: 4, reviews: 4, authors: 4, tags: 2) |
-| Library | 18 |
-| Social | 15 |
-| **Total** | **55** |
+| Serviço | Endpoints | Status |
+|---------|-----------|--------|
+| Identity | 8 | ✅ Implementado |
+| Catalog | 14 (books: 4, reviews: 4, authors: 4, tags: 2) | 🔧 1/14 implementado |
+| Library | 19 | 📋 Planejado |
+| Social | 15 | 📋 Planejado |
+| **Total** | **56** | |
 
 ## 8. Resumo de Tabelas
 
-| Serviço | Tabelas |
-|---------|---------|
-| Identity | 2 (users, refresh_tokens) |
-| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) |
-| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_book_lists) |
-| Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) |
-| **Total** | **18** |
+| Serviço | Tabelas | Status |
+|---------|---------|--------|
+| Identity | 2 (users, refresh_tokens) | ✅ Migrado |
+| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | 🔧 5/6 migrado (sem book_reviews) |
+| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_book_lists) | 📋 Planejado |
+| Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
+| **Total** | **18** | |
