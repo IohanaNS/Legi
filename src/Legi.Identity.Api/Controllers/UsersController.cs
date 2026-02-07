@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
 using Legi.Identity.Application.Users.Commands.UpdateProfile;
 using Legi.Identity.Application.Users.Queries.GetCurrentUser;

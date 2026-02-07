@@ -1,4 +1,4 @@
-namespace Legi.Catalog.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Default mediator implementation that relays requests to registered handlers through a pipeline of behaviors.

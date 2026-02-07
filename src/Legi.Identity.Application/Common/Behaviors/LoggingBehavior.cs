@@ -1,4 +1,4 @@
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Microsoft.Extensions.Logging;
 
 namespace Legi.Identity.Application.Common.Behaviors;

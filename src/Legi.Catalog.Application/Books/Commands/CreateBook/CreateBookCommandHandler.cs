@@ -1,6 +1,6 @@
 using Legi.Catalog.Application.Books.DTOs;
 using Legi.Catalog.Application.Common.Exceptions;
-using Legi.Catalog.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
 using Legi.Catalog.Domain.ValueObjects;

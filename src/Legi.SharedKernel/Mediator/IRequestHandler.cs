@@ -1,4 +1,4 @@
-namespace Legi.Identity.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Defines a handler for a request.

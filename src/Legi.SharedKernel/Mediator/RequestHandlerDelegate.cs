@@ -1,4 +1,4 @@
-namespace Legi.Catalog.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Represents an async continuation for the next task to execute in the pipeline.

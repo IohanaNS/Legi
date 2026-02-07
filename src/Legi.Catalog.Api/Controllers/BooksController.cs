@@ -1,5 +1,5 @@
 using Legi.Catalog.Application.Books.Commands.CreateBook;
-using Legi.Catalog.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Legi.Catalog.Api.Controllers;

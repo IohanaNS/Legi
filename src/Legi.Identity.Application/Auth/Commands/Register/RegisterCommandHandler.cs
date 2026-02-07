@@ -1,6 +1,6 @@
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Domain.ValueObjects;

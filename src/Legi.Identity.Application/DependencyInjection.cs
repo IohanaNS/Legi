@@ -1,7 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Legi.Identity.Application.Common.Behaviors;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Legi.Identity.Application;

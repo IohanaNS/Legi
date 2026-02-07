@@ -1,5 +1,5 @@
 using FluentValidation;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 
 namespace Legi.Identity.Application.Common.Behaviors;
 

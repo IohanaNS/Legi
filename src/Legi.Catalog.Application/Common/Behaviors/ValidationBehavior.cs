@@ -1,5 +1,5 @@
 using FluentValidation;
-using Legi.Catalog.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 
 namespace Legi.Catalog.Application.Common.Behaviors;
 

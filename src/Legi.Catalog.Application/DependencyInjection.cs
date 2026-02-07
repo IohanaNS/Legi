@@ -1,7 +1,7 @@
 using System.Reflection;
 using FluentValidation;
-using Legi.Catalog.Application.Common.Mediator;
-using Legi.Identity.Application.Common.Behaviors;
+using Legi.SharedKernel.Mediator;
+using Legi.Catalog.Application.Common.Behaviors;
 
 namespace Legi.Catalog.Application;
 

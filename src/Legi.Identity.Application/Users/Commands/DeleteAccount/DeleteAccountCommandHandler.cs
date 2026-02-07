@@ -1,5 +1,5 @@
 using Legi.Identity.Application.Common.Exceptions;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Repositories;
 

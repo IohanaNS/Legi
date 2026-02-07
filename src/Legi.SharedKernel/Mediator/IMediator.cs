@@ -1,4 +1,4 @@
-namespace Legi.Identity.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Defines a mediator to encapsulate request/response and publishing interaction patterns.

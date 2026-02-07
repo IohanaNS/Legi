@@ -1,4 +1,4 @@
-using Legi.Catalog.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Catalog.Domain.Repositories;
 
 namespace Legi.Catalog.Application.Books.Queries.SearchBooks;

@@ -1,4 +1,4 @@
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Repositories;
 
 namespace Legi.Identity.Application.Users.Queries.GetCurrentUser;

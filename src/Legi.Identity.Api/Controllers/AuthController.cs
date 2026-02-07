@@ -3,7 +3,7 @@ using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Auth.Commands.Logout;
 using Legi.Identity.Application.Auth.Commands.RefreshToken;
 using Legi.Identity.Application.Auth.Commands.Register;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

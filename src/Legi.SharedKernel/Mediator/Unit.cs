@@ -1,4 +1,4 @@
-namespace Legi.Catalog.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Represents a void type, since void is not a valid return type in C#.

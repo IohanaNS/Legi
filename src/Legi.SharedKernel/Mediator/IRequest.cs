@@ -1,4 +1,4 @@
-namespace Legi.Catalog.Application.Common.Mediator;
+namespace Legi.SharedKernel.Mediator;
 
 /// <summary>
 /// Marker interface to represent a request with a response.

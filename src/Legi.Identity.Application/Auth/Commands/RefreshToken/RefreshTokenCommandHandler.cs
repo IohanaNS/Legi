@@ -1,6 +1,6 @@
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
-using Legi.Identity.Application.Common.Mediator;
+using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Repositories;
 
 namespace Legi.Identity.Application.Auth.Commands.RefreshToken;
