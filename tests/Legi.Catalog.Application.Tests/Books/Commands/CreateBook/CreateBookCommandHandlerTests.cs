@@ -1,5 +1,6 @@
 using Legi.Catalog.Application.Books.Commands.CreateBook;
 using Legi.Catalog.Application.Common.Exceptions;
+using Legi.Catalog.Application.Common.Interfaces;
 using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
@@ -11,12 +12,22 @@ namespace Legi.Catalog.Application.Tests.Books.Commands.CreateBook;
 public class CreateBookCommandHandlerTests
 {
     private readonly Mock<IBookRepository> _bookRepositoryMock;
+    private readonly Mock<IBookDataProvider> _bookDataProviderMock;
     private readonly CreateBookCommandHandler _handler;
 
     public CreateBookCommandHandlerTests()
     {
         _bookRepositoryMock = new Mock<IBookRepository>();
-        _handler = new CreateBookCommandHandler(_bookRepositoryMock.Object);
+        _bookDataProviderMock = new Mock<IBookDataProvider>();
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExternalBookData?)null);
+
+        _handler = new CreateBookCommandHandler(
+            _bookRepositoryMock.Object,
+            _bookDataProviderMock.Object
+        );
     }
 
     [Fact]
@@ -77,6 +88,11 @@ public class CreateBookCommandHandlerTests
             x => x.GetByIsbnAsync("9780132350884", It.IsAny<CancellationToken>()),
             Times.Once
         );
+
+        _bookDataProviderMock.Verify(
+            x => x.GetByIsbnAsync("9780132350884", It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -101,6 +117,11 @@ public class CreateBookCommandHandlerTests
             x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
+
+        _bookDataProviderMock.Verify(
+            x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -117,6 +138,11 @@ public class CreateBookCommandHandlerTests
 
         _bookRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+
+        _bookDataProviderMock.Verify(
+            x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
     }
