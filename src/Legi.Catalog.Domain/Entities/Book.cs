@@ -109,12 +109,12 @@ public class Book : BaseAuditableEntity
 
     private void AddAuthorInternal(Author author)
     {
-        if (_authors.Count >= MaxAuthors)
-            throw new DomainException($"Book cannot have more than {MaxAuthors} authors");
-
         // Check if author already exists (by slug)
         if (_authors.Any(a => a.Slug == author.Slug))
             return; // Silently ignore duplicates
+
+        if (_authors.Count >= MaxAuthors)
+            throw new DomainException($"Book cannot have more than {MaxAuthors} authors");
 
         _authors.Add(author);
     }
@@ -179,12 +179,12 @@ public class Book : BaseAuditableEntity
 
     private void AddTagInternal(Tag tag)
     {
-        if (_tags.Count >= MaxTags)
-            throw new DomainException($"Book cannot have more than {MaxTags} tags");
-
         // Check if tag already exists (by slug)
         if (_tags.Any(t => t.Slug == tag.Slug))
             return; // Silently ignore duplicates
+
+        if (_tags.Count >= MaxTags)
+            throw new DomainException($"Book cannot have more than {MaxTags} tags");
 
         _tags.Add(tag);
     }

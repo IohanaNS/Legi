@@ -59,6 +59,36 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Book book, CancellationToken cancellationToken = default)
+    {
+        // Get existing relationships to update counts before deletion
+        var bookAuthors = await context.BookAuthors
+            .Include(ba => ba.Author)
+            .Where(ba => ba.BookId == book.Id)
+            .ToListAsync(cancellationToken);
+
+        var bookTags = await context.BookTags
+            .Include(bt => bt.Tag)
+            .Where(bt => bt.BookId == book.Id)
+            .ToListAsync(cancellationToken);
+
+        // Decrement author book counts
+        foreach (var bookAuthor in bookAuthors)
+        {
+            bookAuthor.Author.BooksCount = Math.Max(0, bookAuthor.Author.BooksCount - 1);
+        }
+
+        // Decrement tag usage counts
+        foreach (var bookTag in bookTags)
+        {
+            bookTag.Tag.UsageCount = Math.Max(0, bookTag.Tag.UsageCount - 1);
+        }
+
+        // Delete the book (cascade will delete junction table entries)
+        context.Books.Remove(book);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     #region Author Synchronization
 
     /// <summary>
