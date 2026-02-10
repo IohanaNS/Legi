@@ -8,7 +8,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 |---------|--------|------------|
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
-| **Catalog** | 🔧 Em progresso | Book CRUD parcial, search/details handlers prontos, endpoints parciais |
+| **Catalog** | 🔧 Em progresso | Book management com create/search/details/update/delete implementados |
 | **Library** | 📋 Planejado | Não iniciado |
 | **Social** | 📋 Planejado | Não iniciado |
 
@@ -317,18 +317,20 @@ O repositório `BookRepository` sincroniza:
 ### 2.2 Application
 
 **Commands implementados:**
-- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores, tags
+- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores e tags
+- `UpdateBookCommand` ✅ — Atualiza dados básicos, autores e tags de um livro
+- `DeleteBookCommand` ✅ — Remove livro do catálogo
 
 **Queries implementadas:**
 - `SearchBooksQuery` ✅ — Busca com filtros, paginação, sorting (`BookSortBy`: Relevance, Title, AverageRating, RatingsCount, CreatedAt)
 - `GetBookDetailsQuery` ✅ — Detalhes completos por ID
 
-**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`
+**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`
 
 **Repositories (Domain interfaces):**
-- `IBookRepository` ✅ (write: Add, Update, GetById, GetByIsbn)
+- `IBookRepository` ✅ (write: Add, Update, Delete, GetById, GetByIsbn)
 - `IBookReadRepository` ✅ (read: Search, GetDetailsById, GetDetailsByIsbn)
 - `IAuthorReadRepository` ✅ (Search, GetPopular, GetBySlug)
 - `ITagReadRepository` ✅ (Search, GetPopular)
@@ -339,15 +341,17 @@ O repositório `BookRepository` sincroniza:
 
 | Método | Endpoint | Descrição | Auth | Status |
 |--------|----------|-----------|------|--------|
+| GET | `/api/v1/catalog/books` | Buscar livros | 🔓 | ✅ |
+| GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 | ✅ |
 | POST | `/api/v1/catalog/books` | Cadastrar livro | 🔒 (TODO: JWT) | ✅ |
+| PUT | `/api/v1/catalog/books/{bookId}` | Atualizar livro | 🔒 (TODO: JWT) | ✅ |
+| DELETE | `/api/v1/catalog/books/{bookId}` | Excluir livro | 🔒 (TODO: JWT) | ✅ |
 
-**Books (planejados — handlers já implementados na Application layer):**
+**Books (planejados):**
 
-| Método | Endpoint | Descrição | Auth | Status |
-|--------|----------|-----------|------|--------|
-| GET | `/api/v1/catalog/books` | Buscar livros | 🔓 | 📋 endpoint |
-| GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 | 📋 endpoint |
-| POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 | 📋 |
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 |
 
 **Reviews (planejados):**
 
@@ -375,11 +379,13 @@ O repositório `BookRepository` sincroniza:
 | GET | `/api/v1/catalog/tags/popular` | Tags populares | 🔓 |
 
 **Query Params para busca de livros:**
-- `q` - busca em título, autor, ISBN
-- `authors` - filtro por slugs de autores (separados por vírgula)
-- `tags` - filtro por slugs de tags (separados por vírgula)
-- `sortBy` - relevance | title | rating | recent
-- `page`, `pageSize` - paginação
+- `searchTerm` - busca em título, autor e ISBN
+- `authorSlug` - filtro por slug de autor
+- `tagSlug` - filtro por slug de tag
+- `minRating` - filtro por avaliação mínima (0 a 5)
+- `sortBy` - `Relevance` | `Title` | `AverageRating` | `RatingsCount` | `CreatedAt`
+- `sortDescending` - ordenação decrescente (true/false)
+- `pageNumber`, `pageSize` - paginação
 
 **Formato de Request (Create Book):**
 ```json
@@ -393,21 +399,36 @@ O repositório `BookRepository` sincroniza:
 }
 ```
 
-**Formato de Response (Book):**
+**Formato de Request (Update Book):**
+```json
+{
+  "title": "1984 (Edição Revisada)",
+  "authors": ["George Orwell"],
+  "tags": ["dystopia", "classic"],
+  "synopsis": "...",
+  "pageCount": 336
+}
+```
+
+**Formato de Response (Book Details / Update):**
 ```json
 {
   "bookId": "...",
   "isbn": "9780451524935",
-  "title": "1984",
+  "title": "1984 (Edição Revisada)",
   "authors": [
     { "name": "George Orwell", "slug": "george-orwell" }
   ],
-  "authorDisplay": "George Orwell",
+  "synopsis": "...",
+  "pageCount": 336,
+  "publisher": "Companhia Editora",
+  "coverUrl": "https://...",
   "tags": [
     { "name": "dystopia", "slug": "dystopia" }
   ],
   "averageRating": 4.5,
-  "ratingsCount": 1250
+  "ratingsCount": 1250,
+  "updatedAt": "2026-02-09T22:00:00Z"
 }
 ```
 
@@ -1101,10 +1122,10 @@ Legi.{Service}.Api/
 | Serviço | Endpoints | Status |
 |---------|-----------|--------|
 | Identity | 8 | ✅ Implementado |
-| Catalog | 14 (books: 4, reviews: 4, authors: 4, tags: 2) | 🔧 1/14 implementado |
+| Catalog | 16 (books: 6, reviews: 4, authors: 4, tags: 2) | 🔧 5/16 implementado |
 | Library | 19 | 📋 Planejado |
 | Social | 15 | 📋 Planejado |
-| **Total** | **56** | |
+| **Total** | **58** | |
 
 ## 8. Resumo de Tabelas
 
