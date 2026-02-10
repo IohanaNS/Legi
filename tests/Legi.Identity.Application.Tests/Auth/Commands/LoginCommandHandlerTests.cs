@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
@@ -56,11 +55,11 @@ public class LoginCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().NotBeNull();
-        result.UserId.Should().Be(user.Id);
-        result.Email.Should().Be(user.Email.Value);
-        result.Token.Should().Be("access_token");
-        result.RefreshToken.Should().Be("refresh_token_hash");
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.UserId);
+        Assert.Equal(user.Email.Value, result.Email);
+        Assert.Equal("access_token", result.Token);
+        Assert.Equal("refresh_token_hash", result.RefreshToken);
 
         _userRepositoryMock.Verify(
             x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
@@ -82,8 +81,8 @@ public class LoginCommandHandlerTests
         var act = async () => await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await act.Should().ThrowAsync<UnauthorizedException>()
-            .WithMessage("Invalid credentials");
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
+        Assert.Equal("Invalid credentials", exception.Message);
 
         _passwordHasherMock.Verify(
             x => x.Verify(It.IsAny<string>(), It.IsAny<string>()),
@@ -110,8 +109,8 @@ public class LoginCommandHandlerTests
         var act = async () => await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await act.Should().ThrowAsync<UnauthorizedException>()
-            .WithMessage("Invalid credentials");
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
+        Assert.Equal("Invalid credentials", exception.Message);
 
         _tokenServiceMock.Verify(
             x => x.GenerateAccessToken(It.IsAny<User>()),
@@ -147,8 +146,8 @@ public class LoginCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        user.RefreshTokens.Should().HaveCount(tokenCountBefore + 1);
-        user.RefreshTokens.Should().Contain(t => t.TokenHash == "new_refresh_token");
+        Assert.Equal(tokenCountBefore + 1, user.RefreshTokens.Count);
+        Assert.Contains(user.RefreshTokens, t => t.TokenHash == "new_refresh_token");
     }
 
     [Fact]

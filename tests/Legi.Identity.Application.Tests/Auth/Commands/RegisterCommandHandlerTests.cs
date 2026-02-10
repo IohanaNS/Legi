@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Legi.Identity.Application.Auth.Commands.Register;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
@@ -63,12 +62,12 @@ public class RegisterCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().NotBeNull();
-        result.Email.Should().Be(command.Email.ToLowerInvariant());
-        result.Username.Should().Be(command.Username.ToLowerInvariant());
-        result.Name.Should().Be(command.Name);
-        result.Token.Should().Be("access_token");
-        result.RefreshToken.Should().Be("refresh_token_hash");
+        Assert.NotNull(result);
+        Assert.Equal(command.Email.ToLowerInvariant(), result.Email);
+        Assert.Equal(command.Username.ToLowerInvariant(), result.Username);
+        Assert.Equal(command.Name, result.Name);
+        Assert.Equal("access_token", result.Token);
+        Assert.Equal("refresh_token_hash", result.RefreshToken);
 
         _userRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
@@ -91,8 +90,8 @@ public class RegisterCommandHandlerTests
         var act = async () => await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await act.Should().ThrowAsync<ConflictException>()
-            .WithMessage("A user with this email already exists.");
+        var exception = await Assert.ThrowsAsync<ConflictException>(act);
+        Assert.Equal("A user with this email already exists.", exception.Message);
 
         _userRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),

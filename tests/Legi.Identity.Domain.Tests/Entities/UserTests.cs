@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Tests.Factories;
@@ -21,12 +20,12 @@ public class UserTests
         var user = User.Create(email, username, passwordHash, name);
 
         // Assert
-        user.Should().NotBeNull();
-        user.Email.Should().Be(email);
-        user.Username.Should().Be(username);
-        user.PasswordHash.Should().Be(passwordHash);
-        user.Name.Should().Be(name);
-        user.Id.Should().NotBeEmpty();
+        Assert.NotNull(user);
+        Assert.Equal(email, user.Email);
+        Assert.Equal(username, user.Username);
+        Assert.Equal(passwordHash, user.PasswordHash);
+        Assert.Equal(name, user.Name);
+        Assert.NotEqual(Guid.Empty, user.Id);
     }
 
     [Fact]
@@ -36,13 +35,13 @@ public class UserTests
         var user = UserFactory.Create(name: "Test");
 
         // Assert
-        user.DomainEvents.Should().ContainSingle();
-        user.DomainEvents.First().Should().BeOfType<UserRegisteredDomainEvent>();
+        Assert.Single(user.DomainEvents);
+        Assert.IsType<UserRegisteredDomainEvent>(user.DomainEvents.First());
 
-        var domainEvent = user.DomainEvents.First() as UserRegisteredDomainEvent;
-        domainEvent!.UserId.Should().Be(user.Id);
-        domainEvent.Email.Should().Be(user.Email.Value);
-        domainEvent.Name.Should().Be("Test");
+        var domainEvent = Assert.IsType<UserRegisteredDomainEvent>(user.DomainEvents.First());
+        Assert.Equal(user.Id, domainEvent.UserId);
+        Assert.Equal(user.Email.Value, domainEvent.Email);
+        Assert.Equal("Test", domainEvent.Name);
     }
 
     [Theory]
@@ -59,7 +58,7 @@ public class UserTests
         var act = () => User.Create(email, username, "hash", invalidName);
 
         // Assert
-        act.Should().Throw<DomainException>();
+        Assert.Throws<DomainException>(act);
     }
 
     [Fact]
@@ -72,8 +71,8 @@ public class UserTests
         var act = () => UserFactory.Create(name: longName);
 
         // Assert
-        act.Should().Throw<DomainException>()
-           .WithMessage("Name must be between 2 and 100 characters");
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Name must be between 2 and 100 characters", exception.Message);
     }
 
     [Fact]
@@ -88,10 +87,10 @@ public class UserTests
         var token = user.AddRefreshToken(tokenHash, expiresAt);
 
         // Assert
-        token.Should().NotBeNull();
-        token.TokenHash.Should().Be(tokenHash);
-        token.ExpiresAt.Should().Be(expiresAt);
-        user.RefreshTokens.Should().Contain(token);
+        Assert.NotNull(token);
+        Assert.Equal(tokenHash, token.TokenHash);
+        Assert.Equal(expiresAt, token.ExpiresAt);
+        Assert.Contains(token, user.RefreshTokens);
     }
 
     [Fact]
@@ -111,8 +110,8 @@ public class UserTests
         user.AddRefreshToken("token_6", expiresAt);
 
         // Assert
-        user.RefreshTokens.Count(t => t.IsActive).Should().Be(5);
-        user.RefreshTokens.Should().HaveCount(6); // Total includes revoked
+        Assert.Equal(5, user.RefreshTokens.Count(t => t.IsActive));
+        Assert.Equal(6, user.RefreshTokens.Count); // Total includes revoked
     }
 
     [Fact]
@@ -128,8 +127,8 @@ public class UserTests
 
         // Assert
         var token = user.RefreshTokens.First(t => t.TokenHash == tokenHash);
-        token.IsActive.Should().BeFalse();
-        token.RevokedAt.Should().NotBeNull();
+        Assert.False(token.IsActive);
+        Assert.NotNull(token.RevokedAt);
     }
 
     [Fact]
@@ -142,8 +141,8 @@ public class UserTests
         var act = () => user.RevokeRefreshToken("non_existent_token");
 
         // Assert
-        act.Should().Throw<DomainException>()
-           .WithMessage("Token not found");
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Token not found", exception.Message);
     }
 
     [Fact]
@@ -159,7 +158,7 @@ public class UserTests
         user.RevokeAllRefreshTokens();
 
         // Assert
-        user.RefreshTokens.Should().AllSatisfy(t => t.IsActive.Should().BeFalse());
+        Assert.All(user.RefreshTokens, t => Assert.False(t.IsActive));
     }
 
     [Fact]
@@ -174,9 +173,9 @@ public class UserTests
         var token = user.GetValidRefreshToken(tokenHash);
 
         // Assert
-        token.Should().NotBeNull();
-        token.TokenHash.Should().Be(tokenHash);
-        token.IsActive.Should().BeTrue();
+        Assert.NotNull(token);
+        Assert.Equal(tokenHash, token.TokenHash);
+        Assert.True(token.IsActive);
     }
 
     [Fact]
@@ -192,7 +191,7 @@ public class UserTests
         var token = user.GetValidRefreshToken(tokenHash);
 
         // Assert
-        token.Should().BeNull();
+        Assert.Null(token);
     }
 
     [Fact]
@@ -208,9 +207,9 @@ public class UserTests
         user.UpdateProfile(newName, newBio, newAvatar);
 
         // Assert
-        user.Name.Should().Be(newName);
-        user.Bio.Should().Be(newBio);
-        user.AvatarUrl.Should().Be(newAvatar);
+        Assert.Equal(newName, user.Name);
+        Assert.Equal(newBio, user.Bio);
+        Assert.Equal(newAvatar, user.AvatarUrl);
     }
 
     [Fact]
@@ -224,8 +223,8 @@ public class UserTests
         user.UpdateProfile("New Name", "New Bio", "https://avatar.com/img.jpg");
 
         // Assert
-        user.DomainEvents.Should().ContainSingle();
-        user.DomainEvents.First().Should().BeOfType<UserProfileUpdatedDomainEvent>();
+        Assert.Single(user.DomainEvents);
+        Assert.IsType<UserProfileUpdatedDomainEvent>(user.DomainEvents.First());
     }
 
     [Fact]
@@ -239,8 +238,8 @@ public class UserTests
         var act = () => user.UpdateProfile(null, longBio, null);
 
         // Assert
-        act.Should().Throw<DomainException>()
-           .WithMessage("Bio must be at most 500 characters");
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Bio must be at most 500 characters", exception.Message);
     }
 
     [Fact]
@@ -254,7 +253,7 @@ public class UserTests
         user.UpdatePassword(newHash);
 
         // Assert
-        user.PasswordHash.Should().Be(newHash);
+        Assert.Equal(newHash, user.PasswordHash);
     }
 
     [Fact]
@@ -269,7 +268,7 @@ public class UserTests
         user.UpdatePassword("new_hash");
 
         // Assert
-        user.RefreshTokens.Should().AllSatisfy(t => t.IsActive.Should().BeFalse());
+        Assert.All(user.RefreshTokens, t => Assert.False(t.IsActive));
     }
 
     // Helper method

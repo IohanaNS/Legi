@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Legi.Identity.Domain.ValueObjects;
 using Legi.SharedKernel;
 
@@ -16,8 +15,8 @@ public class EmailTests
         var email = Email.Create(validEmail);
 
         // Assert
-        email.Should().NotBeNull();
-        email.Value.Should().Be(validEmail.ToLowerInvariant());
+        Assert.NotNull(email);
+        Assert.Equal(validEmail.ToLowerInvariant(), email.Value);
     }
 
     [Theory]
@@ -29,8 +28,8 @@ public class EmailTests
         var act = () => Email.Create(emptyEmail);
 
         // Assert
-        act.Should().Throw<DomainException>()
-           .WithMessage("Email is required");
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Email is required", exception.Message);
     }
 
     [Theory]
@@ -44,8 +43,8 @@ public class EmailTests
         var act = () => Email.Create(invalidEmail);
 
         // Assert
-        act.Should().Throw<DomainException>()
-           .WithMessage("Invalid email format");
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Invalid email format", exception.Message);
     }
 
     [Fact]
@@ -58,7 +57,7 @@ public class EmailTests
         var email = Email.Create(uppercaseEmail);
 
         // Assert
-        email.Value.Should().Be("test@example.com");
+        Assert.Equal("test@example.com", email.Value);
     }
 
     [Fact]
@@ -69,8 +68,8 @@ public class EmailTests
         var email2 = Email.Create("test@example.com");
 
         // Act & Assert
-        email1.Should().Be(email2);
-        (email1 == email2).Should().BeTrue();
+        Assert.Equal(email1, email2);
+        Assert.True(email1 == email2);
     }
 
     [Fact]
@@ -81,7 +80,7 @@ public class EmailTests
         var email2 = Email.Create("test2@example.com");
 
         // Act & Assert
-        email1.Should().NotBe(email2);
-        (email1 != email2).Should().BeTrue();
+        Assert.NotEqual(email1, email2);
+        Assert.True(email1 != email2);
     }
 }
