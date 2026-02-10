@@ -2,8 +2,6 @@ using Legi.Catalog.Application.Common.Interfaces;
 using Legi.Catalog.Infrastructure.ExternalServices;
 using Legi.Catalog.Infrastructure.ExternalServices.GoogleBooks;
 using Legi.Catalog.Infrastructure.ExternalServices.OpenLibrary;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Legi.Catalog.Infrastructure;
 

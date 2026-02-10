@@ -1,7 +1,5 @@
 using System.Net;
-using System.Net.Http.Json;
 using Legi.Catalog.Application.Common.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Legi.Catalog.Infrastructure.ExternalServices.GoogleBooks;
@@ -12,7 +10,7 @@ namespace Legi.Catalog.Infrastructure.ExternalServices.GoogleBooks;
 /// API docs: https://developers.google.com/books/docs/v1/using
 /// 
 /// Key characteristics:
-/// - Works without API key (limited to ~100 req/day) or with key (1,000 req/day free)
+/// - Works without API's key (limited to ~100 req/day) or with key (1,000 req/day free)
 /// - ISBN search via: GET /books/v1/volumes?q=isbn:{isbn}
 /// - Returns author names directly (no second call needed, unlike Open Library)
 /// - Description is HTML-formatted and needs stripping

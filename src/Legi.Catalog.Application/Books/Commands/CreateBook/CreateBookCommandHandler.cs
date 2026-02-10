@@ -18,7 +18,7 @@ public class CreateBookCommandHandler(
         CreateBookCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. Validate ISBN and check if book already exists
+        // 1. Validate ISBN and check if the book already exists
         var isbn = Isbn.Create(request.Isbn);
 
         var existingBook = await bookRepository.GetByIsbnAsync(isbn.Value, cancellationToken);
@@ -53,7 +53,7 @@ public class CreateBookCommandHandler(
         var authors = authorNames.Select(Author.Create).ToList();
         var tags = request.Tags?.Select(Tag.Create).ToList();
 
-        // 6. Create Book aggregate
+        // 6. Create Book's aggregate
         var book = Book.Create(
             isbn,
             title,
@@ -88,7 +88,7 @@ public class CreateBookCommandHandler(
     }
 
     /// <summary>
-    /// User-provided value takes priority. Falls back to external API value.
+    /// User-provided value takes priority. Falls back to the external API value.
     /// Treats whitespace-only strings as empty (not provided).
     /// </summary>
     private static string? UseUserValueOrFallback(string? userValue, string? externalValue)

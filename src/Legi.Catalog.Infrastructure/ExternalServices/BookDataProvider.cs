@@ -1,5 +1,4 @@
 using Legi.Catalog.Application.Common.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace Legi.Catalog.Infrastructure.ExternalServices;
 
