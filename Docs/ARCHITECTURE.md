@@ -8,7 +8,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 |---------|--------|------------|
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
-| **Catalog** | 🔧 Em progresso | Book management com create/search/details/update/delete implementados |
+| **Catalog** | 🔧 Em progresso | Book management com create/search/details/update/delete + enriquecimento externo no create |
 | **Library** | 📋 Planejado | Não iniciado |
 | **Social** | 📋 Planejado | Não iniciado |
 
@@ -21,7 +21,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | Banco de Dados | PostgreSQL (db separado por serviço) |
 | Mensageria     | RabbitMQ (planejado)            |
 | API Gateway    | YARP (planejado)                |
-| API Externa    | Open Library + Google Books Api (planejado) |
+| API Externa    | Open Library + Google Books API (integração ativa no Catalog/CreateBook) |
 | Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR) |
 | Validação      | FluentValidation                |
 | ORM            | Entity Framework Core 8 + Npgsql |
@@ -317,7 +317,7 @@ O repositório `BookRepository` sincroniza:
 ### 2.2 Application
 
 **Commands implementados:**
-- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores e tags
+- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores e tags (com enriquecimento opcional via APIs externas)
 - `UpdateBookCommand` ✅ — Atualiza dados básicos, autores e tags de um livro
 - `DeleteBookCommand` ✅ — Remove livro do catálogo
 
@@ -328,12 +328,29 @@ O repositório `BookRepository` sincroniza:
 **DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`
+**Porta externa (Application):** `IBookDataProvider` (retorna `ExternalBookData`)
 
 **Repositories (Domain interfaces):**
 - `IBookRepository` ✅ (write: Add, Update, Delete, GetById, GetByIsbn)
 - `IBookReadRepository` ✅ (read: Search, GetDetailsById, GetDetailsByIsbn)
 - `IAuthorReadRepository` ✅ (Search, GetPopular, GetBySlug)
 - `ITagReadRepository` ✅ (Search, GetPopular)
+
+**Integração externa de metadados (CreateBook):**
+- `CreateBookCommandHandler` usa `IBookDataProvider` para buscar dados por ISBN antes da criação.
+- Cadeia de fallback na Infrastructure: `OpenLibrary` (prioridade 1) → `GoogleBooks` (prioridade 2).
+- Regra de merge: dados enviados pelo usuário têm prioridade; APIs externas preenchem campos faltantes.
+- Falhas de provedores externos não interrompem o fluxo (logging + fallback); só falha quando título/autores continuam ausentes após merge.
+- Componentes de infraestrutura:
+  - `BookDataProvider` (orquestrador da cadeia de provedores)
+  - `IExternalBookClient` (contrato interno para clientes externos com prioridade)
+  - `OpenLibraryClient` + `OpenLibraryMapper` + `OpenLibrarySettings`
+  - `GoogleBooksClient` + `GoogleBooksMapper` + `GoogleBooksSettings`
+- Registro de DI: `AddExternalBookServices(configuration)` em `Legi.Catalog.Infrastructure`.
+- Configuração em `appsettings*.json`:
+  - `ExternalServices:OpenLibrary` (`Enabled`, `TimeoutSeconds`)
+  - `ExternalServices:GoogleBooks` (`Enabled`, `TimeoutSeconds`, `ApiKey`)
+- Referência de decisão técnica detalhada: `Docs/CATALOG-ARCHITECTURE-external-apis.md`.
 
 ### 2.3 API Endpoints
 
@@ -398,6 +415,8 @@ O repositório `BookRepository` sincroniza:
   "pageCount": 328
 }
 ```
+
+Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) podem ser complementados por provedores externos quando enviados vazios/insuficientes.
 
 **Formato de Request (Update Book):**
 ```json
