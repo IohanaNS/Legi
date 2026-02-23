@@ -78,7 +78,9 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   └── Api
 └── tests/
     ├── Legi.Identity.Domain.Tests
-    └── Legi.Identity.Application.Tests
+    ├── Legi.Identity.Application.Tests
+    ├── Legi.Catalog.Domain.Tests
+    └── Legi.Catalog.Application.Tests
 ```
 
 ### Layer Structure (per bounded context)
@@ -158,9 +160,11 @@ Shared abstractions with zero external dependencies:
 - DTOs: `BookSearchResult`, `BookDetailsResult` (in Domain for read repository contracts)
 
 **Legi.Catalog.Application**
-- Commands: `CreateBookCommand`
-- Queries: `SearchBooksQuery` (with pagination, filtering, sorting), `GetBookDetailsQuery`
-- DTOs: `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`
+- Book Commands: `CreateBookCommand`, `UpdateBookCommand`, `DeleteBookCommand`
+- Book Queries: `SearchBooksQuery` (with pagination, filtering, sorting), `GetBookDetailsQuery`
+- Author Queries: `SearchAuthorsQuery` (autocomplete), `GetPopularAuthorsQuery`
+- Tag Queries: `SearchTagsQuery` (autocomplete), `GetPopularTagsQuery`
+- DTOs: `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `AuthorResult`, `TagResult`
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
 - Exceptions: `ConflictException`, `NotFoundException`
 
@@ -173,8 +177,11 @@ Shared abstractions with zero external dependencies:
 - `AuthorReadRepository`, `TagReadRepository`: Read-only repositories for search and popularity queries
 
 **Legi.Catalog.Api**
-- `BooksController`: `/api/v1/catalog/books` — create book
-- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400)
+- `BooksController`: `/api/v1/catalog/books` — CRUD (create, read, update, delete, search). Write endpoints require JWT auth (`[Authorize]`), read endpoints are public
+- `AuthorsController`: `/api/v1/catalog/authors` — search (autocomplete) and popular authors
+- `TagsController`: `/api/v1/catalog/tags` — search (autocomplete) and popular tags
+- JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
+- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400, UnauthorizedAccessException → 401)
 
 ## Adding New Features
 
@@ -283,3 +290,4 @@ Jwt__RefreshTokenExpirationDays=7
 - Use xUnit with coverlet for code coverage
 - Mock repositories and infrastructure services in Application tests
 - Test factories provide reusable test data builders
+- **Current test counts**: Identity Domain (42), Identity Application (45), Catalog Domain (52), Catalog Application (44) — Total: 183 tests

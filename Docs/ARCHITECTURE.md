@@ -8,7 +8,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 |---------|--------|------------|
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
-| **Catalog** | 🔧 Em progresso | Book management com create/search/details/update/delete + enriquecimento externo no create |
+| **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | 📋 Planejado | Não iniciado |
 | **Social** | 📋 Planejado | Não iniciado |
 
@@ -39,7 +39,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
-     │    ✅    │ │    🔧    │ │    📋    │ │    📋    │
+     │    ✅    │ │    ✅    │ │    📋    │ │    📋    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
@@ -211,7 +211,7 @@ CREATE INDEX ix_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
 ---
 
-## 2. Catalog Service 🔧
+## 2. Catalog Service ✅
 
 ### 2.1 Domínio
 
@@ -324,8 +324,12 @@ O repositório `BookRepository` sincroniza:
 **Queries implementadas:**
 - `SearchBooksQuery` ✅ — Busca com filtros, paginação, sorting (`BookSortBy`: Relevance, Title, AverageRating, RatingsCount, CreatedAt)
 - `GetBookDetailsQuery` ✅ — Detalhes completos por ID
+- `SearchAuthorsQuery` ✅ — Busca de autores por prefixo (autocomplete)
+- `GetPopularAuthorsQuery` ✅ — Autores mais populares por contagem de livros
+- `SearchTagsQuery` ✅ — Busca de tags por prefixo (autocomplete)
+- `GetPopularTagsQuery` ✅ — Tags mais populares por contagem de uso
 
-**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`
+**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`, `AuthorResult`, `TagResult`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`
 **Porta externa (Application):** `IBookDataProvider` (retorna `ExternalBookData`)
@@ -360,15 +364,30 @@ O repositório `BookRepository` sincroniza:
 |--------|----------|-----------|------|--------|
 | GET | `/api/v1/catalog/books` | Buscar livros | 🔓 | ✅ |
 | GET | `/api/v1/catalog/books/{bookId}` | Detalhes do livro | 🔓 | ✅ |
-| POST | `/api/v1/catalog/books` | Cadastrar livro | 🔒 (TODO: JWT) | ✅ |
-| PUT | `/api/v1/catalog/books/{bookId}` | Atualizar livro | 🔒 (TODO: JWT) | ✅ |
-| DELETE | `/api/v1/catalog/books/{bookId}` | Excluir livro | 🔒 (TODO: JWT) | ✅ |
+| POST | `/api/v1/catalog/books` | Cadastrar livro | 🔒 JWT | ✅ |
+| PUT | `/api/v1/catalog/books/{bookId}` | Atualizar livro | 🔒 JWT | ✅ |
+| DELETE | `/api/v1/catalog/books/{bookId}` | Excluir livro | 🔒 JWT | ✅ |
 
-**Books (planejados):**
+**Authors (implementados):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/catalog/authors/search` | Buscar autores (autocomplete) | 🔓 | ✅ |
+| GET | `/api/v1/catalog/authors/popular` | Autores populares | 🔓 | ✅ |
+
+**Tags (implementados):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/catalog/tags/search` | Buscar tags (autocomplete) | 🔓 | ✅ |
+| GET | `/api/v1/catalog/tags/popular` | Tags populares | 🔓 | ✅ |
+
+**Authors (planejados):**
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
-| POST | `/api/v1/catalog/books/{bookId}/tags` | Adicionar tags | 🔒 |
+| GET | `/api/v1/catalog/authors/{slug}` | Detalhes do autor | 🔓 |
+| GET | `/api/v1/catalog/authors/{slug}/books` | Livros por autor | 🔓 |
 
 **Reviews (planejados):**
 
@@ -378,22 +397,6 @@ O repositório `BookRepository` sincroniza:
 | POST | `/api/v1/catalog/books/{bookId}/reviews` | Criar review | 🔒 |
 | PUT | `/api/v1/catalog/reviews/{reviewId}` | Editar review | 🔒 |
 | DELETE | `/api/v1/catalog/reviews/{reviewId}` | Excluir review | 🔒 |
-
-**Authors (planejados — read repositories já implementados na Infrastructure):**
-
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| GET | `/api/v1/catalog/authors` | Buscar autores (autocomplete) | 🔓 |
-| GET | `/api/v1/catalog/authors/popular` | Autores populares | 🔓 |
-| GET | `/api/v1/catalog/authors/{slug}` | Detalhes do autor | 🔓 |
-| GET | `/api/v1/catalog/authors/{slug}/books` | Livros por autor | 🔓 |
-
-**Tags (planejados — read repositories já implementados na Infrastructure):**
-
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| GET | `/api/v1/catalog/tags` | Buscar tags (autocomplete) | 🔓 |
-| GET | `/api/v1/catalog/tags/popular` | Tags populares | 🔓 |
 
 **Query Params para busca de livros:**
 - `searchTerm` - busca em título, autor e ISBN
@@ -451,7 +454,9 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 }
 ```
 
-**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400)
+**Autenticação:** JWT Bearer (mesma config do Identity Service — `JwtSettings` compartilhado). Endpoints de escrita (POST, PUT, DELETE) requerem `[Authorize]`. Endpoints de leitura (GET) são públicos. UserId extraído do claim `sub` do JWT.
+
+**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400, UnauthorizedAccessException → 401)
 
 ### 2.4 Database Schema
 
@@ -1141,17 +1146,17 @@ Legi.{Service}.Api/
 | Serviço | Endpoints | Status |
 |---------|-----------|--------|
 | Identity | 8 | ✅ Implementado |
-| Catalog | 16 (books: 6, reviews: 4, authors: 4, tags: 2) | 🔧 5/16 implementado |
+| Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
 | Library | 19 | 📋 Planejado |
 | Social | 15 | 📋 Planejado |
-| **Total** | **58** | |
+| **Total** | **57** | |
 
 ## 8. Resumo de Tabelas
 
 | Serviço | Tabelas | Status |
 |---------|---------|--------|
 | Identity | 2 (users, refresh_tokens) | ✅ Migrado |
-| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | 🔧 5/6 migrado (sem book_reviews) |
+| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | ✅ 5/6 migrado (book_reviews planejado) |
 | Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_book_lists) | 📋 Planejado |
 | Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
 | **Total** | **18** | |
