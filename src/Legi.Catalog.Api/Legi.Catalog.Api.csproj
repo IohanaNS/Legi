@@ -13,6 +13,8 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="DotNetEnv" Version="3.1.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.23">
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>

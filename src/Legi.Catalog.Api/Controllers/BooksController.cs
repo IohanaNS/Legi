@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Legi.Catalog.Application.Books.Commands.CreateBook;
 using Legi.Catalog.Application.Books.Commands.DeleteBook;
 using Legi.Catalog.Application.Books.Commands.UpdateBook;
@@ -5,6 +6,7 @@ using Legi.Catalog.Application.Books.Queries.GetBookDetails;
 using Legi.Catalog.Application.Books.Queries.SearchBooks;
 using Legi.Catalog.Domain.Repositories;
 using Legi.SharedKernel.Mediator;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Legi.Catalog.Api.Controllers;
@@ -70,17 +72,17 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Creates a new book in the global catalog
     /// </summary>
+    [Authorize]
     [HttpPost]
     [ProducesResponseType(typeof(CreateBookResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CreateBookResponse>> CreateBook(
         [FromBody] CreateBookRequest request,
         CancellationToken cancellationToken)
     {
-        // TODO: Get authenticated user ID from JWT claims
-        // For now, using a placeholder
-        var userId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var userId = GetAuthenticatedUserId();
 
         var command = new CreateBookCommand(
             request.Isbn,
@@ -102,9 +104,11 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Updates an existing book in the global catalog
     /// </summary>
+    [Authorize]
     [HttpPut("{bookId:guid}")]
     [ProducesResponseType(typeof(UpdateBookResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UpdateBookResponse>> UpdateBook(
         Guid bookId,
@@ -129,8 +133,10 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Deletes a book from the global catalog
     /// </summary>
+    [Authorize]
     [HttpDelete("{bookId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteBook(
         Guid bookId,
@@ -139,6 +145,17 @@ public class BooksController : ControllerBase
         var command = new DeleteBookCommand(bookId);
         await _mediator.Send(command, cancellationToken);
         return NoContent();
+    }
+
+    private Guid GetAuthenticatedUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                          ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedAccessException("Invalid or missing user identity.");
+
+        return userId;
     }
 }
 
