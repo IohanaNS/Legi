@@ -80,16 +80,11 @@ public class UserBook : BaseAuditableEntity
             && progress.Value == Progress.MaxPercentage
             && Status != ReadingStatus.Finished)
         {
-            ChangeStatus(ReadingStatus.Finished);
+            ChangeReadingStatus(ReadingStatus.Finished);
             return; // ChangeStatus already sets UpdatedAt
         }
         
         UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void ChangeStatus(ReadingStatus finished)
-    {
-        throw new NotImplementedException();
     }
 
     public void Rate(Rating rating)
