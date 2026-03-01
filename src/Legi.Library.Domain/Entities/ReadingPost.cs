@@ -6,8 +6,6 @@ namespace Legi.Library.Domain.Entities;
 
 public class ReadingPost : BaseAuditableEntity
 {
-    public const int MaxContentLength = 2000;
-
     public Guid UserBookId { get; private set; }
     public Guid UserId { get; private set; }
     public Guid BookId { get; private set; }
@@ -76,7 +74,8 @@ public class ReadingPost : BaseAuditableEntity
 
     private static void ValidateContent(string content)
     {
-        if (content.Trim().Length > MaxContentLength)
-            throw new DomainException($"Post must have at most {MaxContentLength} characters");
+        const int maxContentLength = 2000;
+        if (content.Trim().Length > maxContentLength)
+            throw new DomainException($"Post must have at most {maxContentLength} characters");
     }
 }
