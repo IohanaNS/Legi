@@ -587,6 +587,8 @@ CREATE INDEX ix_book_reviews_user_id ON book_reviews(user_id);
 
 ## 3. Library Service 📋 PLANEJADO
 
+> Decisões de arquitetura detalhadas em `Docs/LIBRARY-ARCHITECTURE-decisions.md`.
+
 ### 3.1 Domínio
 
 **Aggregates:**
@@ -597,21 +599,22 @@ UserBook (Aggregate Root)
 ├── UserId: Guid
 ├── BookId: Guid
 ├── Status: ReadingStatus (enum)
-├── CurrentProgress: int? (0-100 ou páginas)
-├── CurrentProgressType: ProgressType? (enum)
+├── CurrentProgress: Progress? (VO)
 ├── Wishlist: bool
-├── Rating: Rating? (VO, 0-5)
-├── Posts: List<ReadingPost>
+├── Rating: Rating? (VO, 1-10 meias-estrelas)
 ├── AddedAt: DateTime
 └── UpdatedAt: DateTime
 
-ReadingPost (Entity)
+ReadingPost (Aggregate Root — promovido de entity filha)
 ├── Id: Guid
+├── UserBookId: Guid (referência por ID)
+├── UserId: Guid (desnormalizado para feed/queries)
+├── BookId: Guid (desnormalizado para feed/queries)
 ├── Content: string? (max 2000)
 ├── Progress: Progress? (VO)
 ├── ReadingDate: Date
-├── LikesCount: int (desnormalizado)
-├── CommentsCount: int (desnormalizado)
+├── LikesCount: int (desnormalizado, fonte: Social)
+├── CommentsCount: int (desnormalizado, fonte: Social)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
@@ -621,13 +624,20 @@ UserList (Aggregate Root)
 ├── Name: string (2-50)
 ├── Description: string? (max 500)
 ├── IsPublic: bool (default false)
+├── Items: List<UserListItem> (entity filha)
 ├── BooksCount: int (desnormalizado)
-├── LikesCount: int (desnormalizado)
-├── CommentsCount: int (desnormalizado)
+├── LikesCount: int (desnormalizado, fonte: Social)
+├── CommentsCount: int (desnormalizado, fonte: Social)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-BookSnapshot (Read Model - não é aggregate)
+UserListItem (Entity — filha de UserList)
+├── Id: Guid
+├── UserBookId: Guid
+├── Order: int
+└── AddedAt: DateTime
+
+BookSnapshot (Read Model — não é aggregate)
 ├── BookId: Guid
 ├── Title: string
 ├── AuthorDisplay: string (desnormalizado: "Autor 1, Autor 2")
@@ -636,28 +646,35 @@ BookSnapshot (Read Model - não é aggregate)
 └── UpdatedAt: DateTime
 ```
 
+**Decisão: ReadingPost como Aggregate Root.** Posts são independentes entre si — não existe invariante cross-post. Evita carregar centenas de posts na memória ao adicionar um novo. Coordenação de progresso (post com progresso → atualiza UserBook.CurrentProgress) feita na mesma transação pelo command handler.
+
+**Decisão: UserListItem como entity filha.** Justificativa: invariantes exigem os itens (duplicação, reordenação, BooksCount). UserListItem é minúsculo (IDs + order + timestamp) — carregar 500 itens é trivial.
+
 **Enums:**
 ```csharp
 enum ReadingStatus { NotStarted, Reading, Finished, Abandoned, Paused }
 enum ProgressType { Page, Percentage }
 ```
 
+Sem state machine — todas as transições entre status são válidas. O usuário pode corrigir livremente.
+
 **Value Objects:**
-- `Rating` - inteiro 0-5
-- `Progress` - value + type, validação por tipo
+- `Rating` — `int` de 1 a 10 (meias-estrelas). `1 = 0.5★, 2 = 1.0★, ..., 10 = 5.0★`. Propriedade `Stars => Value / 2.0m`. API recebe/retorna estrelas (0.5-5.0), conversão interna: `stars * 2`. SMALLINT no banco. Cada bounded context define seu próprio Rating (não compartilhado no SharedKernel).
+- `Progress` — `Value (int)` + `Type (ProgressType)`. Validação interna: `Value >= 0`; se `Percentage`: `Value <= 100`. Validação de `Page <= PageCount` é feita pelo aggregate/handler (acesso ao BookSnapshot).
 
 **Regras:**
 - Status inicia como `NotStarted`
+- Quando status muda para `Reading`, `Finished`, `Abandoned` ou `Paused`, `Wishlist` é automaticamente setado para `false`. Wishlist só é válido com `NotStarted`.
 - Status muda para `Reading` ao criar post com progresso ou manualmente
 - Status muda para `Finished` quando progresso = 100% ou manualmente
 - Marcar `Finished` manualmente define progress = 100%
 - Pode voltar de `Finished` para `Reading` (releitura)
-- Livro pode estar em múltiplas listas (N:N)
+- Livro pode estar em múltiplas listas (N:N via UserListItem)
 - Máximo 100 listas por usuário
 - Nome da lista único por usuário
 - Post deve ter conteúdo OU progresso (ou ambos)
 
-**Domain Events:**
+**Domain Events:** (a detalhar conforme implementação)
 - `BookAddedToLibraryDomainEvent`
 - `BookRemovedFromLibraryDomainEvent`
 - `BookStatusChangedDomainEvent`
@@ -723,15 +740,15 @@ CREATE TABLE user_books (
     user_id UUID NOT NULL,
     book_id UUID NOT NULL REFERENCES book_snapshots(book_id),
     status reading_status NOT NULL DEFAULT 'not_started',
-    current_progress INT,
+    current_progress_value INT,
     current_progress_type progress_type,
     wishlist BOOLEAN NOT NULL DEFAULT FALSE,
-    rating SMALLINT CHECK (rating >= 0 AND rating <= 5),
+    rating SMALLINT CHECK (rating >= 1 AND rating <= 10),  -- meias-estrelas: 1=0.5★, 10=5.0★
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, book_id),
-    CHECK ((current_progress IS NULL AND current_progress_type IS NULL) OR
-           (current_progress IS NOT NULL AND current_progress_type IS NOT NULL))
+    CHECK ((current_progress_value IS NULL AND current_progress_type IS NULL) OR
+           (current_progress_value IS NOT NULL AND current_progress_type IS NOT NULL))
 );
 
 CREATE INDEX ix_user_books_user_id ON user_books(user_id);
@@ -739,10 +756,12 @@ CREATE INDEX ix_user_books_status ON user_books(user_id, status);
 CREATE INDEX ix_user_books_wishlist ON user_books(user_id) WHERE wishlist = TRUE;
 CREATE INDEX ix_user_books_added_at ON user_books(added_at DESC);
 
--- Tabela: reading_posts
+-- Tabela: reading_posts (aggregate próprio, referência por ID ao user_books)
 CREATE TABLE reading_posts (
     id UUID PRIMARY KEY,
     user_book_id UUID NOT NULL REFERENCES user_books(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,       -- desnormalizado para feed/queries
+    book_id UUID NOT NULL,       -- desnormalizado para feed/queries
     content VARCHAR(2000),
     progress_value INT CHECK (progress_value >= 0),
     progress_type progress_type,
@@ -757,6 +776,7 @@ CREATE TABLE reading_posts (
 );
 
 CREATE INDEX ix_reading_posts_user_book_id ON reading_posts(user_book_id);
+CREATE INDEX ix_reading_posts_user_id ON reading_posts(user_id);
 CREATE INDEX ix_reading_posts_created_at ON reading_posts(created_at DESC);
 
 -- Tabela: user_lists
@@ -777,15 +797,18 @@ CREATE TABLE user_lists (
 CREATE INDEX ix_user_lists_user_id ON user_lists(user_id);
 CREATE INDEX ix_user_lists_public ON user_lists(is_public) WHERE is_public = TRUE;
 
--- Tabela: user_book_lists (N:N)
-CREATE TABLE user_book_lists (
-    user_book_id UUID NOT NULL REFERENCES user_books(id) ON DELETE CASCADE,
+-- Tabela: user_list_items (entity filha de user_lists)
+CREATE TABLE user_list_items (
+    id UUID PRIMARY KEY,
     list_id UUID NOT NULL REFERENCES user_lists(id) ON DELETE CASCADE,
+    user_book_id UUID NOT NULL REFERENCES user_books(id) ON DELETE CASCADE,
+    "order" INT NOT NULL DEFAULT 0,
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_book_id, list_id)
+    UNIQUE (list_id, user_book_id)
 );
 
-CREATE INDEX ix_user_book_lists_list_id ON user_book_lists(list_id);
+CREATE INDEX ix_user_list_items_list_id ON user_list_items(list_id, "order");
+CREATE INDEX ix_user_list_items_user_book_id ON user_list_items(user_book_id);
 ```
 
 ---
@@ -997,8 +1020,8 @@ record BookUpdatedIntegrationEvent(
 record UserBookRatedIntegrationEvent(
     Guid BookId,
     Guid UserId,
-    int Rating,
-    int? PreviousRating
+    int Rating,           // valor primitivo 1-10 (meias-estrelas), não o VO
+    int? PreviousRating   // valor primitivo 1-10
 );
 
 // Library → Social
@@ -1157,6 +1180,6 @@ Legi.{Service}.Api/
 |---------|---------|--------|
 | Identity | 2 (users, refresh_tokens) | ✅ Migrado |
 | Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | ✅ 5/6 migrado (book_reviews planejado) |
-| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_book_lists) | 📋 Planejado |
+| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | 📋 Planejado |
 | Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
 | **Total** | **18** | |
