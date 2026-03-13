@@ -16,6 +16,7 @@ public class ReadingPost : BaseAuditableEntity
     public DateOnly ReadingDate { get; private set; }
 
     public static ReadingPost Create(
+        Guid userBookId,
         Guid userId,
         Guid bookId,
         string? content,
@@ -31,6 +32,7 @@ public class ReadingPost : BaseAuditableEntity
         var readingPost = new ReadingPost
         {
             Id = Guid.NewGuid(),
+            UserBookId = userBookId,
             UserId = userId,
             BookId = bookId,
             Content = content,
