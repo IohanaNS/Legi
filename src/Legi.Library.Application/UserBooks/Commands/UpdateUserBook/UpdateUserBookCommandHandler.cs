@@ -1,3 +1,4 @@
+using Legi.Library.Application.Common.Exceptions;
 using Legi.Library.Domain.Enums;
 using Legi.Library.Domain.Repositories;
 using Legi.Library.Domain.ValueObjects;
@@ -29,7 +30,7 @@ public class UpdateUserBookCommandHandler : IRequestHandler<UpdateUserBookComman
         if(request.Wishlist.HasValue)
             userBook.SetWishList(request.Wishlist.Value);
 
-        if (request.Progress.HasValue && request.ProgressType.HasValue)
+        if (request.ProgressValue.HasValue && request.ProgressType.HasValue)
         {
             var progress = Progress.Create(
                 request.ProgressValue.Value,

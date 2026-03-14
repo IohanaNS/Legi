@@ -46,8 +46,10 @@ public class UserBook : BaseAuditableEntity
 
         if (readingStatus == ReadingStatus.Finished)
             CurrentProgress = Progress.Completed();
-        
-        #warning Todo: in case the user change the status from finished to something else like reading or not started we have to reset the progress accordinly
+
+        // Reset progress when reverting from Finished to another status
+        if (Status == ReadingStatus.Finished && readingStatus != ReadingStatus.Finished)
+            CurrentProgress = null;
         
         UpdatedAt = DateTime.UtcNow;
         var oldStatus = Status;

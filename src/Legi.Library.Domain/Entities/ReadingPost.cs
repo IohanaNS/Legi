@@ -6,6 +6,8 @@ namespace Legi.Library.Domain.Entities;
 
 public class ReadingPost : BaseAuditableEntity
 {
+    public const int MaxContentLength = 2000;
+
     public Guid UserBookId { get; private set; }
     public Guid UserId { get; private set; }
     public Guid BookId { get; private set; }
@@ -50,6 +52,19 @@ public class ReadingPost : BaseAuditableEntity
         return readingPost;
     }
 
+    public void Update(string? content, Progress? progress)
+    {
+        if (string.IsNullOrWhiteSpace(content) && progress is null)
+            throw new DomainException("Post must have content or progress (or both)");
+
+        if (content is not null)
+            ValidateContent(content);
+
+        Content = content;
+        CurrentProgress = progress;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     #region Social Counters (updated via integration events from Social)
 
     public void IncrementLikes() => LikesCount++;
@@ -76,8 +91,7 @@ public class ReadingPost : BaseAuditableEntity
 
     private static void ValidateContent(string content)
     {
-        const int maxContentLength = 2000;
-        if (content.Trim().Length > maxContentLength)
-            throw new DomainException($"Post must have at most {maxContentLength} characters");
+        if (content.Trim().Length > MaxContentLength)
+            throw new DomainException($"Post must have at most {MaxContentLength} characters");
     }
 }

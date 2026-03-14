@@ -5,6 +5,10 @@ namespace Legi.Library.Domain.Entities;
 
 public class UserList : BaseAuditableEntity
 {
+    public const int MinNameLength = 2;
+    public const int MaxNameLength = 50;
+    public const int MaxDescriptionLength = 500;
+
     public Guid UserId { get; private set; }
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
@@ -46,22 +50,19 @@ public class UserList : BaseAuditableEntity
 
     private static void ValidateDescription(string? description)
     {
-        const int maxLength = 500;
         if (string.IsNullOrEmpty(description))
             return;
-        if (description.Trim().Length > maxLength)
-            throw new DomainException($"Description cannot exceed {maxLength} characters.");
+        if (description.Trim().Length > MaxDescriptionLength)
+            throw new DomainException($"Description cannot exceed {MaxDescriptionLength} characters.");
     }
 
     private static void ValidateName(string name)
     {
-        const int minNameLength = 2;
-        const int maxDescriptionLength = 500;
         if(string.IsNullOrEmpty(name))
             throw new DomainException("Name cannot be empty.");
-        
-        if(name.Length is < minNameLength or > maxDescriptionLength)
-            throw new DomainException($"Name should be at least {minNameLength} and {maxDescriptionLength} characters long.");
+
+        if(name.Length is < MinNameLength or > MaxNameLength)
+            throw new DomainException($"Name should be at least {MinNameLength} and at most {MaxNameLength} characters long.");
     }
     
     #region BookManagement

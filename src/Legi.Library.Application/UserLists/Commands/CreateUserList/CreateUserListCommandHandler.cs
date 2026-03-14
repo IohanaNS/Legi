@@ -1,3 +1,4 @@
+using Legi.Library.Application.Common.Exceptions;
 using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Repositories;
 using Legi.SharedKernel;
