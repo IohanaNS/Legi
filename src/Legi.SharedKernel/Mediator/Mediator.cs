@@ -92,4 +92,36 @@ public class Mediator(IServiceProvider serviceProvider) : IMediator
         // Fall back to IRequestHandler<TRequest, Unit>
         await Send(request as IRequest<Unit> ?? throw new InvalidOperationException($"Request does not implement IRequest<Unit>"), cancellationToken);
     }
+
+    public async Task Publish(
+        INotification notification,
+        CancellationToken cancellationToken = default)
+    {
+        if (notification == null)
+            throw new ArgumentNullException(nameof(notification));
+
+        var notificationType = notification.GetType();
+
+        // Build INotificationHandler<TNotification>
+        var handlerType = typeof(INotificationHandler<>).MakeGenericType(notificationType);
+
+        // Resolve ALL handlers (zero or many)
+        var handlersEnumerable = serviceProvider.GetService(
+            typeof(IEnumerable<>).MakeGenericType(handlerType));
+
+        if (handlersEnumerable is not IEnumerable<object> handlers)
+            return;
+
+        // Execute each handler sequentially
+        foreach (var handler in handlers)
+        {
+            var handleMethod = handlerType.GetMethod(nameof(INotificationHandler<INotification>.Handle))
+                ?? throw new InvalidOperationException($"Handle method not found on {handlerType.Name}");
+
+            var result = handleMethod.Invoke(handler, [notification, cancellationToken]);
+
+            if (result is Task task)
+                await task;
+        }
+    }
 }

@@ -23,4 +23,16 @@ public interface IMediator
     /// <param name="cancellationToken">Optional cancellation token</param>
     /// <returns>A task representing the async operation</returns>
     Task Send(IRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asynchronously publish a notification to multiple handlers.
+    /// Unlike Send, Publish can have zero or many handlers.
+    /// Used for domain events dispatch.
+    /// </summary>
+    /// <param name="notification">Notification object</param>
+    /// <param name="cancellationToken">Optional cancellation token</param>
+    /// <returns>A task representing the async operation</returns>
+    Task Publish(
+        INotification notification,
+        CancellationToken cancellationToken = default);
 }
