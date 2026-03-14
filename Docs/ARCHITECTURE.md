@@ -9,7 +9,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
-| **Library** | 📋 Planejado | Não iniciado |
+| **Library** | 🔧 Em Desenvolvimento | Domain ✅, Application ✅, Infrastructure 📋, Api 📋 |
 | **Social** | 📋 Planejado | Não iniciado |
 
 ## Stack Tecnológica
@@ -39,7 +39,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
-     │    ✅    │ │    ✅    │ │    📋    │ │    📋    │
+     │    ✅    │ │    ✅    │ │    🔧    │ │    📋    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
@@ -585,44 +585,46 @@ CREATE INDEX ix_book_reviews_user_id ON book_reviews(user_id);
 
 ---
 
-## 3. Library Service 📋 PLANEJADO
+## 3. Library Service 🔧 Em Desenvolvimento
 
 > Decisões de arquitetura detalhadas em `Docs/LIBRARY-ARCHITECTURE-decisions.md`.
 
-### 3.1 Domínio
+### 3.1 Domínio ✅
 
 **Aggregates:**
 
 ```
-UserBook (Aggregate Root)
+UserBook (Aggregate Root) ✅
 ├── Id: Guid
 ├── UserId: Guid
 ├── BookId: Guid
 ├── Status: ReadingStatus (enum)
 ├── CurrentProgress: Progress? (VO)
-├── Wishlist: bool
-├── Rating: Rating? (VO, 1-10 meias-estrelas)
-├── AddedAt: DateTime
+├── WishList: bool
+├── CurrentRating: Rating? (VO, 1-10 meias-estrelas)
+├── DeletedAt: DateTime? (soft delete)
+├── IsDeleted: bool (computed)
+├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-ReadingPost (Aggregate Root — promovido de entity filha)
+ReadingPost (Aggregate Root — promovido de entity filha) ✅
 ├── Id: Guid
 ├── UserBookId: Guid (referência por ID)
 ├── UserId: Guid (desnormalizado para feed/queries)
 ├── BookId: Guid (desnormalizado para feed/queries)
-├── Content: string? (max 2000)
-├── Progress: Progress? (VO)
-├── ReadingDate: Date
+├── Content: string? (max 2000, constante: MaxContentLength)
+├── CurrentProgress: Progress? (VO)
+├── ReadingDate: DateOnly
 ├── LikesCount: int (desnormalizado, fonte: Social)
 ├── CommentsCount: int (desnormalizado, fonte: Social)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-UserList (Aggregate Root)
+UserList (Aggregate Root) ✅
 ├── Id: Guid
 ├── UserId: Guid
-├── Name: string (2-50)
-├── Description: string? (max 500)
+├── Name: string (2-50, constantes: MinNameLength, MaxNameLength)
+├── Description: string? (max 500, constante: MaxDescriptionLength)
 ├── IsPublic: bool (default false)
 ├── Items: List<UserListItem> (entity filha)
 ├── BooksCount: int (desnormalizado)
@@ -631,13 +633,13 @@ UserList (Aggregate Root)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-UserListItem (Entity — filha de UserList)
+UserListItem (Entity — filha de UserList) ✅
 ├── Id: Guid
 ├── UserBookId: Guid
 ├── Order: int
 └── AddedAt: DateTime
 
-BookSnapshot (Read Model — não é aggregate)
+BookSnapshot (Read Model — não é aggregate) ✅
 ├── BookId: Guid
 ├── Title: string
 ├── AuthorDisplay: string (desnormalizado: "Autor 1, Autor 2")
@@ -650,6 +652,8 @@ BookSnapshot (Read Model — não é aggregate)
 
 **Decisão: UserListItem como entity filha.** Justificativa: invariantes exigem os itens (duplicação, reordenação, BooksCount). UserListItem é minúsculo (IDs + order + timestamp) — carregar 500 itens é trivial.
 
+**Decisão: Soft Delete no UserBook.** Remoção marca `DeletedAt`. ReadingPosts preservados (histórico). UserListItems removidos (hard delete). Re-adição do mesmo livro cria novo UserBook. Global Query Filter no EF Core para filtrar deletados.
+
 **Enums:**
 ```csharp
 enum ReadingStatus { NotStarted, Reading, Finished, Abandoned, Paused }
@@ -659,35 +663,103 @@ enum ProgressType { Page, Percentage }
 Sem state machine — todas as transições entre status são válidas. O usuário pode corrigir livremente.
 
 **Value Objects:**
-- `Rating` — `int` de 1 a 10 (meias-estrelas). `1 = 0.5★, 2 = 1.0★, ..., 10 = 5.0★`. Propriedade `Stars => Value / 2.0m`. API recebe/retorna estrelas (0.5-5.0), conversão interna: `stars * 2`. SMALLINT no banco. Cada bounded context define seu próprio Rating (não compartilhado no SharedKernel).
-- `Progress` — `Value (int)` + `Type (ProgressType)`. Validação interna: `Value >= 0`; se `Percentage`: `Value <= 100`. Validação de `Page <= PageCount` é feita pelo aggregate/handler (acesso ao BookSnapshot).
+- `Rating` — `int` de 1 a 10 (meias-estrelas). `1 = 0.5★, 2 = 1.0★, ..., 10 = 5.0★`. Propriedade `Stars => Value / 2.0m`. API recebe/retorna estrelas (0.5-5.0), conversão via `Rating.FromStars(decimal)`. SMALLINT no banco. Cada bounded context define seu próprio Rating (não compartilhado no SharedKernel). Constantes: `MinValue = 1`, `MaxValue = 10`.
+- `Progress` — `Value (int)` + `Type (ProgressType)`. Validação interna: `Value >= 0`; se `Percentage`: `Value <= 100`. Validação de `Page <= PageCount` é feita pelo command handler (acesso ao BookSnapshot). Factory methods: `Create(int, ProgressType)`, `CreatePercentage(int)`, `CreatePage(int)`, `Completed()`. Constante: `MaxPercentage = 100`.
 
 **Regras:**
 - Status inicia como `NotStarted`
-- Quando status muda para `Reading`, `Finished`, `Abandoned` ou `Paused`, `Wishlist` é automaticamente setado para `false`. Wishlist só é válido com `NotStarted`.
-- Status muda para `Reading` ao criar post com progresso ou manualmente
-- Status muda para `Finished` quando progresso = 100% ou manualmente
-- Marcar `Finished` manualmente define progress = 100%
-- Pode voltar de `Finished` para `Reading` (releitura)
+- Quando status muda para `Reading`, `Finished`, `Abandoned` ou `Paused`, `WishList` é automaticamente setado para `false`. Wishlist só é válido com `NotStarted`.
+- Marcar `Finished` manualmente define progress = `Progress.Completed()` (100%)
+- Reverter de `Finished` para outro status reseta `CurrentProgress` para `null`
+- Progresso 100% (Percentage) auto-transiciona status para `Finished`
+- Progresso Page igual ao PageCount do BookSnapshot é convertido para `Completed()`
+- Rating é independente do status — pode ser adicionado/removido a qualquer momento
+- Soft delete: `UserBook.Remove()` marca `DeletedAt`, preserva ReadingPosts
 - Livro pode estar em múltiplas listas (N:N via UserListItem)
 - Máximo 100 listas por usuário
-- Nome da lista único por usuário
+- Nome da lista único por usuário (case-insensitive)
 - Post deve ter conteúdo OU progresso (ou ambos)
 
-**Domain Events:** (a detalhar conforme implementação)
-- `BookAddedToLibraryDomainEvent`
-- `BookRemovedFromLibraryDomainEvent`
-- `BookStatusChangedDomainEvent`
-- `UserBookRatedDomainEvent`
-- `ReadingPostCreatedDomainEvent`
-- `ReadingPostUpdatedDomainEvent`
-- `ReadingPostDeletedDomainEvent`
-- `UserListCreatedDomainEvent`
-- `UserListDeletedDomainEvent`
-- `BookAddedToListDomainEvent`
-- `BookRemovedFromListDomainEvent`
+**Domain Events (8 — princípio YAGNI, apenas com consumidores identificados):**
 
-### 3.2 API Endpoints
+| Aggregate | Evento | Consumidores |
+|-----------|--------|-------------|
+| UserBook | `BookAddedToLibraryDomainEvent` | Social (feed) |
+| UserBook | `BookRemovedFromLibraryDomainEvent` | Social, UserList (hard delete items) |
+| UserBook | `ReadingStatusChangedDomainEvent` | Social (feed) |
+| UserBook | `UserBookRatedDomainEvent` | Catalog (recalcular média), Social |
+| UserBook | `UserBookRatingRemovedDomainEvent` | Catalog (recalcular média) |
+| ReadingPost | `ReadingPostCreatedDomainEvent` | Social (feed) |
+| ReadingPost | `ReadingPostDeletedDomainEvent` | Social (remover do feed) |
+| UserList | `UserListDeletedDomainEvent` | Social (limpar likes/comments) |
+
+**Cortados por YAGNI:** `ReadingPostUpdatedDomainEvent`, `UserListCreatedDomainEvent`, `BookAddedToListDomainEvent`, `BookRemovedFromListDomainEvent` — nenhum consumidor claro identificado.
+
+**Repository Interfaces (Domain):**
+- `IUserBookRepository` — GetByIdAsync, GetByUserAndBookAsync, AddAsync, UpdateAsync
+- `IReadingPostRepository` — GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync
+- `IUserListRepository` — GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync, GetListsContainingBookAsync
+- `IBookSnapshotRepository` — GetByBookIdAsync, AddOrUpdateAsync
+
+### 3.2 Application ✅
+
+**UserBook Commands:**
+
+| Command | Handler | Validator | Response | Status |
+|---------|---------|-----------|----------|--------|
+| `AddBookToLibraryCommand` | ✅ | ✅ | ✅ | Completo |
+| `UpdateUserBookCommand` | ✅ | ✅ | ✅ | Completo |
+| `RemoveBookFromLibraryCommand` | ✅ | - | Unit | Completo |
+| `RateUserBookCommand` | ✅ | ✅ | ✅ | Completo |
+| `RemoveUserBookRatingCommand` | ✅ | - | Unit | Completo |
+
+**ReadingPost Commands:**
+
+| Command | Handler | Validator | Response | Status |
+|---------|---------|-----------|----------|--------|
+| `CreateReadingPostCommand` | ✅ | - | ✅ | Completo |
+| `UpdateReadingPostCommand` | ✅ | ✅ | ✅ | Completo |
+| `DeleteReadingPostCommand` | ✅ | - | Unit | Completo |
+
+**UserList Commands:**
+
+| Command | Handler | Validator | Response | Status |
+|---------|---------|-----------|----------|--------|
+| `CreateUserListCommand` | ✅ | - | ✅ | Completo |
+| `UpdateUserListCommand` | ✅ | ✅ | ✅ | Completo |
+| `DeleteUserListCommand` | ✅ | - | Unit | Completo |
+| `AddBookToListCommand` | ✅ | - | ✅ | Completo |
+| `RemoveBookFromListCommand` | ✅ | - | Unit | Completo |
+
+**Queries:**
+
+| Query | Handler | Status |
+|-------|---------|--------|
+| `GetMyLibraryQuery` | ✅ | Completo |
+| `SearchPublicListsQuery` | ✅ | Completo |
+
+**Read Repository Interfaces (Application):**
+- `IUserBookReadRepository` — GetByUserIdAsync (com filtros de status, wishlist, search, paginação)
+- `IUserListReadRepository` — GetByUserIdAsync, GetDetailByIdAsync, GetListBooksAsync, SearchPublicAsync
+
+**DTOs:** `UserBookDto`, `BookSnapshotDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
+**Behaviors:** `ValidationBehavior`, `LoggingBehavior`
+**Exceptions:** `ConflictException`, `NotFoundException`, `ForbiddenException`
+**DI:** `DependencyInjection.AddLibraryApplication()` — registra Mediator, handlers (reflection scan), behaviors e validators
+
+### 3.3 Infrastructure 📋 PLANEJADO
+
+Ainda não implementado. Necessário:
+- `LibraryDbContext` (EF Core + PostgreSQL)
+- Repository implementations: `UserBookRepository`, `ReadingPostRepository`, `UserListRepository`, `BookSnapshotRepository`
+- Read repository implementations: `UserBookReadRepository`, `UserListReadRepository`
+- Entity configurations (Fluent API)
+- Database migrations
+- `DependencyInjection.AddLibraryInfrastructure()`
+
+### 3.4 API Endpoints 📋 PLANEJADO
+
+Ainda não implementado. Endpoints planejados:
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -717,7 +789,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - `listId` - filtro por lista
 - `page`, `pageSize` - paginação
 
-### 3.3 Database Schema
+### 3.5 Database Schema
 
 ```sql
 -- Enum types
@@ -744,13 +816,14 @@ CREATE TABLE user_books (
     current_progress_type progress_type,
     wishlist BOOLEAN NOT NULL DEFAULT FALSE,
     rating SMALLINT CHECK (rating >= 1 AND rating <= 10),  -- meias-estrelas: 1=0.5★, 10=5.0★
+    deleted_at TIMESTAMPTZ,                                -- soft delete
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, book_id),
     CHECK ((current_progress_value IS NULL AND current_progress_type IS NULL) OR
            (current_progress_value IS NOT NULL AND current_progress_type IS NOT NULL))
 );
 
+CREATE UNIQUE INDEX ix_user_books_user_book ON user_books(user_id, book_id) WHERE deleted_at IS NULL;
 CREATE INDEX ix_user_books_user_id ON user_books(user_id);
 CREATE INDEX ix_user_books_status ON user_books(user_id, status);
 CREATE INDEX ix_user_books_wishlist ON user_books(user_id) WHERE wishlist = TRUE;
@@ -1170,7 +1243,7 @@ Legi.{Service}.Api/
 |---------|-----------|--------|
 | Identity | 8 | ✅ Implementado |
 | Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
-| Library | 19 | 📋 Planejado |
+| Library | 19 | 🔧 Domain+Application implementados, Infrastructure+Api planejados |
 | Social | 15 | 📋 Planejado |
 | **Total** | **57** | |
 

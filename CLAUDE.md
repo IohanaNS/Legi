@@ -13,6 +13,7 @@ dotnet build
 # Build specific project
 dotnet build src/Legi.Identity.Api/Legi.Identity.Api.csproj
 dotnet build src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
+dotnet build src/Legi.Library.Application/Legi.Library.Application.csproj
 
 # Run the Identity API
 dotnet run --project src/Legi.Identity.Api/Legi.Identity.Api.csproj
@@ -76,6 +77,11 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Application
 │   ├── Infrastructure
 │   └── Api
+├── Legi.Library.*             (Library bounded context — in development)
+│   ├── Domain                 (✅ complete)
+│   ├── Application            (✅ complete)
+│   ├── Infrastructure         (📋 stub)
+│   └── Api                    (📋 stub)
 └── tests/
     ├── Legi.Identity.Domain.Tests
     ├── Legi.Identity.Application.Tests
@@ -102,10 +108,11 @@ API (Controllers, Middleware - Orchestrates everything)
 - **CQRS**: Separate read/write repositories and command/query handlers
 - **Custom Mediator**: Lightweight mediator in `Legi.SharedKernel.Mediator` (no MediatR dependency) dispatches requests through a pipeline of behaviors
 - **Repository Pattern**: Write repositories (`IBookRepository`, `IUserRepository`) and read repositories (`IBookReadRepository`, `IAuthorReadRepository`, `ITagReadRepository`)
-- **Aggregate Roots**: `User` manages `RefreshToken` collection; `Book` manages `Author` and `Tag` collections
-- **Value Objects**: `Email`, `Username`, `Isbn`, `Author`, `Tag` — each with factory methods and validation
-- **Domain Events**: Entities raise events (`BookCreatedDomainEvent`, `UserRegisteredDomainEvent`, etc.)
+- **Aggregate Roots**: `User` manages `RefreshToken` collection; `Book` manages `Author` and `Tag` collections; `UserBook`, `ReadingPost`, `UserList` (Library)
+- **Value Objects**: `Email`, `Username`, `Isbn`, `Author`, `Tag`, `Rating`, `Progress` — each with factory methods and validation
+- **Domain Events**: Entities raise events (`BookCreatedDomainEvent`, `UserRegisteredDomainEvent`, `BookAddedToLibraryDomainEvent`, etc.)
 - **Pipeline Behaviors**: `ValidationBehavior` (FluentValidation), `LoggingBehavior`, `UnhandledExceptionBehavior`
+- **Soft Delete**: `UserBook` uses `DeletedAt` for soft delete with EF Core Global Query Filter
 
 ### Legi.SharedKernel
 
@@ -183,6 +190,29 @@ Shared abstractions with zero external dependencies:
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400, UnauthorizedAccessException → 401)
 
+### Library Service (In Development — Domain + Application complete)
+
+**Legi.Library.Domain**
+- Entities: `UserBook` (aggregate root, soft delete via `DeletedAt`), `ReadingPost` (aggregate root), `UserList` (aggregate root), `UserListItem` (child entity), `BookSnapshot` (read model)
+- Value Objects: `Rating` (half-stars 1-10, `Stars` property for 0.5-5.0 display), `Progress` (value + type with `Completed()` factory)
+- Enums: `ReadingStatus` (NotStarted, Reading, Finished, Abandoned, Paused), `ProgressType` (Page, Percentage)
+- Repository interfaces: `IUserBookRepository`, `IReadingPostRepository`, `IUserListRepository`, `IBookSnapshotRepository`
+- Domain events (8 total): `BookAddedToLibraryDomainEvent`, `BookRemovedFromLibraryDomainEvent`, `ReadingStatusChangedDomainEvent`, `UserBookRatedDomainEvent`, `UserBookRatingRemovedDomainEvent`, `ReadingPostCreatedDomainEvent`, `ReadingPostDeletedDomainEvent`, `UserListDeletedDomainEvent`
+
+**Legi.Library.Application**
+- UserBook Commands: `AddBookToLibraryCommand`, `UpdateUserBookCommand`, `RemoveBookFromLibraryCommand`, `RateUserBookCommand`, `RemoveUserBookRatingCommand`
+- ReadingPost Commands: `CreateReadingPostCommand`, `UpdateReadingPostCommand`, `DeleteReadingPostCommand`
+- UserList Commands: `CreateUserListCommand`, `UpdateUserListCommand`, `DeleteUserListCommand`, `AddBookToListCommand`, `RemoveBookFromListCommand`
+- Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `SearchPublicListsQuery`
+- Read Repository Interfaces: `IUserBookReadRepository`, `IUserListReadRepository`
+- DTOs: `UserBookDto`, `BookSnapshotDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
+- Behaviors: `ValidationBehavior`, `LoggingBehavior`
+- Exceptions: `ConflictException`, `NotFoundException`, `ForbiddenException`
+
+**Legi.Library.Infrastructure** — Not yet implemented (stub only)
+
+**Legi.Library.Api** — Not yet implemented (stub only)
+
 ## Adding New Features
 
 ### Adding a Command (State-Changing Operation)
@@ -226,6 +256,27 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - ISBN validated with checksum (ISBN-10 or ISBN-13), unique
 - AverageRating: 0-5, rounded to 2 decimal places
 - Authors and Tags are Value Objects identified by slug (kebab-case)
+
+### UserBook Entity (Library)
+- Soft delete via `DeletedAt` — `Remove()` marks as deleted, ReadingPosts preserved, UserListItems hard-deleted via domain event
+- Re-adding same book creates new UserBook (new reading cycle)
+- WishList auto-resets to `false` when status changes away from `NotStarted`
+- Finishing sets progress to `Progress.Completed()` (100%); reverting from Finished resets progress to `null`
+- Rating is independent of status (nullable, add/remove anytime via `Rate(Rating)` / `RemoveRating()`)
+- Progress at 100% (Percentage) auto-transitions to Finished
+
+### ReadingPost Entity (Library)
+- Must have Content OR Progress (or both)
+- Content max 2000 characters (`MaxContentLength` constant)
+- Creating a post with progress updates `UserBook.CurrentProgress` in same transaction
+- Desnormalized `UserId` and `BookId` for feed/query efficiency
+
+### UserList Entity (Library)
+- Name: 2-50 characters (`MinNameLength`, `MaxNameLength` constants), unique per user (case-insensitive)
+- Description: max 500 characters (`MaxDescriptionLength` constant), optional
+- Maximum 100 lists per user
+- Duplicate book detection in list (same UserBookId)
+- Supports reordering via `ReorderBooks()`
 
 ### Authentication Flow
 - Login returns both access token (JWT, 60min) and refresh token (7 days)

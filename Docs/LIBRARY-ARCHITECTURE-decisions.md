@@ -2,6 +2,8 @@
 
 Documento vivo com as decisões de design do domínio Library, construído incrementalmente.
 
+**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure 📋 | Api 📋
+
 ---
 
 ## 1. Aggregates Identificados
@@ -287,7 +289,8 @@ Domain events ficam no `Library.Domain`. Integration events e handlers ficam no 
 | **Unicidade** | Um usuário só pode ter um UserBook ativo (não-deletado) por BookId | Banco (unique index filtrado) + handler |
 | **BookId válido** | O BookId deve referenciar um BookSnapshot existente | Command handler |
 | **Wishlist auto-reset** | Ao mudar status para Reading, Finished, Abandoned ou Paused, Wishlist é setado para `false` automaticamente | Aggregate (método ChangeStatus) |
-| **Finished auto-progress** | Ao marcar como Finished, se existir progresso, converter para Percentage 100%. Se não existir, criar Progress(100, Percentage) | Aggregate (método ChangeStatus) |
+| **Finished auto-progress** | Ao marcar como Finished, define `CurrentProgress = Progress.Completed()` (100%) | Aggregate (método ChangeReadingStatus) |
+| **Revert from Finished** | Ao mudar de Finished para qualquer outro status, `CurrentProgress` é resetado para `null` | Aggregate (método ChangeReadingStatus) |
 | **Rating independente** | Rating é nullable, pode ser adicionado/removido a qualquer momento, independente do status | Aggregate |
 | **Soft delete** | Remoção marca DeletedAt. Posts preservados. Items de listas removidos (hard delete) | Aggregate (método Remove) |
 
