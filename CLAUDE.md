@@ -13,13 +13,16 @@ dotnet build
 # Build specific project
 dotnet build src/Legi.Identity.Api/Legi.Identity.Api.csproj
 dotnet build src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
-dotnet build src/Legi.Library.Application/Legi.Library.Application.csproj
+dotnet build src/Legi.Library.Api/Legi.Library.Api.csproj
 
 # Run the Identity API
 dotnet run --project src/Legi.Identity.Api/Legi.Identity.Api.csproj
 
 # Run the Catalog API
 dotnet run --project src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
+
+# Run the Library API
+dotnet run --project src/Legi.Library.Api/Legi.Library.Api.csproj
 
 # Start PostgreSQL databases
 docker-compose up -d
@@ -57,6 +60,11 @@ dotnet ef migrations remove --project src/Legi.Identity.Infrastructure --startup
 dotnet ef migrations add MigrationName --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
 dotnet ef database update --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
 dotnet ef migrations remove --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
+
+# Library service
+dotnet ef migrations add MigrationName --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
+dotnet ef database update --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
+dotnet ef migrations remove --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
 ```
 
 ## Architecture
@@ -77,11 +85,11 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Application
 │   ├── Infrastructure
 │   └── Api
-├── Legi.Library.*             (Library bounded context — in development)
+├── Legi.Library.*             (Library bounded context)
 │   ├── Domain                 (✅ complete)
 │   ├── Application            (✅ complete)
-│   ├── Infrastructure         (📋 stub)
-│   └── Api                    (📋 stub)
+│   ├── Infrastructure         (✅ complete)
+│   └── Api                    (✅ complete)
 └── tests/
     ├── Legi.Identity.Domain.Tests
     ├── Legi.Identity.Application.Tests
@@ -190,7 +198,7 @@ Shared abstractions with zero external dependencies:
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400, UnauthorizedAccessException → 401)
 
-### Library Service (In Development — Domain + Application complete)
+### Library Service
 
 **Legi.Library.Domain**
 - Entities: `UserBook` (aggregate root, soft delete via `DeletedAt`), `ReadingPost` (aggregate root), `UserList` (aggregate root), `UserListItem` (child entity), `BookSnapshot` (read model)
@@ -203,15 +211,24 @@ Shared abstractions with zero external dependencies:
 - UserBook Commands: `AddBookToLibraryCommand`, `UpdateUserBookCommand`, `RemoveBookFromLibraryCommand`, `RateUserBookCommand`, `RemoveUserBookRatingCommand`
 - ReadingPost Commands: `CreateReadingPostCommand`, `UpdateReadingPostCommand`, `DeleteReadingPostCommand`
 - UserList Commands: `CreateUserListCommand`, `UpdateUserListCommand`, `DeleteUserListCommand`, `AddBookToListCommand`, `RemoveBookFromListCommand`
-- Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `SearchPublicListsQuery`
-- Read Repository Interfaces: `IUserBookReadRepository`, `IUserListReadRepository`
-- DTOs: `UserBookDto`, `BookSnapshotDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
+- Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `GetUserBookPostsQuery`, `GetMyListsQuery`, `GetListDetailsQuery`, `GetListBooksQuery`, `SearchPublicListsQuery`
+- Read Repository Interfaces: `IUserBookReadRepository`, `IReadingPostReadRepository`, `IUserListReadRepository`
+- DTOs: `UserBookDto`, `BookSnapshotDto`, `ReadingPostDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
 - Exceptions: `ConflictException`, `NotFoundException`, `ForbiddenException`
 
-**Legi.Library.Infrastructure** — Not yet implemented (stub only)
+**Legi.Library.Infrastructure**
+- `LibraryDbContext`: EF Core with PostgreSQL (connection string key: `LibraryDatabase`), domain event dispatch on SaveChanges
+- Entity configurations: `UserBookConfiguration`, `ReadingPostConfiguration`, `UserListConfiguration`, `UserListItemConfiguration`, `BookSnapshotConfiguration`
+- Write repositories: `UserBookRepository`, `ReadingPostRepository`, `UserListRepository`, `BookSnapshotRepository`
+- Read repositories: `UserBookReadRepository`, `ReadingPostReadRepository`, `UserListReadRepository`
 
-**Legi.Library.Api** — Not yet implemented (stub only)
+**Legi.Library.Api**
+- `UserBooksController`: `/api/v1/library` — library CRUD, rating management
+- `ReadingPostsController`: `/api/v1/library` — reading posts CRUD
+- `UserListsController`: `/api/v1/library/lists` — list management, book-to-list operations, public search
+- JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
+- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
 
 ## Adding New Features
 

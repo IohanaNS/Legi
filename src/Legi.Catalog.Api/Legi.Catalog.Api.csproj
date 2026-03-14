@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
@@ -9,13 +9,14 @@
     <ItemGroup>
       <ProjectReference Include="..\Legi.Catalog.Infrastructure\Legi.Catalog.Infrastructure.csproj" />
       <ProjectReference Include="..\Legi.Catalog.Application\Legi.Catalog.Application.csproj" />
-      <ProjectReference Include="..\Legi.Identity.Api\Legi.Identity.Api.csproj" />
+      <ProjectReference Include="..\Legi.Identity.Infrastructure\Legi.Identity.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="DotNetEnv" Version="3.1.1" />
-      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.23">
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>
       </PackageReference>

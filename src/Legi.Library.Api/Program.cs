@@ -1,20 +1,17 @@
 using System.Text;
-using AspNetCoreRateLimit;
 using DotNetEnv;
-using Legi.Identity.Api.Middleware;
-using Legi.Identity.Application;
-using Legi.Identity.Infrastructure;
+using Legi.Library.Api.Middleware;
+using Legi.Library.Application;
+using Legi.Library.Infrastructure;
 using Legi.Identity.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
 // Load environment variables from .env file
-// Search in current directory and parent directories (solution root)
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
 if (!File.Exists(envPath))
 {
-    // Try solution root (two levels up from project directory)
     envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", ".env");
 }
 if (File.Exists(envPath))
@@ -28,16 +25,9 @@ else
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add layers
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-// Rate Limiting
-builder.Services.AddMemoryCache();
-builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
-builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
-builder.Services.AddInMemoryRateLimiting();
-builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+// Application & Infrastructure layers
+builder.Services.AddLibraryApplication();
+builder.Services.AddLibraryInfrastructure(builder.Configuration);
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
@@ -64,19 +54,20 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Controllers
 builder.Services.AddControllers();
 
+// Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Legi Identity API",
+        Title = "Legi Library API",
         Version = "v1",
-        Description = "Legi API for user authentication and management"
+        Description = "API for managing user libraries, reading posts, and book lists"
     });
 
-    // JWT no Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -84,7 +75,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Insert the token JWT with the format: Bearer {seu_token}"
+        Description = "Insert the JWT token with the format: Bearer {your_token}"
     });
 
     options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
@@ -98,7 +89,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Middleware pipeline
+// Exception handling (first in pipeline)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -112,12 +103,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-// Rate limiting (before authentication)
-app.UseIpRateLimiting();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

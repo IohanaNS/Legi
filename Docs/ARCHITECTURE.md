@@ -9,7 +9,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
-| **Library** | 🔧 Em Desenvolvimento | Domain ✅, Application ✅, Infrastructure 📋, Api 📋 |
+| **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Social** | 📋 Planejado | Não iniciado |
 
 ## Stack Tecnológica
@@ -39,7 +39,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
-     │    ✅    │ │    ✅    │ │    🔧    │ │    📋    │
+     │    ✅    │ │    ✅    │ │    ✅    │ │    📋    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
@@ -585,9 +585,9 @@ CREATE INDEX ix_book_reviews_user_id ON book_reviews(user_id);
 
 ---
 
-## 3. Library Service 🔧 Em Desenvolvimento
+## 3. Library Service ✅
 
-> Decisões de arquitetura detalhadas em `Docs/LIBRARY-ARCHITECTURE-decisions.md`.
+Decisões de arquitetura detalhadas em `Docs/LIBRARY-ARCHITECTURE-decisions.md`.
 
 ### 3.1 Domínio ✅
 
@@ -736,58 +736,104 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | Query | Handler | Status |
 |-------|---------|--------|
 | `GetMyLibraryQuery` | ✅ | Completo |
+| `GetUserBookPostsQuery` | ✅ | Completo |
+| `GetMyListsQuery` | ✅ | Completo |
+| `GetListDetailsQuery` | ✅ | Completo |
+| `GetListBooksQuery` | ✅ | Completo |
 | `SearchPublicListsQuery` | ✅ | Completo |
 
 **Read Repository Interfaces (Application):**
 - `IUserBookReadRepository` — GetByUserIdAsync (com filtros de status, wishlist, search, paginação)
+- `IReadingPostReadRepository` — GetByUserBookIdAsync (paginação)
 - `IUserListReadRepository` — GetByUserIdAsync, GetDetailByIdAsync, GetListBooksAsync, SearchPublicAsync
 
-**DTOs:** `UserBookDto`, `BookSnapshotDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
+**DTOs:** `UserBookDto`, `BookSnapshotDto`, `ReadingPostDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`, `ForbiddenException`
 **DI:** `DependencyInjection.AddLibraryApplication()` — registra Mediator, handlers (reflection scan), behaviors e validators
 
-### 3.3 Infrastructure 📋 PLANEJADO
+### 3.3 Infrastructure ✅
 
-Ainda não implementado. Necessário:
-- `LibraryDbContext` (EF Core + PostgreSQL)
-- Repository implementations: `UserBookRepository`, `ReadingPostRepository`, `UserListRepository`, `BookSnapshotRepository`
-- Read repository implementations: `UserBookReadRepository`, `UserListReadRepository`
-- Entity configurations (Fluent API)
-- Database migrations
-- `DependencyInjection.AddLibraryInfrastructure()`
+**`LibraryDbContext`** — EF Core + PostgreSQL (connection string key: `LibraryDatabase`).
+- 5 DbSets: `UserBooks`, `ReadingPosts`, `UserLists`, `UserListItems`, `BookSnapshots`
+- `SaveChangesAsync()` override coleta domain events de todas as entities `BaseEntity` antes do save, salva no banco, e publica via `IMediator` após sucesso
+- Retry policy habilitada (máx 3 tentativas para falhas transitórias)
+- Configurations aplicadas automaticamente via `ApplyConfigurationsFromAssembly()`
 
-### 3.4 API Endpoints 📋 PLANEJADO
+**Entity Configurations (Fluent API):**
 
-Ainda não implementado. Endpoints planejados:
+| Configuration | Tabela | Destaques |
+|---------------|--------|-----------|
+| `UserBookConfiguration` | `user_books` | Status como string (max 20). Rating e Progress como owned entities. Global Query Filter `DeletedAt == null`. Unique index filtrado `(UserId, BookId) WHERE deleted_at IS NULL`. |
+| `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingPost.MaxContentLength`. Progress como owned entity. Index composto `(UserBookId, ReadingDate DESC)`. |
+| `UserListConfiguration` | `user_lists` | Name max `UserList.MaxNameLength`, Description max `UserList.MaxDescriptionLength`. One-to-many com `UserListItem` via field access (`_items`). Cascade delete. Unique index `(UserId, Name)`. Index filtrado `IsPublic = true`. |
+| `UserListItemConfiguration` | `user_list_items` | Shadow FK `user_list_id`. Unique index `(user_list_id, UserBookId)`. Index `(user_list_id, Order)`. |
+| `BookSnapshotConfiguration` | `book_snapshots` | PK = `BookId` (do Catalog). Title max 500, AuthorDisplay max 1000. Read model desnormalizado. |
 
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| GET | `/api/v1/library` | Minha biblioteca | 🔒 |
-| POST | `/api/v1/library` | Adicionar livro | 🔒 |
-| PATCH | `/api/v1/library/{userBookId}` | Atualizar status/wishlist | 🔒 |
-| DELETE | `/api/v1/library/{userBookId}` | Remover da biblioteca | 🔒 |
-| PUT | `/api/v1/library/{userBookId}/rating` | Dar/atualizar rating | 🔒 |
-| DELETE | `/api/v1/library/{userBookId}/rating` | Remover rating | 🔒 |
-| GET | `/api/v1/library/{userBookId}/posts` | Listar posts | 🔒 |
-| POST | `/api/v1/library/{userBookId}/posts` | Criar post | 🔒 |
-| PUT | `/api/v1/library/posts/{postId}` | Editar post | 🔒 |
-| DELETE | `/api/v1/library/posts/{postId}` | Excluir post | 🔒 |
-| GET | `/api/v1/library/lists` | Minhas listas | 🔒 |
-| POST | `/api/v1/library/lists` | Criar lista | 🔒 |
-| GET | `/api/v1/library/lists/{listId}` | Detalhes da lista | 🔓 |
-| PATCH | `/api/v1/library/lists/{listId}` | Atualizar lista | 🔒 |
-| DELETE | `/api/v1/library/lists/{listId}` | Excluir lista | 🔒 |
-| GET | `/api/v1/library/lists/{listId}/books` | Livros da lista | 🔓 |
-| POST | `/api/v1/library/{userBookId}/lists` | Adicionar livro a lista | 🔒 |
-| DELETE | `/api/v1/library/{userBookId}/lists/{listId}` | Remover livro da lista | 🔒 |
-| GET | `/api/v1/library/lists/search` | Buscar listas públicas | 🔓 |
+**Write Repositories (Domain interfaces):**
 
-**Query Params para biblioteca:**
-- `status` - filtro por status
+| Repositório | Interface | Métodos |
+|-------------|-----------|---------|
+| `UserBookRepository` | `IUserBookRepository` | GetByIdAsync, GetByUserAndBookAsync, AddAsync, UpdateAsync |
+| `ReadingPostRepository` | `IReadingPostRepository` | GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync |
+| `UserListRepository` | `IUserListRepository` | GetByIdAsync (include Items), AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync (case-insensitive via `.ToLower()`), GetListsContainingBookAsync |
+| `BookSnapshotRepository` | `IBookSnapshotRepository` | GetByBookIdAsync, AddOrUpdateAsync (upsert) |
+
+**Read Repositories (Application interfaces):**
+
+| Repositório | Interface | Métodos |
+|-------------|-----------|---------|
+| `UserBookReadRepository` | `IUserBookReadRepository` | GetByUserIdAsync — filtros opcionais (status, wishlist, search em título/autor), join com BookSnapshots, `AsNoTracking`, paginação, ordena por UpdatedAt DESC |
+| `ReadingPostReadRepository` | `IReadingPostReadRepository` | GetByUserBookIdAsync — filtra por UserBookId, ordena por ReadingDate DESC + CreatedAt DESC, `AsNoTracking`, paginação |
+| `UserListReadRepository` | `IUserListReadRepository` | GetByUserIdAsync (listas do usuário, ordena por UpdatedAt DESC), GetDetailByIdAsync, GetListBooksAsync (multi-join com shadow FK + UserBooks + BookSnapshots, ordena por Order), SearchPublicAsync (busca em nome/descrição, ordena por LikesCount DESC + BooksCount DESC) |
+
+**DI:** `DependencyInjection.AddLibraryInfrastructure(IServiceCollection, IConfiguration)` — registra DbContext, todos os write repositories e read repositories como scoped
+
+### 3.4 API Endpoints ✅
+
+**UserBooks (implementados — `UserBooksController`):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/library` | Minha biblioteca | 🔒 | ✅ |
+| POST | `/api/v1/library` | Adicionar livro | 🔒 | ✅ |
+| PATCH | `/api/v1/library/{userBookId}` | Atualizar status/wishlist/progresso | 🔒 | ✅ |
+| DELETE | `/api/v1/library/{userBookId}` | Remover da biblioteca (soft delete) | 🔒 | ✅ |
+| PUT | `/api/v1/library/{userBookId}/rating` | Dar/atualizar rating | 🔒 | ✅ |
+| DELETE | `/api/v1/library/{userBookId}/rating` | Remover rating | 🔒 | ✅ |
+
+**ReadingPosts (implementados — `ReadingPostsController`):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/library/{userBookId}/posts` | Listar posts do livro | 🔒 | ✅ |
+| POST | `/api/v1/library/{userBookId}/posts` | Criar post | 🔒 | ✅ |
+| PUT | `/api/v1/library/posts/{postId}` | Editar post | 🔒 | ✅ |
+| DELETE | `/api/v1/library/posts/{postId}` | Excluir post | 🔒 | ✅ |
+
+**UserLists (implementados — `UserListsController`):**
+
+| Método | Endpoint | Descrição | Auth | Status |
+|--------|----------|-----------|------|--------|
+| GET | `/api/v1/library/lists` | Minhas listas | 🔒 | ✅ |
+| POST | `/api/v1/library/lists` | Criar lista | 🔒 | ✅ |
+| GET | `/api/v1/library/lists/{listId}` | Detalhes da lista | 🔓 | ✅ |
+| PATCH | `/api/v1/library/lists/{listId}` | Atualizar lista | 🔒 | ✅ |
+| DELETE | `/api/v1/library/lists/{listId}` | Excluir lista | 🔒 | ✅ |
+| GET | `/api/v1/library/lists/{listId}/books` | Livros da lista | 🔓 | ✅ |
+| POST | `/api/v1/library/lists/{listId}/books` | Adicionar livro a lista | 🔒 | ✅ |
+| DELETE | `/api/v1/library/lists/{listId}/books/{userBookId}` | Remover livro da lista | 🔒 | ✅ |
+| GET | `/api/v1/library/lists/search` | Buscar listas públicas | 🔓 | ✅ |
+
+**Query Params para biblioteca (`GET /api/v1/library`):**
+- `status` - filtro por ReadingStatus
 - `wishlist` - true/false
-- `listId` - filtro por lista
+- `search` - busca em título/autor
 - `page`, `pageSize` - paginação
+
+**Autenticação:** JWT Bearer (mesma config do Identity Service — `JwtSettings` compartilhado). Todos os endpoints requerem `[Authorize]` exceto detalhes de lista, livros da lista e busca de listas públicas (`[AllowAnonymous]`). UserId extraído do claim `sub` do JWT.
+
+**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 400, DomainException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, UnhandledException → 500)
 
 ### 3.5 Database Schema
 
@@ -1243,7 +1289,7 @@ Legi.{Service}.Api/
 |---------|-----------|--------|
 | Identity | 8 | ✅ Implementado |
 | Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
-| Library | 19 | 🔧 Domain+Application implementados, Infrastructure+Api planejados |
+| Library | 19 | ✅ Implementado (Domain, Application, Infrastructure, Api) |
 | Social | 15 | 📋 Planejado |
 | **Total** | **57** | |
 
@@ -1253,6 +1299,6 @@ Legi.{Service}.Api/
 |---------|---------|--------|
 | Identity | 2 (users, refresh_tokens) | ✅ Migrado |
 | Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | ✅ 5/6 migrado (book_reviews planejado) |
-| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | 📋 Planejado |
+| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | ✅ Configurado (EF Core, aguardando migration) |
 | Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
 | **Total** | **18** | |

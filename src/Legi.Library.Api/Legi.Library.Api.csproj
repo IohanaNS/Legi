@@ -4,22 +4,23 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <OutputType>Library</OutputType>
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Legi.Library.Infrastructure\Legi.Library.Infrastructure.csproj" />
       <ProjectReference Include="..\Legi.Library.Application\Legi.Library.Application.csproj" />
-      <ProjectReference Include="..\Legi.Library.Domain\Legi.Library.Domain.csproj" />
+      <ProjectReference Include="..\Legi.Identity.Infrastructure\Legi.Identity.Infrastructure.csproj" />
+      <ProjectReference Include="..\Legi.SharedKernel\Legi.SharedKernel.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+      <PackageReference Include="DotNetEnv" Version="3.1.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
-        <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        <PrivateAssets>all</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
-<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
     </ItemGroup>
 
 </Project>
