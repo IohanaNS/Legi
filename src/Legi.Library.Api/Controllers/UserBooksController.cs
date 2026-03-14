@@ -5,6 +5,7 @@ using Legi.Library.Application.UserBooks.Commands.RemoveUserBookRating;
 using Legi.Library.Application.UserBooks.Commands.UpdateUserBook;
 using Legi.Library.Application.UserBooks.Queries.GetMyLibrary;
 using Legi.Library.Domain.Enums;
+using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +24,7 @@ public class UserBooksController : ControllerBase
         _mediator = mediator;
     }
 
-    private Guid GetUserId() => Guid.Parse(User.FindFirst("sub")?.Value
+    private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? throw new UnauthorizedAccessException());
 
     /// <summary>
@@ -54,7 +55,8 @@ public class UserBooksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new AddBookToLibraryCommand(
-            GetUserId(), request.BookId, request.Wishlist);
+            GetUserId(), request.BookId, request.Wishlist,
+            request.BookTitle, request.BookAuthorDisplay, request.BookCoverUrl, request.BookPageCount);
 
         var result = await _mediator.Send(command, cancellationToken);
         return CreatedAtAction(nameof(GetMyLibrary), new { }, result);
@@ -123,7 +125,13 @@ public class UserBooksController : ControllerBase
 }
 
 // Request DTOs (API contracts, separate from commands)
-public record AddBookToLibraryRequest(Guid BookId, bool Wishlist = false);
+public record AddBookToLibraryRequest(
+    Guid BookId,
+    bool Wishlist = false,
+    string? BookTitle = null,
+    string? BookAuthorDisplay = null,
+    string? BookCoverUrl = null,
+    int? BookPageCount = null);
 
 public record UpdateUserBookRequest(
     ReadingStatus? Status = null,

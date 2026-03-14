@@ -21,8 +21,19 @@ public class AddBookToLibraryCommandHandler : IRequestHandler<AddBookToLibraryCo
     {
         var bookSnapshot = await _bookSnapshotRepository.GetByBookIdAsync(request.BookId, cancellationToken);
         if (bookSnapshot == null)
-            throw new NotFoundException($"Book with ID {request.BookId} not found.");
-        
+        {
+            if (string.IsNullOrWhiteSpace(request.BookTitle))
+                throw new NotFoundException($"Book with ID {request.BookId} not found. Provide book details (bookTitle, bookAuthorDisplay) to create a snapshot.");
+
+            bookSnapshot = BookSnapshot.Create(
+                request.BookId,
+                request.BookTitle,
+                request.BookAuthorDisplay ?? "Unknown",
+                request.BookCoverUrl,
+                request.BookPageCount);
+            await _bookSnapshotRepository.AddOrUpdateAsync(bookSnapshot, cancellationToken);
+        }
+
         var existing = await _userBookRepository.GetByUserAndBookAsync(request.UserId, request.BookId, cancellationToken);
         if(existing != null)
             throw new ConflictException($"Book with ID {request.BookId} is already in the user's library.");

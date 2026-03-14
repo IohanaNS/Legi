@@ -3,6 +3,7 @@ using Legi.Library.Application.ReadingPosts.Commands.DeleteReadingPost;
 using Legi.Library.Application.ReadingPosts.Commands.UpdateReadingPost;
 using Legi.Library.Application.ReadingPosts.Queries.GetUserBookPosts;
 using Legi.Library.Domain.Enums;
+using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,7 @@ public class ReadingPostsController : ControllerBase
         _mediator = mediator;
     }
 
-    private Guid GetUserId() => Guid.Parse(User.FindFirst("sub")?.Value
+    private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? throw new UnauthorizedAccessException());
 
     /// <summary>

@@ -19,7 +19,8 @@ COPY src/Legi.Catalog.Domain/ src/Legi.Catalog.Domain/
 COPY src/Legi.Catalog.Application/ src/Legi.Catalog.Application/
 COPY src/Legi.Catalog.Infrastructure/ src/Legi.Catalog.Infrastructure/
 COPY src/Legi.Catalog.Api/ src/Legi.Catalog.Api/
-RUN dotnet publish src/Legi.Catalog.Api/Legi.Catalog.Api.csproj -c Release -o /app
+RUN find . -maxdepth 4 -type d -name 'bin\\*' -exec rm -rf {} + 2>/dev/null; \
+    dotnet publish src/Legi.Catalog.Api/Legi.Catalog.Api.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

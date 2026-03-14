@@ -21,7 +21,8 @@ COPY src/Legi.Library.Domain/ src/Legi.Library.Domain/
 COPY src/Legi.Library.Application/ src/Legi.Library.Application/
 COPY src/Legi.Library.Infrastructure/ src/Legi.Library.Infrastructure/
 COPY src/Legi.Library.Api/ src/Legi.Library.Api/
-RUN dotnet publish src/Legi.Library.Api/Legi.Library.Api.csproj -c Release -o /app
+RUN find . -maxdepth 4 -type d -name 'bin\\*' -exec rm -rf {} + 2>/dev/null; \
+    dotnet publish src/Legi.Library.Api/Legi.Library.Api.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

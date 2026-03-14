@@ -13,10 +13,11 @@ COPY src/Legi.Identity.Domain/ src/Legi.Identity.Domain/
 COPY src/Legi.Identity.Application/ src/Legi.Identity.Application/
 COPY src/Legi.Identity.Infrastructure/ src/Legi.Identity.Infrastructure/
 COPY src/Legi.Identity.Api/ src/Legi.Identity.Api/
-RUN dotnet publish src/Legi.Identity.Api/Legi.Identity.Api.csproj -c Release -o /app
+RUN find . -maxdepth 4 -type d -name 'bin\\*' -exec rm -rf {} + 2>/dev/null; \
+    dotnet publish src/Legi.Identity.Api/Legi.Identity.Api.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "LeRAgi.Identity.Api.dll"]
+ENTRYPOINT ["dotnet", "Legi.Identity.Api.dll"]

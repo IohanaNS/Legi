@@ -7,6 +7,7 @@ using Legi.Library.Application.UserLists.Queries.GetListBooks;
 using Legi.Library.Application.UserLists.Queries.GetListDetails;
 using Legi.Library.Application.UserLists.Queries.GetMyLists;
 using Legi.Library.Application.UserLists.Queries.SearchPublicLists;
+using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +26,7 @@ public class UserListsController : ControllerBase
         _mediator = mediator;
     }
 
-    private Guid GetUserId() => Guid.Parse(User.FindFirst("sub")?.Value
+    private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? throw new UnauthorizedAccessException());
 
     /// <summary>
