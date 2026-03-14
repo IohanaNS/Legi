@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.git
+**/.vs
+**/.idea
+**/node_modules/
+**/*.user
+**/*.suo
+.env
+.env.*
+tests/
+*.md
+test-curls.sh
