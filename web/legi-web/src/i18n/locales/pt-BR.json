@@ -1,7 +1,10 @@
 ﻿{
     "common": {
         "search": "Buscar...",
-        "logout": "Sair"
+        "logout": "Sair",
+        "follow": "Seguir",
+        "like": "Curtir",
+        "share": "Compartilhar"
     },
     "nav": {
         "feed": "Mural",
@@ -11,55 +14,35 @@
         "profile": "Perfil"
     },
     "feed": {
-        "title": "Feed",
+        "title": "Mural",
         "greeting": "Olá, {{name}} 👋",
-        "subtitle": "Veja o que seus amigos estão lendo"
+        "subtitle": "Veja o que seus amigos estão lendo",
+        "readingNow": "Lendo agora",
+        "progress": "Progresso",
+        "pagesOf": "{{current}} de {{total}} páginas",
+        "updateProgress": "Atualizar progresso",
+        "updatedProgress": "atualizou progresso",
+        "finished": "terminou",
+        "startedReading": "começou a ler",
+        "suggestionsForYou": "Sugestões para você",
+        "booksRead": "{{count}} livros lidos",
+        "trendingThisWeek": "Em alta esta semana",
+        "yourGenres": "Seus gêneros"
     },
     "explore": {
         "title": "Explorar",
-        "subtitle": "Descubra seu próximo livro favorito",
-        "searchPlaceholder": "Buscar por título, autor ou gênero...",
-        "recommendedForYou": "Recomendado para você",
-        "filterByGenre": "Filtrar por gênero",
-        "booksFound": "{{count}} livros encontrados",
-        "bestRated": "Melhor avaliação"
+        "subtitle": "Descubra seu próximo livro favorito"
     },
     "lists": {
         "title": "Minhas Listas",
-        "subtitle": "{{count}} listas criadas",
-        "newList": "Nova lista",
-        "public": "Pública",
-        "private": "Privada",
-        "booksCount": "{{count}} livros"
+        "subtitle": "{{count}} listas criadas"
     },
     "wishlist": {
-        "title": "Wishlist",
-        "subtitle": "{{count}} livros na fila de leitura",
-        "add": "Adicionar",
-        "startReading": "Começar a ler",
-        "addNote": "Adicionar nota",
-        "priority": {
-            "label": "Prioridade:",
-            "high": "Alta",
-            "medium": "Média",
-            "low": "Baixa",
-            "all": "Todos"
-        }
+        "title": "Lista de Desejos",
+        "subtitle": "{{count}} livros na fila de leitura"
     },
     "profile": {
         "title": "Perfil",
-        "subtitle": "Seu perfil de leitura",
-        "editProfile": "Editar perfil",
-        "stats": {
-            "read": "Lidos",
-            "followers": "Seguidores",
-            "following": "Seguindo"
-        },
-        "tabs": {
-            "reading": "Lendo",
-            "read": "Lidos",
-            "paused": "Pausados",
-            "lists": "Listas"
-        }
+        "subtitle": "Seu perfil de leitura"
     }
 }
