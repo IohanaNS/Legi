@@ -1,0 +1,65 @@
+﻿{
+    "common": {
+        "search": "Search...",
+        "logout": "Log out"
+    },
+    "nav": {
+        "feed": "Feed",
+        "explore": "Explore",
+        "lists": "Lists",
+        "wishlist": "Wishlist",
+        "profile": "Profile"
+    },
+    "feed": {
+        "title": "Feed",
+        "greeting": "Hi, {{name}} 👋",
+        "subtitle": "See what your friends are reading"
+    },
+    "explore": {
+        "title": "Explore",
+        "subtitle": "Discover your next favorite book",
+        "searchPlaceholder": "Search by title, author or genre...",
+        "recommendedForYou": "Recommended for you",
+        "filterByGenre": "Filter by genre",
+        "booksFound": "{{count}} books found",
+        "bestRated": "Best rated"
+    },
+    "lists": {
+        "title": "My Lists",
+        "subtitle": "{{count}} lists created",
+        "newList": "New list",
+        "public": "Public",
+        "private": "Private",
+        "booksCount": "{{count}} books"
+    },
+    "wishlist": {
+        "title": "Wishlist",
+        "subtitle": "{{count}} books in reading queue",
+        "add": "Add",
+        "startReading": "Start reading",
+        "addNote": "Add note",
+        "priority": {
+            "label": "Priority:",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low",
+            "all": "All"
+        }
+    },
+    "profile": {
+        "title": "Profile",
+        "subtitle": "Your reading profile",
+        "editProfile": "Edit profile",
+        "stats": {
+            "read": "Read",
+            "followers": "Followers",
+            "following": "Following"
+        },
+        "tabs": {
+            "reading": "Reading",
+            "read": "Read",
+            "paused": "Paused",
+            "lists": "Lists"
+        }
+    }
+}
