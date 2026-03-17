@@ -131,6 +131,21 @@ services:
         networks:
             - legi-network
 
+    # Web Frontend
+    web:
+        build:
+            context: web/legi-web
+            dockerfile: Dockerfile
+        container_name: legi-web
+        ports:
+            - "3000:80"
+        depends_on:
+            - identity-api
+            - catalog-api
+            - library-api
+        networks:
+            - legi-network
+
 volumes:
     identity_db_data:
     catalog_db_data:
