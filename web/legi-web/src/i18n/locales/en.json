@@ -58,7 +58,11 @@
     },
     "lists": {
         "title": "My Lists",
-        "subtitle": "{{count}} lists created"
+        "subtitle": "{{count}} lists created",
+        "newList": "New list",
+        "public": "Public",
+        "private": "Private",
+        "booksCount": "{{count}} books"
     },
     "wishlist": {
         "title": "Wishlist",
@@ -66,6 +70,26 @@
     },
     "profile": {
         "title": "Profile",
-        "subtitle": "Your reading profile"
+        "subtitle": "Your reading profile",
+        "editProfile": "Edit profile",
+        "stats": {
+            "read": "Read",
+            "followers": "Followers",
+            "following": "Following"
+        },
+        "tabs": {
+            "reading": "Reading",
+            "finished": "Read",
+            "paused": "Paused",
+            "abandoned": "Abandoned",
+            "lists": "Lists"
+        },
+        "status": {
+            "not_started": "Not started",
+            "reading": "Reading",
+            "finished": "Read",
+            "abandoned": "Abandoned",
+            "paused": "Paused"
+        }
     }
 }

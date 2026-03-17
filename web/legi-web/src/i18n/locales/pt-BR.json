@@ -15,57 +15,81 @@
     },
     "feed": {
         "title": "Feed",
-        "greeting": "Olá, {{name}} 👋",
-        "subtitle": "Veja o que seus amigos estão lendo",
-        "readingNow": "Lendo agora",
-        "progress": "Progresso",
-        "pagesOf": "{{current}} de {{total}} páginas",
-        "updateProgress": "Atualizar progresso",
-        "updatedProgress": "atualizou progresso",
-        "finished": "terminou",
-        "startedReading": "começou a ler",
-        "suggestionsForYou": "Sugestões para você",
-        "booksRead": "{{count}} livros lidos",
-        "trendingThisWeek": "Em alta esta semana",
-        "yourGenres": "Seus gêneros"
+        "greeting": "Hi, {{name}} 👋",
+        "subtitle": "See what your friends are reading",
+        "readingNow": "Reading now",
+        "progress": "Progress",
+        "pagesOf": "{{current}} of {{total}} pages",
+        "updateProgress": "Update progress",
+        "updatedProgress": "updated progress on",
+        "finished": "finished",
+        "startedReading": "started reading",
+        "suggestionsForYou": "Suggestions for you",
+        "booksRead": "{{count}} books read",
+        "trendingThisWeek": "Trending this week",
+        "yourGenres": "Your genres"
     },
     "explore": {
-        "title": "Explorar",
-        "subtitle": "Descubra seu próximo livro favorito",
-        "searchPlaceholder": "Buscar por título, autor ou gênero...",
-        "recommendedForYou": "Recomendado para você",
-        "filterByGenre": "Filtrar por gênero",
-        "booksFound": "{{count}} livros encontrados",
+        "title": "Explore",
+        "subtitle": "Discover your next favorite book",
+        "searchPlaceholder": "Search by title, author or genre...",
+        "recommendedForYou": "Recommended for you",
+        "filterByGenre": "Filter by genre",
+        "booksFound": "{{count}} books found",
         "sortBy": {
-            "bestRated": "Melhor avaliação",
-            "mostRecent": "Mais recentes",
-            "mostPopular": "Mais populares"
+            "bestRated": "Best rated",
+            "mostRecent": "Most recent",
+            "mostPopular": "Most popular"
         }
     },
     "genres": {
-        "fantasy": "Fantasia",
+        "fantasy": "Fantasy",
         "romance": "Romance",
         "thriller": "Thriller",
-        "mystery": "Mistério",
-        "scifi": "Ficção Científica",
-        "classic": "Clássico",
-        "horror": "Terror",
-        "selfHelp": "Autoajuda",
-        "history": "História",
-        "nonFiction": "Não-Ficção",
-        "magicalRealism": "Realismo Mágico",
-        "historicalFiction": "Ficção Histórica"
+        "mystery": "Mystery",
+        "scifi": "Science Fiction",
+        "classic": "Classic",
+        "horror": "Horror",
+        "selfHelp": "Self-help",
+        "history": "History",
+        "nonFiction": "Non-Fiction",
+        "magicalRealism": "Magical Realism",
+        "historicalFiction": "Historical Fiction"
     },
     "lists": {
-        "title": "Minhas Listas",
-        "subtitle": "{{count}} listas criadas"
+        "title": "My Lists",
+        "subtitle": "{{count}} lists created",
+        "newList": "New list",
+        "public": "Public",
+        "private": "Private",
+        "booksCount": "{{count}} books"
     },
     "wishlist": {
         "title": "Wishlist",
-        "subtitle": "{{count}} livros na fila de leitura"
+        "subtitle": "{{count}} books in reading queue"
     },
     "profile": {
-        "title": "Perfil",
-        "subtitle": "Seu perfil de leitura"
+        "title": "Profile",
+        "subtitle": "Your reading profile",
+        "editProfile": "Edit profile",
+        "stats": {
+            "read": "Read",
+            "followers": "Followers",
+            "following": "Following"
+        },
+        "tabs": {
+            "reading": "Lendo",
+            "finished": "Lidos",
+            "paused": "Pausados",
+            "abandoned": "Abandonados",
+            "lists": "Listas"
+        },
+        "status": {
+            "not_started": "Não iniciado",
+            "reading": "Lendo",
+            "finished": "Lido",
+            "abandoned": "Abandonado",
+            "paused": "Pausado"
+        }
     }
 }
