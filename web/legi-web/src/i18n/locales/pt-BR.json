@@ -14,7 +14,7 @@
         "profile": "Perfil"
     },
     "feed": {
-        "title": "Mural",
+        "title": "Feed",
         "greeting": "Olá, {{name}} 👋",
         "subtitle": "Veja o que seus amigos estão lendo",
         "readingNow": "Lendo agora",
@@ -31,14 +31,37 @@
     },
     "explore": {
         "title": "Explorar",
-        "subtitle": "Descubra seu próximo livro favorito"
+        "subtitle": "Descubra seu próximo livro favorito",
+        "searchPlaceholder": "Buscar por título, autor ou gênero...",
+        "recommendedForYou": "Recomendado para você",
+        "filterByGenre": "Filtrar por gênero",
+        "booksFound": "{{count}} livros encontrados",
+        "sortBy": {
+            "bestRated": "Melhor avaliação",
+            "mostRecent": "Mais recentes",
+            "mostPopular": "Mais populares"
+        }
+    },
+    "genres": {
+        "fantasy": "Fantasia",
+        "romance": "Romance",
+        "thriller": "Thriller",
+        "mystery": "Mistério",
+        "scifi": "Ficção Científica",
+        "classic": "Clássico",
+        "horror": "Terror",
+        "selfHelp": "Autoajuda",
+        "history": "História",
+        "nonFiction": "Não-Ficção",
+        "magicalRealism": "Realismo Mágico",
+        "historicalFiction": "Ficção Histórica"
     },
     "lists": {
         "title": "Minhas Listas",
         "subtitle": "{{count}} listas criadas"
     },
     "wishlist": {
-        "title": "Lista de Desejos",
+        "title": "Wishlist",
         "subtitle": "{{count}} livros na fila de leitura"
     },
     "profile": {

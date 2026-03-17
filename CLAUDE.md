@@ -24,11 +24,17 @@ dotnet run --project src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
 # Run the Library API
 dotnet run --project src/Legi.Library.Api/Legi.Library.Api.csproj
 
-# Start PostgreSQL databases
+# Start all services (databases + APIs + web frontend)
 docker-compose up -d
 
-# Stop PostgreSQL databases
+# Stop all services
 docker-compose down
+
+# Rebuild and start only the web frontend
+docker-compose up -d --build web
+
+# Run the web frontend locally (dev mode)
+cd web/legi-web && npm run dev
 ```
 
 ### Testing
@@ -90,6 +96,7 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Application            (✅ complete)
 │   ├── Infrastructure         (✅ complete)
 │   └── Api                    (✅ complete)
+├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
 └── tests/
     ├── Legi.Identity.Domain.Tests
     ├── Legi.Identity.Application.Tests
@@ -230,6 +237,17 @@ Shared abstractions with zero external dependencies:
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
 
+### Web Frontend
+
+- **Location**: `web/legi-web/`
+- **Stack**: React 19, TypeScript, Vite 8, Tailwind CSS v4, react-router-dom, i18next, axios
+- **Utility**: `src/lib/utils.ts` — `cn()` helper using `clsx` + `tailwind-merge`
+- **Docker**: Multi-stage build (node:22-alpine → nginx:alpine), served on port 3000
+- **Nginx**: Serves SPA with `try_files` fallback to `/index.html`, reverse proxies API routes:
+  - `/api/v1/identity/` → `identity-api:8080`
+  - `/api/v1/catalog/` → `catalog-api:8080`
+  - `/api/v1/library/` → `library-api:8080`
+
 ## Adding New Features
 
 ### Adding a Command (State-Changing Operation)
@@ -306,10 +324,18 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 ### Docker Services
 
 ```bash
-docker-compose up -d   # Starts identity-db (port 5432) and catalog-db (port 5433)
+docker-compose up -d   # Starts all services
 ```
 
-Future services (commented out in docker-compose): library-db, social-db, rabbitmq.
+| Service        | Container            | Port  | Description                     |
+|----------------|----------------------|-------|---------------------------------|
+| identity-db    | legi-identity-db     | 5432  | PostgreSQL — Identity service   |
+| catalog-db     | legi-catalog-db      | 5433  | PostgreSQL — Catalog service    |
+| library-db     | legi-library-db      | 5434  | PostgreSQL — Library service    |
+| identity-api   | legi-identity-api    | 5000  | Identity API                    |
+| catalog-api    | legi-catalog-api     | 5112  | Catalog API                     |
+| library-api    | legi-library-api     | 5200  | Library API                     |
+| web            | legi-web             | 3000  | React frontend (nginx)          |
 
 ### Environment Variables (REQUIRED)
 

@@ -31,7 +31,30 @@
     },
     "explore": {
         "title": "Explore",
-        "subtitle": "Discover your next favorite book"
+        "subtitle": "Discover your next favorite book",
+        "searchPlaceholder": "Search by title, author or genre...",
+        "recommendedForYou": "Recommended for you",
+        "filterByGenre": "Filter by genre",
+        "booksFound": "{{count}} books found",
+        "sortBy": {
+            "bestRated": "Best rated",
+            "mostRecent": "Most recent",
+            "mostPopular": "Most popular"
+        }
+    },
+    "genres": {
+        "fantasy": "Fantasy",
+        "romance": "Romance",
+        "thriller": "Thriller",
+        "mystery": "Mystery",
+        "scifi": "Science Fiction",
+        "classic": "Classic",
+        "horror": "Horror",
+        "selfHelp": "Self-help",
+        "history": "History",
+        "nonFiction": "Non-Fiction",
+        "magicalRealism": "Magical Realism",
+        "historicalFiction": "Historical Fiction"
     },
     "lists": {
         "title": "My Lists",
