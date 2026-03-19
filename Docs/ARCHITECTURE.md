@@ -10,29 +10,32 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
+| **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
 | **Social** | 📋 Planejado | Não iniciado |
 
 ## Stack Tecnológica
 
-| Camada         | Tecnologia                      |
-|----------------|---------------------------------|
-| Backend        | .NET 8, ASP.NET Core            |
-| Frontend       | React + TypeScript (planejado)  |
-| Banco de Dados | PostgreSQL (db separado por serviço) |
-| Mensageria     | RabbitMQ (planejado)            |
-| API Gateway    | YARP (planejado)                |
+| Camada         | Tecnologia                                                               |
+|----------------|--------------------------------------------------------------------------|
+| Backend        | .NET 10, ASP.NET Core                                                    |
+| Frontend       | React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + i18next              |
+| Banco de Dados | PostgreSQL (db separado por serviço)                                     |
+| Mensageria     | RabbitMQ (planejado)                                                     |
+| API Gateway    | YARP (planejado)                                                         |
 | API Externa    | Open Library + Google Books API (integração ativa no Catalog/CreateBook) |
-| Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR) |
-| Validação      | FluentValidation                |
-| ORM            | Entity Framework Core 8 + Npgsql |
-| Auth           | JWT Bearer + BCrypt             |
-| Testes         | xUnit + coverlet                |
+| Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR)          |
+| Validação      | FluentValidation                                                         |
+| ORM            | Entity Framework Core 10 + Npgsql                                        |
+| Auth           | JWT Bearer + BCrypt                                                      |
+| Testes         | xUnit + coverlet                                                         |
 
 ## Bounded Contexts
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       API Gateway (planejado)                   │
+│                     Web Frontend (nginx:3000)                    │
+│              React 19 + Vite 8 + Tailwind CSS v4                │
+│       Reverse proxy: /api/v1/{service}/ → {service}-api         │
 └──────────┬──────────┬──────────┬──────────┬────────────────────┘
            │          │          │          │
            ▼          ▼          ▼          ▼
@@ -45,7 +48,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
           ▼            ▼            ▼            ▼
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ identity │ │ catalog  │ │ library  │ │  social  │
-     │  db:5432 │ │  db:5433 │ │    db    │ │    db    │
+     │  db:5432 │ │  db:5433 │ │  db:5434 │ │    db    │
      └──────────┘ └──────────┘ └──────────┘ └──────────┘
 
 Todos os serviços dependem de:
@@ -63,6 +66,7 @@ Todos os serviços dependem de:
 | **Identity** | Autenticação, usuários, JWT | Suporte |
 | **Catalog** | Livros globais, tags, reviews | Core |
 | **Library** | Biblioteca pessoal, progresso, listas | Core |
+| **Web Frontend** | SPA React, proxy reverso nginx para APIs | Apresentação |
 | **Social** | Follows, feed, likes, comments, descoberta | Core |
 
 ### Estrutura de Camadas (por serviço)
@@ -947,9 +951,84 @@ CREATE INDEX ix_user_list_items_user_book_id ON user_list_items(user_book_id);
 
 ---
 
-## 4. Social Service 📋 PLANEJADO
+## 4. Web Frontend 🚧 EM DESENVOLVIMENTO
 
-### 4.1 Domínio
+**Localização:** `web/legi-web/`
+
+### 4.1 Stack
+
+| Tecnologia | Versão | Uso |
+|------------|--------|-----|
+| React | 19.2 | UI framework |
+| TypeScript | 5.9 | Type safety |
+| Vite | 8.0 | Build tool / dev server |
+| Tailwind CSS | 4.2 | Estilização (via @tailwindcss/vite) |
+| React Router DOM | 7.13 | Roteamento SPA |
+| Axios | 1.13 | Cliente HTTP |
+| i18next | 25.8 | Internacionalização (pt-BR, en) |
+| Lucide React | 0.577 | Ícones |
+| class-variance-authority | 0.7 | Variantes de componentes |
+| clsx + tailwind-merge | - | Utilitário de classes (`cn()` em `src/lib/utils.ts`) |
+
+### 4.2 Estrutura
+
+```
+web/legi-web/src/
+├── app/
+│   ├── App.tsx              (componente principal)
+│   ├── Layout.tsx           (layout com navegação)
+│   └── routes.tsx           (definição de rotas)
+├── components/ui/           (componentes reutilizáveis)
+│   ├── Avatar.tsx
+│   ├── Badge.tsx
+│   ├── BookCard.tsx
+│   ├── Button.tsx
+│   ├── Card.tsx
+│   ├── ProgressBar.tsx
+│   └── StarRating.tsx
+├── features/
+│   ├── catalog/             (ExplorePage, GenreFilter, SearchBar + mock data)
+│   ├── library/             (ProfilePage, ListsPage, WishlistPage + mock data)
+│   └── social/              (FeedPage, FeedPostCard, FeedSidebar + mock data)
+├── i18n/
+│   ├── index.ts             (configuração i18next)
+│   └── locales/
+│       ├── en.json
+│       └── pt-BR.json
+├── lib/utils.ts             (helper cn())
+├── hooks/                   (vazio — hooks customizados futuros)
+├── services/                (vazio — integração API futura)
+└── main.tsx                 (entry point)
+```
+
+### 4.3 Rotas
+
+| Rota | Componente | Descrição |
+|------|------------|-----------|
+| `/` | `Navigate → /feed` | Redirect para feed |
+| `/feed` | `FeedPage` | Feed social (currently reading) |
+| `/explore` | `ExplorePage` | Busca e navegação do catálogo |
+| `/lists` | `ListsPage` | Listas do usuário |
+| `/wishlist` | `WishlistPage` | Lista de desejos |
+| `/profile` | `ProfilePage` | Perfil do usuário |
+
+> **Nota:** Todas as páginas utilizam dados mock (`mockCatalogData.ts`, `mockProfileData.ts`, `mockFeedData.ts`). A integração com as APIs backend via Axios ainda não foi implementada.
+
+### 4.4 Docker & Nginx
+
+- **Build:** Multi-stage (node:22-alpine → nginx:alpine)
+- **Porta:** 3000
+- **SPA:** `try_files $uri $uri/ /index.html`
+- **Reverse Proxy:** Nginx encaminha chamadas API para os serviços backend:
+  - `/api/v1/identity/` → `identity-api:8080`
+  - `/api/v1/catalog/` → `catalog-api:8080`
+  - `/api/v1/library/` → `library-api:8080`
+
+---
+
+## 5. Social Service 📋 PLANEJADO
+
+### 5.1 Domínio
 
 **Aggregates:**
 
@@ -996,7 +1075,7 @@ PostComment (Entity)
 - `ListLikedDomainEvent`
 - `ListCommentedDomainEvent`
 
-### 4.2 API Endpoints
+### 5.2 API Endpoints
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
@@ -1016,7 +1095,7 @@ PostComment (Entity)
 | POST | `/api/v1/social/lists/{listId}/comments` | Comentar lista | 🔒 |
 | DELETE | `/api/v1/social/comments/{commentId}` | Excluir comentário | 🔒 |
 
-### 4.3 Database Schema
+### 5.3 Database Schema
 
 ```sql
 -- Enum type
@@ -1093,9 +1172,9 @@ CREATE TABLE user_tag_preferences (
 
 ---
 
-## 5. Comunicação Entre Serviços 📋 PLANEJADO
+## 6. Comunicação Entre Serviços 📋 PLANEJADO
 
-### 5.1 Eventos de Integração
+### 6.1 Eventos de Integração
 
 ```
 ┌──────────┐                    ┌──────────┐
@@ -1125,7 +1204,7 @@ CREATE TABLE user_tag_preferences (
 └──────────┘                    └──────────┘
 ```
 
-### 5.2 Contratos de Eventos
+### 6.2 Contratos de Eventos
 
 ```csharp
 // Identity → Todos
@@ -1185,9 +1264,9 @@ record ContentCommentedIntegrationEvent(
 
 ---
 
-## 6. Padrões e Convenções
+## 7. Padrões e Convenções
 
-### 6.1 Estrutura de Projeto
+### 7.1 Estrutura de Projeto
 
 ```
 Legi.SharedKernel/
@@ -1247,9 +1326,20 @@ Legi.{Service}.Api/
 ├── Controllers/
 ├── Middleware/
 └── Program.cs
+
+web/legi-web/                  (React SPA)
+├── src/
+│   ├── app/                   (App, Layout, routes)
+│   ├── components/ui/         (Avatar, Badge, BookCard, Button, Card, ProgressBar, StarRating)
+│   ├── features/              (catalog, library, social — cada um com components, data, types)
+│   ├── i18n/locales/          (en.json, pt-BR.json)
+│   ├── lib/utils.ts           (cn() helper)
+│   └── main.tsx
+├── Dockerfile                 (node:22-alpine → nginx:alpine)
+└── nginx.conf                 (SPA + reverse proxy)
 ```
 
-### 6.2 Formato de Resposta de Erro
+### 7.2 Formato de Resposta de Erro
 
 ```json
 {
@@ -1264,7 +1354,7 @@ Legi.{Service}.Api/
 }
 ```
 
-### 6.3 Formato de Paginação
+### 7.3 Formato de Paginação
 
 ```json
 {
@@ -1280,7 +1370,7 @@ Legi.{Service}.Api/
 }
 ```
 
-### 6.4 HTTP Status Codes
+### 7.4 HTTP Status Codes
 
 | Código | Uso |
 |--------|-----|
@@ -1298,22 +1388,23 @@ Legi.{Service}.Api/
 
 ---
 
-## 7. Resumo de Endpoints
+## 8. Resumo de Endpoints
 
 | Serviço | Endpoints | Status |
 |---------|-----------|--------|
 | Identity | 8 | ✅ Implementado |
 | Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
 | Library | 19 | ✅ Implementado (Domain, Application, Infrastructure, Api) |
+| Web Frontend | 6 rotas | 🚧 Em desenvolvimento (mock data, sem integração API) |
 | Social | 15 | 📋 Planejado |
-| **Total** | **57** | |
+| **Total** | **57 endpoints API + 6 rotas frontend** | |
 
-## 8. Resumo de Tabelas
+## 9. Resumo de Tabelas
 
 | Serviço | Tabelas | Status |
 |---------|---------|--------|
 | Identity | 2 (users, refresh_tokens) | ✅ Migrado |
 | Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | ✅ 5/6 migrado (book_reviews planejado) |
-| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | ✅ Configurado (EF Core, aguardando migration) |
+| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | ✅ Migrado |
 | Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
 | **Total** | **18** | |
