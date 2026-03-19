@@ -13,27 +13,27 @@ public class ReadingPostRepository : IReadingPostRepository
         _context = context;
     }
 
-    public async Task<ReadingPost?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ReadingProgress?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.ReadingPosts
             .FirstOrDefaultAsync(rp => rp.Id == id, cancellationToken);
     }
 
-    public async Task AddAsync(ReadingPost post, CancellationToken cancellationToken = default)
+    public async Task AddAsync(ReadingProgress progress, CancellationToken cancellationToken = default)
     {
-        await _context.ReadingPosts.AddAsync(post, cancellationToken);
+        await _context.ReadingPosts.AddAsync(progress, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(ReadingPost post, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(ReadingProgress progress, CancellationToken cancellationToken = default)
     {
-        _context.ReadingPosts.Update(post);
+        _context.ReadingPosts.Update(progress);
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(ReadingPost post, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(ReadingProgress progress, CancellationToken cancellationToken = default)
     {
-        _context.ReadingPosts.Remove(post);
+        _context.ReadingPosts.Remove(progress);
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Legi.Library.Infrastructure.Persistence.Configurations;
 
-public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingPost>
+public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingProgress>
 {
-    public void Configure(EntityTypeBuilder<ReadingPost> builder)
+    public void Configure(EntityTypeBuilder<ReadingProgress> builder)
     {
         builder.ToTable("reading_posts");
 
@@ -30,7 +30,7 @@ public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingPost>
 
         builder.Property(rp => rp.Content)
             .HasColumnName("content")
-            .HasMaxLength(ReadingPost.MaxContentLength);
+            .HasMaxLength(ReadingProgress.MaxContentLength);
 
         builder.Property(rp => rp.ReadingDate)
             .HasColumnName("reading_date")

@@ -65,7 +65,7 @@ public class CreateReadingPostCommandHandler
         }
 
         // 3. Create ReadingPost aggregate
-        var post = ReadingPost.Create(
+        var post = ReadingProgress.Create(
             request.UserBookId,
             userBook.UserId,
             userBook.BookId,

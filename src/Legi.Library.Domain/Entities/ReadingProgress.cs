@@ -4,7 +4,7 @@ using Legi.SharedKernel;
 
 namespace Legi.Library.Domain.Entities;
 
-public class ReadingPost : BaseAuditableEntity
+public class ReadingProgress : BaseAuditableEntity
 {
     public const int MaxContentLength = 2000;
 
@@ -17,7 +17,7 @@ public class ReadingPost : BaseAuditableEntity
     public int CommentsCount { get; private set; }
     public DateOnly ReadingDate { get; private set; }
 
-    public static ReadingPost Create(
+    public static ReadingProgress Create(
         Guid userBookId,
         Guid userId,
         Guid bookId,
@@ -31,7 +31,7 @@ public class ReadingPost : BaseAuditableEntity
         if (content is not null)
             ValidateContent(content);
 
-        var readingPost = new ReadingPost
+        var readingPost = new ReadingProgress
         {
             Id = Guid.NewGuid(),
             UserBookId = userBookId,

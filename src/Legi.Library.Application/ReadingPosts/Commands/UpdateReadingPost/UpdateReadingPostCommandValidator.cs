@@ -20,9 +20,9 @@ public class UpdateReadingPostCommandValidator : AbstractValidator<UpdateReading
             .WithMessage("Post must have content or progress (or both).");
 
         RuleFor(x => x.Content)
-            .MaximumLength(ReadingPost.MaxContentLength)
+            .MaximumLength(ReadingProgress.MaxContentLength)
             .When(x => x.Content is not null)
-            .WithMessage($"Content must be at most {ReadingPost.MaxContentLength} characters.");
+            .WithMessage($"Content must be at most {ReadingProgress.MaxContentLength} characters.");
 
         RuleFor(x => x.ProgressType)
             .NotNull().When(x => x.ProgressValue.HasValue)

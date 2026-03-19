@@ -10,7 +10,7 @@ public class LibraryDbContext : DbContext
     private readonly IMediator _mediator;
 
     public DbSet<UserBook> UserBooks => Set<UserBook>();
-    public DbSet<ReadingPost> ReadingPosts => Set<ReadingPost>();
+    public DbSet<ReadingProgress> ReadingPosts => Set<ReadingProgress>();
     public DbSet<UserList> UserLists => Set<UserList>();
     public DbSet<UserListItem> UserListItems => Set<UserListItem>();
     public DbSet<BookSnapshot> BookSnapshots => Set<BookSnapshot>();
