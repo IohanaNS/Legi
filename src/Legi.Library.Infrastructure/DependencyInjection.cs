@@ -26,13 +26,13 @@ public static class DependencyInjection
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IUserBookRepository, UserBookRepository>();
-        services.AddScoped<IReadingPostRepository, ReadingPostRepository>();
+        services.AddScoped<IReadingPostRepository, ReadingProgressRepository>();
         services.AddScoped<IUserListRepository, UserListRepository>();
         services.AddScoped<IBookSnapshotRepository, BookSnapshotRepository>();
 
         // Read repositories (Application interfaces)
         services.AddScoped<IUserBookReadRepository, UserBookReadRepository>();
-        services.AddScoped<IReadingPostReadRepository, ReadingPostReadRepository>();
+        services.AddScoped<IReadingPostReadRepository, ReadingProgressReadRepository>();
         services.AddScoped<IUserListReadRepository, UserListReadRepository>();
 
         return services;

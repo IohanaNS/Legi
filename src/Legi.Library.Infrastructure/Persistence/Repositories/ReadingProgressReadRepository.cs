@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Legi.Library.Infrastructure.Persistence.Repositories;
 
-public class ReadingPostReadRepository : IReadingPostReadRepository
+public class ReadingProgressReadRepository : IReadingPostReadRepository
 {
     private readonly LibraryDbContext _context;
 
-    public ReadingPostReadRepository(LibraryDbContext context)
+    public ReadingProgressReadRepository(LibraryDbContext context)
     {
         _context = context;
     }
