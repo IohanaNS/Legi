@@ -611,7 +611,7 @@ UserBook (Aggregate Root) ✅
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-ReadingPost (Aggregate Root — promovido de entity filha) ✅
+ReadingProgress (Aggregate Root — promovido de entity filha) ✅
 ├── Id: Guid
 ├── UserBookId: Guid (referência por ID)
 ├── UserId: Guid (desnormalizado para feed/queries)
@@ -667,11 +667,11 @@ BookSnapshot (Read Model — não é aggregate) ✅
 > - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommandHandler.cs`
 > - `src/Legi.Library.Api/Controllers/UserBooksController.cs` (request DTO)
 
-**Decisão: ReadingPost como Aggregate Root.** Posts são independentes entre si — não existe invariante cross-post. Evita carregar centenas de posts na memória ao adicionar um novo. Coordenação de progresso (post com progresso → atualiza UserBook.CurrentProgress) feita na mesma transação pelo command handler.
+**Decisão: ReadingProgress como Aggregate Root.** Registros de progresso são independentes entre si — não existe invariante cross-registro. Evita carregar centenas de registros na memória ao adicionar um novo. Coordenação de progresso (registro com progresso → atualiza UserBook.CurrentProgress) feita na mesma transação pelo command handler.
 
 **Decisão: UserListItem como entity filha.** Justificativa: invariantes exigem os itens (duplicação, reordenação, BooksCount). UserListItem é minúsculo (IDs + order + timestamp) — carregar 500 itens é trivial.
 
-**Decisão: Soft Delete no UserBook.** Remoção marca `DeletedAt`. ReadingPosts preservados (histórico). UserListItems removidos (hard delete). Re-adição do mesmo livro cria novo UserBook. Global Query Filter no EF Core para filtrar deletados.
+**Decisão: Soft Delete no UserBook.** Remoção marca `DeletedAt`. ReadingProgress preservados (histórico). UserListItems removidos (hard delete). Re-adição do mesmo livro cria novo UserBook. Global Query Filter no EF Core para filtrar deletados.
 
 **Enums:**
 ```csharp
@@ -693,11 +693,11 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - Progresso 100% (Percentage) auto-transiciona status para `Finished`
 - Progresso Page igual ao PageCount do BookSnapshot é convertido para `Completed()`
 - Rating é independente do status — pode ser adicionado/removido a qualquer momento
-- Soft delete: `UserBook.Remove()` marca `DeletedAt`, preserva ReadingPosts
+- Soft delete: `UserBook.Remove()` marca `DeletedAt`, preserva ReadingProgress
 - Livro pode estar em múltiplas listas (N:N via UserListItem)
 - Máximo 100 listas por usuário
 - Nome da lista único por usuário (case-insensitive)
-- Post deve ter conteúdo OU progresso (ou ambos)
+- ReadingProgress deve ter conteúdo OU progresso (ou ambos)
 
 **Domain Events (8 — princípio YAGNI, apenas com consumidores identificados):**
 
@@ -708,11 +708,11 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | UserBook | `ReadingStatusChangedDomainEvent` | Social (feed) |
 | UserBook | `UserBookRatedDomainEvent` | Catalog (recalcular média), Social |
 | UserBook | `UserBookRatingRemovedDomainEvent` | Catalog (recalcular média) |
-| ReadingPost | `ReadingPostCreatedDomainEvent` | Social (feed) |
-| ReadingPost | `ReadingPostDeletedDomainEvent` | Social (remover do feed) |
+| ReadingProgress | `ReadingPostCreatedDomainEvent` | Social (feed) |
+| ReadingProgress | `ReadingPostDeletedDomainEvent` | Social (remover do feed) |
 | UserList | `UserListDeletedDomainEvent` | Social (limpar likes/comments) |
 
-**Cortados por YAGNI:** `ReadingPostUpdatedDomainEvent`, `UserListCreatedDomainEvent`, `BookAddedToListDomainEvent`, `BookRemovedFromListDomainEvent` — nenhum consumidor claro identificado.
+**Cortados por YAGNI:** `ReadingProgressUpdatedDomainEvent`, `UserListCreatedDomainEvent`, `BookAddedToListDomainEvent`, `BookRemovedFromListDomainEvent` — nenhum consumidor claro identificado.
 
 **Repository Interfaces (Domain):**
 - `IUserBookRepository` — GetByIdAsync, GetByUserAndBookAsync, AddAsync, UpdateAsync
@@ -732,7 +732,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | `RateUserBookCommand` | ✅ | ✅ | ✅ | Completo |
 | `RemoveUserBookRatingCommand` | ✅ | - | Unit | Completo |
 
-**ReadingPost Commands:**
+**ReadingProgress Commands:**
 
 | Command | Handler | Validator | Response | Status |
 |---------|---------|-----------|----------|--------|
@@ -784,7 +784,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | Configuration | Tabela | Destaques |
 |---------------|--------|-----------|
 | `UserBookConfiguration` | `user_books` | Status como string (max 20). Rating e Progress como owned entities. Global Query Filter `DeletedAt == null`. Unique index filtrado `(UserId, BookId) WHERE deleted_at IS NULL`. |
-| `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingPost.MaxContentLength`. Progress como owned entity. Index composto `(UserBookId, ReadingDate DESC)`. |
+| `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingProgress.MaxContentLength`. Progress como owned entity. Index composto `(UserBookId, ReadingDate DESC)`. |
 | `UserListConfiguration` | `user_lists` | Name max `UserList.MaxNameLength`, Description max `UserList.MaxDescriptionLength`. One-to-many com `UserListItem` via field access (`_items`). Cascade delete. Unique index `(UserId, Name)`. Index filtrado `IsPublic = true`. |
 | `UserListItemConfiguration` | `user_list_items` | Shadow FK `user_list_id`. Unique index `(user_list_id, UserBookId)`. Index `(user_list_id, Order)`. |
 | `BookSnapshotConfiguration` | `book_snapshots` | PK = `BookId` (do Catalog). Title max 500, AuthorDisplay max 1000. Read model desnormalizado. |
@@ -821,14 +821,14 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | PUT | `/api/v1/library/{userBookId}/rating` | Dar/atualizar rating | 🔒 | ✅ |
 | DELETE | `/api/v1/library/{userBookId}/rating` | Remover rating | 🔒 | ✅ |
 
-**ReadingPosts (implementados — `ReadingPostsController`):**
+**ReadingProgress (implementados — `ReadingPostsController`):**
 
 | Método | Endpoint | Descrição | Auth | Status |
 |--------|----------|-----------|------|--------|
-| GET | `/api/v1/library/{userBookId}/posts` | Listar posts do livro | 🔒 | ✅ |
-| POST | `/api/v1/library/{userBookId}/posts` | Criar post | 🔒 | ✅ |
-| PUT | `/api/v1/library/posts/{postId}` | Editar post | 🔒 | ✅ |
-| DELETE | `/api/v1/library/posts/{postId}` | Excluir post | 🔒 | ✅ |
+| GET | `/api/v1/library/{userBookId}/posts` | Listar registros de progresso | 🔒 | ✅ |
+| POST | `/api/v1/library/{userBookId}/posts` | Criar registro de progresso | 🔒 | ✅ |
+| PUT | `/api/v1/library/posts/{postId}` | Editar registro de progresso | 🔒 | ✅ |
+| DELETE | `/api/v1/library/posts/{postId}` | Excluir registro de progresso | 🔒 | ✅ |
 
 **UserLists (implementados — `UserListsController`):**
 
@@ -894,7 +894,7 @@ CREATE INDEX ix_user_books_status ON user_books(user_id, status);
 CREATE INDEX ix_user_books_wishlist ON user_books(user_id) WHERE wishlist = TRUE;
 CREATE INDEX ix_user_books_added_at ON user_books(added_at DESC);
 
--- Tabela: reading_posts (aggregate próprio, referência por ID ao user_books)
+-- Tabela: reading_posts (ReadingProgress aggregate, referência por ID ao user_books)
 CREATE TABLE reading_posts (
     id UUID PRIMARY KEY,
     user_book_id UUID NOT NULL REFERENCES user_books(id) ON DELETE CASCADE,
