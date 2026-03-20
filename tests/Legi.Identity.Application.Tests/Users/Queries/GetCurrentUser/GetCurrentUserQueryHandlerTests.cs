@@ -22,7 +22,7 @@ public class GetCurrentUserQueryHandlerTests
     {
         // Arrange
         var query = GetCurrentUserQueryFactory.Create();
-        var user = UserFactory.Create(name: "Current User");
+        var user = UserFactory.Create();
 
         _userRepositoryMock
             .Setup(x => x.GetByIdAsync(query.UserId, It.IsAny<CancellationToken>()))
@@ -34,7 +34,8 @@ public class GetCurrentUserQueryHandlerTests
         // Assert
         Assert.Equal(user.Id, result.UserId);
         Assert.Equal(user.Email.Value, result.Email);
-        Assert.Equal("Current User", result.Name);
+        Assert.Equal(user.Username.Value, result.Username);
+        Assert.Equal(user.IsPublicProfile, result.IsPublicProfile);
         Assert.Equal(0, result.Stats.TotalBooks);
         Assert.Equal(0, result.Stats.TotalFollowers);
     }

@@ -34,8 +34,7 @@ public class RegisterCommandHandlerTests
         // Arrange
         var command = RegisterCommandFactory.Create(
             email: "novo@exemplo.com",
-            username: "novousr",
-            name: "Novo Usuário"
+            username: "novousr"
         );
 
         _userRepositoryMock
@@ -65,7 +64,6 @@ public class RegisterCommandHandlerTests
         Assert.NotNull(result);
         Assert.Equal(command.Email.ToLowerInvariant(), result.Email);
         Assert.Equal(command.Username.ToLowerInvariant(), result.Username);
-        Assert.Equal(command.Name, result.Name);
         Assert.Equal("access_token", result.Token);
         Assert.Equal("refresh_token_hash", result.RefreshToken);
 
@@ -165,14 +163,7 @@ public class RegisterCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _tokenServiceMock.Verify(
-            x => x.GenerateAccessToken(It.IsAny<User>()),
-            Times.Once
-        );
-
-        _tokenServiceMock.Verify(
-            x => x.GenerateRefreshToken(),
-            Times.Once
-        );
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Once);
+        _tokenServiceMock.Verify(x => x.GenerateRefreshToken(), Times.Once);
     }
 }

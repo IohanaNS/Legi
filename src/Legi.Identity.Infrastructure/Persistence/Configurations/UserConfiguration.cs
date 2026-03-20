@@ -27,7 +27,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                 .IsUnique();
         });
 
-        // Value Object Username - usando OwnsOne
         builder.OwnsOne(u => u.Username, username =>
         {
             username.Property(u => u.Value)
@@ -44,18 +43,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(u => u.Name)
-            .HasColumnName("name")
-            .HasMaxLength(100)
+        builder.Property(u => u.IsPublicProfile)
+            .HasColumnName("is_public_profile")
             .IsRequired();
-
-        builder.Property(u => u.Bio)
-            .HasColumnName("bio")
-            .HasMaxLength(500);
-
-        builder.Property(u => u.AvatarUrl)
-            .HasColumnName("avatar_url")
-            .HasMaxLength(500);
 
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")
@@ -65,17 +55,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("updated_at")
             .IsRequired();
 
-        // Relationship with RefreshTokens
         builder.HasMany(u => u.RefreshTokens)
             .WithOne()
             .HasForeignKey("UserId")
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configures access to the private field _refreshTokens
         builder.Navigation(u => u.RefreshTokens)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        // Indexes
         builder.HasIndex(u => u.CreatedAt)
             .HasDatabaseName("ix_users_created_at")
             .IsDescending();

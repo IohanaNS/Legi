@@ -23,10 +23,5 @@ public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
             .MaximumLength(100).WithMessage("Password must be at most 100 characters")
             .Matches("[A-Z]").WithMessage("Password must contain at least one uppercase letter")
             .Matches("[0-9]").WithMessage("Password must contain at least one number");
-
-        RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Name is required")
-            .MinimumLength(2).WithMessage("Name must be at least 2 characters")
-            .MaximumLength(100).WithMessage("Name must be at most 100 characters");
     }
 }

@@ -48,7 +48,7 @@ public class UsersController : ControllerBase
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new UpdateProfileCommand(userId, request.Name, request.Bio, request.AvatarUrl);
+        var command = new UpdateProfileCommand(userId, request.IsPublicProfile);
         var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
     }
@@ -108,4 +108,4 @@ public class UsersController : ControllerBase
 }
 
 // Request DTOs
-public record UpdateProfileRequest(string? Name, string? Bio, string? AvatarUrl);
+public record UpdateProfileRequest(bool IsPublicProfile);

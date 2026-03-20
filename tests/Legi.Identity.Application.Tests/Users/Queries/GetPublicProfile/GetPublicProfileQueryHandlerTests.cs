@@ -22,7 +22,7 @@ public class GetPublicProfileQueryHandlerTests
     {
         // Arrange
         var query = GetPublicProfileQueryFactory.Create(currentUserId: null);
-        var user = UserFactory.Create(name: "Public User");
+        var user = UserFactory.Create();
 
         _userRepositoryMock
             .Setup(x => x.GetByIdAsync(query.UserId, It.IsAny<CancellationToken>()))
@@ -33,7 +33,7 @@ public class GetPublicProfileQueryHandlerTests
 
         // Assert
         Assert.Equal(user.Id, result.UserId);
-        Assert.Equal("Public User", result.Name);
+        Assert.Equal(user.Username.Value, result.Username);
         Assert.Null(result.IsFollowedByMe);
     }
 

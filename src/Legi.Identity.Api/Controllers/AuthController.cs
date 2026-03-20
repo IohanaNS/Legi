@@ -31,7 +31,7 @@ public class AuthController : ControllerBase
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new RegisterCommand(request.Email, request.Username, request.Password, request.Name);
+        var command = new RegisterCommand(request.Email, request.Username, request.Password);
         var result = await _mediator.Send(command, cancellationToken);
         
         return StatusCode(StatusCodes.Status201Created, result);
@@ -95,8 +95,8 @@ public class AuthController : ControllerBase
     }
 }
 
-// Request DTOs - podem ficar aqui ou em pasta separada
-public record RegisterRequest(string Email, string Username, string Password, string Name);
+// Request DTOs
+public record RegisterRequest(string Email, string Username, string Password);
 public record LoginRequest(string EmailOrUsername, string Password);
 public record RefreshRequest(string RefreshToken);
 public record LogoutRequest(string RefreshToken);

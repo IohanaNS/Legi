@@ -27,9 +27,8 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, G
         return new GetCurrentUserResponse(
             user.Id,
             user.Email.Value,
-            user.Name,
-            user.Bio,
-            user.AvatarUrl,
+            user.Username.Value,
+            user.IsPublicProfile,
             user.CreatedAt,
             stats
         );

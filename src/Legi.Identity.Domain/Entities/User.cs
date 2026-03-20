@@ -9,35 +9,27 @@ public class User : BaseAuditableEntity
     public Email Email { get; private set; } = null!;
     public Username Username { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
-    public string Name { get; private set; } = null!;
-    public string? Bio { get; private set; }
-    public string? AvatarUrl { get; private set; }
+    public bool IsPublicProfile { get; private set; }
 
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
 
     private User() { }
 
-    public static User Create(Email email, Username username, string passwordHash, string name)
+    public static User Create(Email email, Username username, string passwordHash)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Name is required");
-
-        if (name.Length < 2 || name.Length > 100)
-            throw new DomainException("Name must be between 2 and 100 characters");
-
         var user = new User
         {
             Id = Guid.NewGuid(),
             Email = email,
             Username = username,
             PasswordHash = passwordHash,
-            Name = name,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            IsPublicProfile = true
         };
 
-        user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, email.Value, name));
+        user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, email.Value));
 
         return user;
     }
@@ -90,30 +82,11 @@ public class User : BaseAuditableEntity
             t.TokenHash == tokenHash && t.IsActive);
     }
 
-    public void UpdateProfile(string? name, string? bio, string? avatarUrl)
+    public void UpdateProfile(bool isPublicProfile)
     {
-        if (name is not null)
-        {
-            if (name.Length < 2 || name.Length > 100)
-                throw new DomainException("Name must be between 2 and 100 characters");
-            Name = name;
-        }
-
-        if (bio is not null)
-        {
-            if (bio.Length > 500)
-                throw new DomainException("Bio must be at most 500 characters");
-            Bio = bio;
-        }
-
-        if (avatarUrl is not null)
-        {
-            AvatarUrl = avatarUrl;
-        }
-
+        IsPublicProfile = isPublicProfile;
         UpdatedAt = DateTime.UtcNow;
-
-        AddDomainEvent(new UserProfileUpdatedDomainEvent(Id, Name, Bio, AvatarUrl));
+        AddDomainEvent(new UserProfileUpdatedDomainEvent(Id, isPublicProfile));
     }
 
     public void UpdatePassword(string newPasswordHash)

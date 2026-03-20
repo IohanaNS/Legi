@@ -2,12 +2,11 @@ namespace Legi.Identity.Application.Users.Queries.GetPublicProfile;
 
 public record GetPublicProfileResponse(
     Guid UserId,
-    string Name,
-    string? Bio,
-    string? AvatarUrl,
+    string Username,
+    bool IsPublicProfile,
     DateTime CreatedAt,
     PublicUserStatsDto Stats,
-    bool? IsFollowedByMe  // Null se não autenticado
+    bool? IsFollowedByMe
 );
 
 public record PublicUserStatsDto(

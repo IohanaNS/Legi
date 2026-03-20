@@ -6,14 +6,12 @@ public sealed class UserRegisteredDomainEvent : IDomainEvent
 {
     public Guid UserId { get; }
     public string Email { get; }
-    public string Name { get; }
     public DateTime OccurredOn { get; }
 
-    public UserRegisteredDomainEvent(Guid userId, string email, string name)
+    public UserRegisteredDomainEvent(Guid userId, string email)
     {
         UserId = userId;
         Email = email;
-        Name = name;
         OccurredOn = DateTime.UtcNow;
     }
 }

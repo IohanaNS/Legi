@@ -25,45 +25,31 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
 
     public async Task<RegisterResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
-        // Check if email already exists
         var existingUserByEmail = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (existingUserByEmail != null)
-        {
             throw new ConflictException("A user with this email already exists.");
-        }
 
-        // Check if username already exists
         var existingUserByUsername = await _userRepository.GetByUsernameAsync(request.Username, cancellationToken);
         if (existingUserByUsername != null)
-        {
             throw new ConflictException("A user with this username already exists.");
-        }
 
-        // Create value objects
         var email = Email.Create(request.Email);
         var username = Username.Create(request.Username);
-
-        // Hash password
         var passwordHash = _passwordHasher.Hash(request.Password);
 
-        // Create user entity
-        var user = User.Create(email, username, passwordHash, request.Name);
+        var user = User.Create(email, username, passwordHash);
 
-        // Generate tokens
         var (accessToken, expiresAt) = _tokenService.GenerateAccessToken(user);
         var refreshTokenHash = _tokenService.GenerateRefreshToken();
 
-        // Add refresh token to user
         user.AddRefreshToken(refreshTokenHash, DateTime.UtcNow.AddDays(7));
 
-        // Persist user
         await _userRepository.AddAsync(user, cancellationToken);
 
         return new RegisterResponse(
             user.Id,
             user.Email.Value,
             user.Username.Value,
-            user.Name,
             accessToken,
             refreshTokenHash,
             expiresAt

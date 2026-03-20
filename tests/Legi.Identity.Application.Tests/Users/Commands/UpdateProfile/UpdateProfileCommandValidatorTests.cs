@@ -22,38 +22,10 @@ public class UpdateProfileCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_ShouldFail_WhenNameIsTooShort()
+    public void Validate_ShouldPass_WhenCommandIsValid()
     {
         // Arrange
-        var command = UpdateProfileCommandFactory.Create(name: "A");
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorMessage == "Name must be at least 2 characters");
-    }
-
-    [Fact]
-    public void Validate_ShouldFail_WhenBioIsTooLong()
-    {
-        // Arrange
-        var command = UpdateProfileCommandFactory.Create(bio: new string('a', 501));
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorMessage == "Bio must be at most 500 characters");
-    }
-
-    [Fact]
-    public void Validate_ShouldPass_WhenOptionalFieldsAreNull()
-    {
-        // Arrange
-        var command = UpdateProfileCommandFactory.Create(name: null, bio: null, avatarUrl: null);
+        var command = UpdateProfileCommandFactory.Create();
 
         // Act
         var result = _validator.Validate(command);

@@ -3,9 +3,8 @@ namespace Legi.Identity.Application.Users.Queries.GetCurrentUser;
 public record GetCurrentUserResponse(
     Guid UserId,
     string Email,
-    string Name,
-    string? Bio,
-    string? AvatarUrl,
+    string Username,
+    bool IsPublicProfile,
     DateTime CreatedAt,
     UserStatsDto Stats
 );

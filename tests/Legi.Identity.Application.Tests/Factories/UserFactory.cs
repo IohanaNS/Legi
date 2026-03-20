@@ -8,14 +8,12 @@ public static class UserFactory
     public static User Create(
         Email? email = null,
         Username? username = null,
-        string? passwordHash = null,
-        string? name = null)
+        string? passwordHash = null)
     {
         return User.Create(
             email ?? Email.Create("teste@exemplo.com"),
             username ?? Username.Create("testusr"),
-            passwordHash ?? "hashed_password",
-            name ?? "Usuário Teste"
+            passwordHash ?? "hashed_password"
         );
     }
 

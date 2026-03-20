@@ -14,17 +14,16 @@ public class UserTests
         var email = EmailFactory.Create();
         var username = UsernameFactory.Create();
         var passwordHash = "hashed_password";
-        var name = "Test User";
 
         // Act
-        var user = User.Create(email, username, passwordHash, name);
+        var user = User.Create(email, username, passwordHash);
 
         // Assert
         Assert.NotNull(user);
         Assert.Equal(email, user.Email);
         Assert.Equal(username, user.Username);
         Assert.Equal(passwordHash, user.PasswordHash);
-        Assert.Equal(name, user.Name);
+        Assert.True(user.IsPublicProfile);
         Assert.NotEqual(Guid.Empty, user.Id);
     }
 
@@ -32,47 +31,13 @@ public class UserTests
     public void Create_ShouldRaiseUserRegisteredEvent()
     {
         // Arrange & Act
-        var user = UserFactory.Create(name: "Test");
+        var user = UserFactory.Create();
 
         // Assert
         Assert.Single(user.DomainEvents);
-        Assert.IsType<UserRegisteredDomainEvent>(user.DomainEvents.First());
-
         var domainEvent = Assert.IsType<UserRegisteredDomainEvent>(user.DomainEvents.First());
         Assert.Equal(user.Id, domainEvent.UserId);
         Assert.Equal(user.Email.Value, domainEvent.Email);
-        Assert.Equal("Test", domainEvent.Name);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("A")] // Too short
-    public void Create_ShouldThrowExceptionForInvalidName(string invalidName)
-    {
-        // Arrange
-        var email = EmailFactory.Create();
-        var username = UsernameFactory.Create();
-
-        // Act
-        var act = () => User.Create(email, username, "hash", invalidName);
-
-        // Assert
-        Assert.Throws<DomainException>(act);
-    }
-
-    [Fact]
-    public void Create_ShouldThrowExceptionForNameTooLong()
-    {
-        // Arrange
-        var longName = new string('A', 101); // 101 characters
-
-        // Act
-        var act = () => UserFactory.Create(name: longName);
-
-        // Assert
-        var exception = Assert.Throws<DomainException>(act);
-        Assert.Equal("Name must be between 2 and 100 characters", exception.Message);
     }
 
     [Fact]
@@ -100,18 +65,15 @@ public class UserTests
         var user = CreateValidUser();
         var expiresAt = DateTime.UtcNow.AddDays(7);
 
-        // Add 5 tokens (limit)
         for (int i = 0; i < 5; i++)
-        {
             user.AddRefreshToken($"token_{i}", expiresAt);
-        }
 
         // Act - Add 6th token
         user.AddRefreshToken("token_6", expiresAt);
 
         // Assert
         Assert.Equal(5, user.RefreshTokens.Count(t => t.IsActive));
-        Assert.Equal(6, user.RefreshTokens.Count); // Total includes revoked
+        Assert.Equal(6, user.RefreshTokens.Count);
     }
 
     [Fact]
@@ -195,21 +157,17 @@ public class UserTests
     }
 
     [Fact]
-    public void UpdateProfile_ShouldUpdateUserData()
+    public void UpdateProfile_ShouldUpdateIsPublicProfile()
     {
         // Arrange
         var user = CreateValidUser();
-        var newName = "Updated Name";
-        var newBio = "New user bio";
-        var newAvatar = "https://example.com/avatar.jpg";
+        Assert.True(user.IsPublicProfile);
 
         // Act
-        user.UpdateProfile(newName, newBio, newAvatar);
+        user.UpdateProfile(false);
 
         // Assert
-        Assert.Equal(newName, user.Name);
-        Assert.Equal(newBio, user.Bio);
-        Assert.Equal(newAvatar, user.AvatarUrl);
+        Assert.False(user.IsPublicProfile);
     }
 
     [Fact]
@@ -217,29 +175,15 @@ public class UserTests
     {
         // Arrange
         var user = CreateValidUser();
-        user.ClearDomainEvents(); // Clear creation event
+        user.ClearDomainEvents();
 
         // Act
-        user.UpdateProfile("New Name", "New Bio", "https://avatar.com/img.jpg");
+        user.UpdateProfile(false);
 
         // Assert
         Assert.Single(user.DomainEvents);
-        Assert.IsType<UserProfileUpdatedDomainEvent>(user.DomainEvents.First());
-    }
-
-    [Fact]
-    public void UpdateProfile_ShouldThrowExceptionForBioTooLong()
-    {
-        // Arrange
-        var user = CreateValidUser();
-        var longBio = new string('A', 501); // 501 characters
-
-        // Act
-        var act = () => user.UpdateProfile(null, longBio, null);
-
-        // Assert
-        var exception = Assert.Throws<DomainException>(act);
-        Assert.Equal("Bio must be at most 500 characters", exception.Message);
+        var domainEvent = Assert.IsType<UserProfileUpdatedDomainEvent>(user.DomainEvents.First());
+        Assert.False(domainEvent.IsPublicProfile);
     }
 
     [Fact]

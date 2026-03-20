@@ -21,7 +21,7 @@ public class UpdateProfileCommandHandlerTests
     public async Task Handle_ShouldUpdateAndPersistProfile_WhenUserExists()
     {
         // Arrange
-        var command = UpdateProfileCommandFactory.Create();
+        var command = UpdateProfileCommandFactory.Create(isPublicProfile: false);
         var user = UserFactory.Create();
 
         _userRepositoryMock
@@ -33,30 +33,9 @@ public class UpdateProfileCommandHandlerTests
 
         // Assert
         Assert.Equal(user.Id, result.UserId);
-        Assert.Equal(command.Name, result.Name);
-        Assert.Equal(command.Bio, result.Bio);
-        Assert.Equal(command.AvatarUrl, result.AvatarUrl);
+        Assert.Equal(command.IsPublicProfile, result.IsPublicProfile);
 
         _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_ShouldNotChangeName_WhenNameIsNull()
-    {
-        // Arrange
-        var command = UpdateProfileCommandFactory.Create(name: null, bio: "new bio", avatarUrl: null);
-        var user = UserFactory.Create(name: "Original Name");
-
-        _userRepositoryMock
-            .Setup(x => x.GetByIdAsync(command.UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        Assert.Equal("Original Name", result.Name);
-        Assert.Equal("new bio", result.Bio);
     }
 
     [Fact]

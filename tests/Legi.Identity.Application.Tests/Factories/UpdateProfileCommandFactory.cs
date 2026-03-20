@@ -8,15 +8,11 @@ public static class UpdateProfileCommandFactory
 
     public static UpdateProfileCommand Create(
         Guid? userId = null,
-        string? name = "Updated User",
-        string? bio = "Updated bio",
-        string? avatarUrl = "https://example.com/avatar.jpg")
+        bool isPublicProfile = true)
     {
         return new UpdateProfileCommand(
             userId ?? DefaultUserId,
-            name,
-            bio,
-            avatarUrl
+            isPublicProfile
         );
     }
 }
