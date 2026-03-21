@@ -11,7 +11,7 @@ Documento vivo com as decisões de design do domínio Library, construído incre
 | Aggregate | Tipo | Justificativa |
 |-----------|------|---------------|
 | **UserBook** | Aggregate Root | Relação pessoal do usuário com um livro. Contém status, progresso, rating, wishlist. |
-| **ReadingPost** | Aggregate Root | Promovido de entity filha para aggregate próprio. Posts de leitura são independentes entre si. |
+| **ReadingProgress** | Aggregate Root | Promovido de entity filha para aggregate próprio. Posts de leitura são independentes entre si. |
 | **UserList** | Aggregate Root | Listas personalizadas de livros. Contém `UserListItem` como entity filha. |
 | **BookSnapshot** | Read Model | Cópia desnormalizada dos dados do Catalog (título, autores, capa, páginas). Atualizado via integration events. |
 

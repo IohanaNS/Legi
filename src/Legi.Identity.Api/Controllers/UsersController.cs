@@ -17,7 +17,7 @@ public class UsersController : ControllerBase
     public UsersController(IMediator mediator)
     {
         _mediator = mediator;
-    }
+    }   
 
     /// <summary>
     /// Returns the authenticated user's profile
