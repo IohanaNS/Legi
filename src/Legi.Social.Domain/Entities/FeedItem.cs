@@ -13,30 +13,30 @@ namespace Legi.Social.Domain.Entities;
 ///
 /// Not an aggregate — no domain logic, no domain events.
 /// </summary>
-public class Activity
+public class FeedItem
 {
     public Guid Id { get; private set; }
     public Guid ActorId { get; private set; }
     public string ActorUsername { get; private set; } = null!;
     public string? ActorAvatarUrl { get; private set; }
     public ActivityType ActivityType { get; private set; }
-    
+
     /// <summary>
     /// The type of content this activity references (Post, Review, List).
     /// Null if the activity type is not interactable (e.g., BookStarted has no content to like).
     /// Used to join with likes/comments for real-time counts in the feed query.
     /// </summary>
     public InteractableType? TargetType { get; private set; }
-    
+
     /// <summary>
-    /// The ID of the original content (PostId, ReviewId, ListId, UserBookId, etc.).
+    /// The ID of the original content (PostId, ReviewId, ListId, UserBookId, etc.)
     /// </summary>
     public Guid ReferenceId { get; private set; }
-    
+
     public string? BookTitle { get; private set; }
     public string? BookAuthor { get; private set; }
     public string? BookCoverUrl { get; private set; }
-    
+
     /// <summary>
     /// Flexible JSON payload for type-specific data.
     /// Examples:
@@ -44,10 +44,11 @@ public class Activity
     ///   BookRated: { "rating": 4.5 }
     ///   BookFinished: { "content": "Amazing book!", "rating": 5.0 }
     /// </summary>
-    public string? Content { get; private set; }
+    public string? Data { get; private set; }
+
     public DateTime CreatedAt { get; private set; }
-    
-    public static Activity Create(
+
+    public static FeedItem Create(
         Guid actorId,
         string actorUsername,
         string? actorAvatarUrl,
@@ -59,7 +60,7 @@ public class Activity
         string? bookCoverUrl,
         string? data)
     {
-        return new Activity
+        return new FeedItem
         {
             Id = Guid.NewGuid(),
             ActorId = actorId,
@@ -71,9 +72,8 @@ public class Activity
             BookTitle = bookTitle,
             BookAuthor = bookAuthor,
             BookCoverUrl = bookCoverUrl,
-            Content = data,
+            Data = data,
             CreatedAt = DateTime.UtcNow
         };
     }
-
 }

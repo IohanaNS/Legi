@@ -27,7 +27,7 @@ O Social **não produz conteúdo original**. Ele *reage* a conteúdo. Quem produ
 | UserProfile (bio, avatar) | ✅ Nativo | Apresentação pública do usuário — Identity cuida de autenticação |
 | Like | ✅ Nativo | Interação social sobre conteúdo |
 | Comment | ✅ Nativo | Interação social sobre conteúdo |
-| Feed / Activity | ✅ Nativo (read model) | Projeção cronológica de atividades |
+| Feed / FeedItem | ✅ Nativo (read model) | Projeção cronológica de atividades |
 | ReadingPost | ❌ Library | "Registro pessoal da leitura" faz sentido sem Social |
 | UserList | ❌ Library | "Lista pessoal de livros" faz sentido sem Social |
 | Review | ❌ Catalog | "Avaliação do livro" faz sentido sem Social |
@@ -55,7 +55,7 @@ O "usuário" aparece em múltiplos bounded contexts com representações distint
 | **Like** | Aggregate Root (magro) | Interação independente sobre conteúdo. Sem invariantes cross-like. |
 | **Comment** | Aggregate Root (magro, imutável) | Interação independente sobre conteúdo. Sem invariantes cross-comment. |
 | **ContentSnapshot** | Read Model | Projeção enriquecida de conteúdo de outros contextos (autorização + contexto de exibição). |
-| **Activity** | Read Model | Registro desnormalizado de atividades para o feed. |
+| **FeedItem** | Read Model | Registro desnormalizado de atividades para o feed. |
 
 ---
 
@@ -275,11 +275,13 @@ ORDER BY a.created_at DESC
 LIMIT 20
 ```
 
-### 3.13 Activity como read model desnormalizado
+### 3.13 FeedItem como read model desnormalizado
 
-**Problema:** Activity precisa de dados de múltiplos contextos para renderizar o feed (nome do usuário, título do livro, capa, etc). Como resolver?
+**Problema:** FeedItem precisa de dados de múltiplos contextos para renderizar o feed (nome do usuário, título do livro, capa, etc). Como resolver?
 
-**Decisão:** Activity é um **read model totalmente desnormalizado** no momento da escrita. Quando o integration event chega, o handler cria a Activity já com todos os dados necessários para exibição.
+**Decisão:** FeedItem é um **read model totalmente desnormalizado** no momento da escrita. Quando o integration event chega, o handler cria o FeedItem já com todos os dados necessários para exibição.
+
+**Nota de nomenclatura:** Nomeado `FeedItem` em vez de `Activity` para evitar colisão com `System.Diagnostics.Activity` do .NET.
 
 **Justificativa:** O feed é a tela mais acessada do app. Toda abertura do Legi bate no feed. A leitura precisa ser um SELECT simples, sem joins com UserProfile, ContentSnapshot, etc.
 
@@ -287,7 +289,7 @@ LIMIT 20
 
 ### 3.14 LikesCount e CommentsCount no feed — consulta em tempo real, não desnormalizado
 
-**Problema:** Cada item do feed mostra contagem de likes e comments. Desnormalizar na Activity ou consultar em tempo real?
+**Problema:** Cada item do feed mostra contagem de likes e comments. Desnormalizar no FeedItem ou consultar em tempo real?
 
 **Decisão:** Consulta em tempo real via subquery.
 
@@ -295,10 +297,10 @@ LIMIT 20
 
 **Vantagens sobre desnormalização:**
 - Sempre atualizado (sem race conditions de contadores)
-- Não precisa de dois updates por like (um no Like + um na Activity)
-- Activity não fica poluída com contadores de tipos que não são interagíveis
+- Não precisa de dois updates por like (um no Like + um no FeedItem)
+- FeedItem não fica poluído com contadores de tipos que não são interagíveis
 
-**Distinção conceitual:** A Activity é um registro histórico de algo que aconteceu. O Like é uma interação com o *conteúdo original* (post, review, lista) — não com a Activity. Quando alguém curte, está curtindo o *post do Carlos*, não o "fato de Carlos ter postado".
+**Distinção conceitual:** O FeedItem é um registro histórico de algo que aconteceu. O Like é uma interação com o *conteúdo original* (post, review, lista) — não com o FeedItem. Quando alguém curte, está curtindo o *post do Carlos*, não o "fato de Carlos ter postado".
 
 **Query do feed com contadores:**
 
@@ -386,7 +388,7 @@ ContentSnapshot (Read Model — PK composta, enriquecido)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
-Activity (Read Model — desnormalizado)
+FeedItem (Read Model — desnormalizado)
 ├── Id: Guid
 ├── ActorId: Guid
 ├── ActorUsername: string
@@ -472,17 +474,17 @@ Nenhum domain event identificado com consumidor. YAGNI.
 | Origem | Evento | Efeito no Social |
 |--------|--------|-------------------|
 | Identity | `UserRegisteredIntegrationEvent(UserId, Username)` | Cria UserProfile com defaults |
-| Identity | `UserDeletedIntegrationEvent(UserId)` | Deleta UserProfile, Follows, Likes, Comments, Activities |
+| Identity | `UserDeletedIntegrationEvent(UserId)` | Deleta UserProfile, Follows, Likes, Comments, FeedItems |
 | Identity | `UsernameChangedIntegrationEvent(UserId, NewUsername)` | Atualiza UserProfile.Username |
-| Library | `ReadingPostCreatedIntegrationEvent(PostId, UserId, BookId, Content?, Progress?, ...)` | Cria ContentSnapshot (Post) + Activity (ProgressPosted ou BookFinished) |
-| Library | `ReadingPostDeletedIntegrationEvent(PostId)` | Remove ContentSnapshot + Likes + Comments + Activity |
-| Library | `BookAddedToLibraryIntegrationEvent(UserBookId, UserId, BookId, ...)` | Cria Activity (BookStarted) |
-| Library | `ReadingStatusChangedIntegrationEvent(UserId, BookId, OldStatus, NewStatus)` | Cria Activity (BookFinished, se aplicável) |
-| Library | `UserBookRatedIntegrationEvent(BookId, UserId, Rating)` | Cria Activity (BookRated) |
-| Library | `UserListCreatedIntegrationEvent(ListId, UserId, Name)` | Cria ContentSnapshot (List) + Activity (ListCreated) |
-| Library | `UserListDeletedIntegrationEvent(ListId)` | Remove ContentSnapshot + Likes + Comments + Activity |
-| Catalog | `ReviewCreatedIntegrationEvent(ReviewId, UserId, BookId, ...)` | Cria ContentSnapshot (Review) + Activity (ReviewCreated) |
-| Catalog | `ReviewDeletedIntegrationEvent(ReviewId)` | Remove ContentSnapshot + Likes + Comments + Activity |
+| Library | `ReadingPostCreatedIntegrationEvent(PostId, UserId, BookId, Content?, Progress?, ...)` | Cria ContentSnapshot (Post) + FeedItem (ProgressPosted ou BookFinished) |
+| Library | `ReadingPostDeletedIntegrationEvent(PostId)` | Remove ContentSnapshot + Likes + Comments + FeedItem |
+| Library | `BookAddedToLibraryIntegrationEvent(UserBookId, UserId, BookId, ...)` | Cria FeedItem (BookStarted) |
+| Library | `ReadingStatusChangedIntegrationEvent(UserId, BookId, OldStatus, NewStatus)` | Cria FeedItem (BookFinished, se aplicável) |
+| Library | `UserBookRatedIntegrationEvent(BookId, UserId, Rating)` | Cria FeedItem (BookRated) |
+| Library | `UserListCreatedIntegrationEvent(ListId, UserId, Name)` | Cria ContentSnapshot (List) + FeedItem (ListCreated) |
+| Library | `UserListDeletedIntegrationEvent(ListId)` | Remove ContentSnapshot + Likes + Comments + FeedItem |
+| Catalog | `ReviewCreatedIntegrationEvent(ReviewId, UserId, BookId, ...)` | Cria ContentSnapshot (Review) + FeedItem (ReviewCreated) |
+| Catalog | `ReviewDeletedIntegrationEvent(ReviewId)` | Remove ContentSnapshot + Likes + Comments + FeedItem |
 
 ### 7.2 Outgoing (Social → outros)
 
@@ -495,7 +497,7 @@ Nenhum domain event identificado com consumidor. YAGNI.
 
 ### 7.3 Workaround temporário (pré-RabbitMQ)
 
-Assim como o BookSnapshot no Library, integration events não existem em runtime até a mensageria ser implementada. Snapshots e Activities serão criados via workaround inline nos handlers, com documentação explícita para remoção futura.
+Assim como o BookSnapshot no Library, integration events não existem em runtime até a mensageria ser implementada. Snapshots e FeedItems serão criados via workaround inline nos handlers, com documentação explícita para remoção futura.
 
 ---
 
@@ -573,8 +575,8 @@ IContentSnapshotRepository
 ├── AddOrUpdateAsync(ContentSnapshot snapshot)
 ├── DeleteByTargetAsync(InteractableType type, Guid targetId)
 
-IActivityRepository
-├── AddAsync(Activity activity)
+IFeedItemRepository
+├── AddAsync(FeedItem feedItem)
 ├── DeleteByReferenceAsync(Guid referenceId)
 ├── DeleteByActorAsync(Guid actorId)
 ```
