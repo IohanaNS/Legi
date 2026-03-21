@@ -54,7 +54,7 @@ O "usuário" aparece em múltiplos bounded contexts com representações distint
 | **UserProfile** | Aggregate Root (UserId como PK) | Perfil público do usuário. Dados editáveis + contadores. Fonte de verdade para bio, avatar. |
 | **Like** | Aggregate Root (magro) | Interação independente sobre conteúdo. Sem invariantes cross-like. |
 | **Comment** | Aggregate Root (magro, imutável) | Interação independente sobre conteúdo. Sem invariantes cross-comment. |
-| **ContentSnapshot** | Read Model | Projeção mínima de conteúdo de outros contextos (OwnerId para autorização). |
+| **ContentSnapshot** | Read Model | Projeção enriquecida de conteúdo de outros contextos (autorização + contexto de exibição). |
 | **Activity** | Read Model | Registro desnormalizado de atividades para o feed. |
 
 ---
@@ -207,23 +207,33 @@ Isso segue o princípio estabelecido no Follow (seção 3.8): **o aggregate prot
 | Dados externos (snapshots, outros aggregates) | Handler | "Perfil alvo é público?" |
 | Unicidade cross-aggregate | Handler + Banco | "Follow duplicado?" |
 
-### 3.9 ContentSnapshot — projeção mínima para desacoplamento
+### 3.9 ContentSnapshot — projeção enriquecida para desacoplamento
 
-**Problema:** O handler de `DeleteCommentCommand` precisa verificar quem é o dono do conteúdo alvo. Mas o conteúdo (post, review, lista) vive em outro bounded context. Como o Social descobre o owner?
+**Problema original:** O handler de `DeleteCommentCommand` precisa verificar quem é o dono do conteúdo alvo. Mas o conteúdo (post, review, lista) vive em outro bounded context. Como o Social descobre o owner?
 
 **Três opções avaliadas:**
 
 | Opção | Descrição | Problema |
 |-------|-----------|----------|
 | **1 — Chamada cross-service** | Handler chama Library em runtime | Acoplamento. Se Library cair, Social não pode deletar comments |
-| **2 — Snapshot local** | Tabela local com (TargetType, TargetId, OwnerId) | Mais uma tabela + sync via eventos. Mas desacoplamento total |
+| **2 — Snapshot local** | Tabela local com dados projetados do conteúdo | Mais uma tabela + sync via eventos. Mas desacoplamento total |
 | **3 — Desnormalizar no Comment** | Gravar ContentOwnerId dentro do Comment | Sem mecanismo de atualização. Mistura dados |
 
 **Decisão:** Opção 2 — ContentSnapshot. Mesmo padrão já usado no projeto: BookSnapshot no Library (projeção do Catalog), UserProfile recebendo Username do Identity.
 
 **Justificativa do senior:** Consistência de padrão num codebase é mais valiosa que a solução "perfeita" isolada. Quando alguém novo entra no projeto e vê BookSnapshot no Library, ContentSnapshot no Social, UserProfile recebendo Username do Identity — entende imediatamente: "dados de outro contexto viram snapshots locais". É vocabulário arquitetural.
 
-**YAGNI no conteúdo do snapshot:** Modelo mínimo com apenas o necessário. Quando o feed precisar de mais (título, preview), expande.
+**Modelo enriquecido (não mínimo):** Inicialmente o ContentSnapshot continha apenas OwnerId para autorização. Após análise de cenários reais de uso (página de comentários, página de likes, futuras notificações), decidiu-se enriquecer o snapshot com dados de contexto:
+
+- **Cenário: página de comentários** — o usuário clica em "3 comentários" no feed. A página precisa mostrar *sobre o quê* as pessoas estão comentando (texto do post, livro, quem postou). Com snapshot mínimo, o frontend teria que chamar Library (dados do post) + Social (comentários) — duas chamadas cross-service para uma tela. Com snapshot enriquecido, é uma única chamada ao Social.
+- **Cenário: página de likes** — mesma lógica, precisa de contexto visual.
+- **Cenário: futuras notificações** — "X comentou no seu post sobre Duna" requer título do livro e dados do owner.
+
+**LikesCount e CommentsCount NÃO estão no ContentSnapshot.** Likes e comments vivem no mesmo banco do Social — contadores são consultados em tempo real via `COUNT(*)` com índice em `(target_type, target_id)`. Desnormalizar contadores aqui criaria escrita duplicada (atualizar Like + atualizar ContentSnapshot + enviar integration event pro Library) sem benefício, já que a consulta local é trivial. Regra: **desnormalizar contadores apenas quando os dados vivem em serviço diferente.**
+
+**`UpdateOwner` para sincronização:** Quando Identity notifica mudança de username/avatar, o handler atualiza OwnerUsername e OwnerAvatarUrl em todos os ContentSnapshots daquele usuário. Dados do livro não têm método de update por ora — metadata de livro muda raramente (YAGNI).
+
+**`ContentPreview` truncado na criação:** O snapshot armazena os primeiros ~200 caracteres do conteúdo do post/review. A truncagem é feita na entidade (constante `MaxContentPreviewLength = 200`), garantindo o invariante independente de quem cria o snapshot.
 
 **Workaround temporário:** Assim como BookSnapshot no Library, criação inline até RabbitMQ existir.
 
@@ -362,12 +372,19 @@ Comment (Aggregate Root — magro, imutável)
     Hard delete
     Deletável pelo autor OU pelo dono do conteúdo alvo
 
-ContentSnapshot (Read Model — PK composta)
+ContentSnapshot (Read Model — PK composta, enriquecido)
 ├── TargetType: InteractableType
 ├── TargetId: Guid
 ├── (PK composta: TargetType + TargetId)
 ├── OwnerId: Guid
-└── CreatedAt: DateTime
+├── OwnerUsername: string (snapshot do Identity)
+├── OwnerAvatarUrl: string? (snapshot do Identity)
+├── BookTitle: string? (do Catalog/Library)
+├── BookAuthor: string? (do Catalog/Library)
+├── BookCoverUrl: string? (do Catalog/Library)
+├── ContentPreview: string? (primeiros ~200 chars do post/review)
+├── CreatedAt: DateTime
+└── UpdatedAt: DateTime
 
 Activity (Read Model — desnormalizado)
 ├── Id: Guid
@@ -380,7 +397,7 @@ Activity (Read Model — desnormalizado)
 ├── BookTitle: string?
 ├── BookAuthor: string?
 ├── BookCoverUrl: string?
-├── Content: string? (JSON — progresso, rating, texto do post)
+├── Data: string? (JSON — progresso, rating, texto do post)
 └── CreatedAt: DateTime
 ```
 
