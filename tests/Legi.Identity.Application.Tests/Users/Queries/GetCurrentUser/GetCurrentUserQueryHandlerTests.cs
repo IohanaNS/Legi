@@ -35,7 +35,6 @@ public class GetCurrentUserQueryHandlerTests
         Assert.Equal(user.Id, result.UserId);
         Assert.Equal(user.Email.Value, result.Email);
         Assert.Equal(user.Username.Value, result.Username);
-        Assert.Equal(user.IsPublicProfile, result.IsPublicProfile);
         Assert.Equal(0, result.Stats.TotalBooks);
         Assert.Equal(0, result.Stats.TotalFollowers);
     }

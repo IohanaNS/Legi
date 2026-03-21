@@ -3,7 +3,6 @@ namespace Legi.Identity.Application.Users.Queries.GetPublicProfile;
 public record GetPublicProfileResponse(
     Guid UserId,
     string Username,
-    bool IsPublicProfile,
     DateTime CreatedAt,
     PublicUserStatsDto Stats,
     bool? IsFollowedByMe

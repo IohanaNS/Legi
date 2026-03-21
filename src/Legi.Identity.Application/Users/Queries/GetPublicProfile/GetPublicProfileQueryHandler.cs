@@ -22,7 +22,6 @@ public class GetPublicProfileQueryHandler(IUserRepository userRepository)
         return new GetPublicProfileResponse(
             user.Id,
             user.Username.Value,
-            user.IsPublicProfile,
             user.CreatedAt,
             stats,
             isFollowedByMe

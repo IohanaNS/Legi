@@ -43,10 +43,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(u => u.IsPublicProfile)
-            .HasColumnName("is_public_profile")
-            .IsRequired();
-
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

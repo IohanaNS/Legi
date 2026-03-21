@@ -3,6 +3,7 @@ using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Tests.Factories;
 using Legi.SharedKernel;
 
+
 namespace Legi.Identity.Domain.Tests.Entities;
 
 public class UserTests
@@ -23,7 +24,6 @@ public class UserTests
         Assert.Equal(email, user.Email);
         Assert.Equal(username, user.Username);
         Assert.Equal(passwordHash, user.PasswordHash);
-        Assert.True(user.IsPublicProfile);
         Assert.NotEqual(Guid.Empty, user.Id);
     }
 
@@ -154,36 +154,6 @@ public class UserTests
 
         // Assert
         Assert.Null(token);
-    }
-
-    [Fact]
-    public void UpdateProfile_ShouldUpdateIsPublicProfile()
-    {
-        // Arrange
-        var user = CreateValidUser();
-        Assert.True(user.IsPublicProfile);
-
-        // Act
-        user.UpdateProfile(false);
-
-        // Assert
-        Assert.False(user.IsPublicProfile);
-    }
-
-    [Fact]
-    public void UpdateProfile_ShouldRaiseUserProfileUpdatedEvent()
-    {
-        // Arrange
-        var user = CreateValidUser();
-        user.ClearDomainEvents();
-
-        // Act
-        user.UpdateProfile(false);
-
-        // Assert
-        Assert.Single(user.DomainEvents);
-        var domainEvent = Assert.IsType<UserProfileUpdatedDomainEvent>(user.DomainEvents.First());
-        Assert.False(domainEvent.IsPublicProfile);
     }
 
     [Fact]

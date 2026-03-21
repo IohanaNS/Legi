@@ -9,7 +9,6 @@ public class User : BaseAuditableEntity
     public Email Email { get; private set; } = null!;
     public Username Username { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
-    public bool IsPublicProfile { get; private set; }
 
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
@@ -25,8 +24,7 @@ public class User : BaseAuditableEntity
             Username = username,
             PasswordHash = passwordHash,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            IsPublicProfile = true
+            UpdatedAt = DateTime.UtcNow
         };
 
         user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, email.Value));
@@ -80,13 +78,6 @@ public class User : BaseAuditableEntity
     {
         return _refreshTokens.FirstOrDefault(t =>
             t.TokenHash == tokenHash && t.IsActive);
-    }
-
-    public void UpdateProfile(bool isPublicProfile)
-    {
-        IsPublicProfile = isPublicProfile;
-        UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new UserProfileUpdatedDomainEvent(Id, isPublicProfile));
     }
 
     public void UpdatePassword(string newPasswordHash)

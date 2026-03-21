@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
-using Legi.Identity.Application.Users.Commands.UpdateProfile;
 using Legi.Identity.Application.Users.Queries.GetCurrentUser;
 using Legi.Identity.Application.Users.Queries.GetPublicProfile;
 using Microsoft.AspNetCore.Authorization;
@@ -32,24 +31,6 @@ public class UsersController : ControllerBase
         var userId = GetCurrentUserId();
         var query = new GetCurrentUserQuery(userId);
         var result = await _mediator.Send(query, cancellationToken);
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Updates the authenticated user's profile
-    /// </summary>
-    [Authorize]
-    [HttpPatch("me")]
-    [ProducesResponseType(typeof(UpdateProfileResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<UpdateProfileResponse>> UpdateMe(
-        [FromBody] UpdateProfileRequest request,
-        CancellationToken cancellationToken)
-    {
-        var userId = GetCurrentUserId();
-        var command = new UpdateProfileCommand(userId, request.IsPublicProfile);
-        var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
     }
 
@@ -106,6 +87,3 @@ public class UsersController : ControllerBase
         return userId;
     }
 }
-
-// Request DTOs
-public record UpdateProfileRequest(bool IsPublicProfile);

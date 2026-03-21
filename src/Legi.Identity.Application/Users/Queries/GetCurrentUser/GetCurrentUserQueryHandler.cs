@@ -28,7 +28,6 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, G
             user.Id,
             user.Email.Value,
             user.Username.Value,
-            user.IsPublicProfile,
             user.CreatedAt,
             stats
         );

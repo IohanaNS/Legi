@@ -72,10 +72,6 @@ namespace Legi.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<bool>("IsPublicProfile")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_public_profile");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)

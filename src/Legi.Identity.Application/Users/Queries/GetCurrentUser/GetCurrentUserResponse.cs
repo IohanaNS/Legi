@@ -4,7 +4,6 @@ public record GetCurrentUserResponse(
     Guid UserId,
     string Email,
     string Username,
-    bool IsPublicProfile,
     DateTime CreatedAt,
     UserStatsDto Stats
 );
