@@ -96,6 +96,11 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Application            (✅ complete)
 │   ├── Infrastructure         (✅ complete)
 │   └── Api                    (✅ complete)
+├── Legi.Social.*              (Social bounded context)
+│   ├── Domain                 (✅ complete)
+│   ├── Application
+│   ├── Infrastructure
+│   └── Api
 ├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
 └── tests/
     ├── Legi.Identity.Domain.Tests
@@ -237,6 +242,15 @@ Shared abstractions with zero external dependencies:
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
 
+### Social Service
+
+**Legi.Social.Domain**
+- Entities: `Follow` (aggregate root), `Like` (aggregate root), `Comment` (aggregate root), `UserProfile` (aggregate root, UserId as PK), `Activity` (read model), `ContentSnapshot` (read model)
+- Enums: `InteractableType` (Post, Review, List), `ActivityType` (ProgressPosted, BookFinished, BookStarted, BookRated, ReviewCreated, ListCreated)
+- Repository interfaces: `IFollowRepository`, `IUserProfileRepository`, `ILikeRepository`, `ICommentRepository`, `IContentSnapshotRepository`, `IActivityRepository`
+- Domain events (6): `FollowCreatedDomainEvent`, `FollowRemovedDomainEvent`, `ContentLikedDomainEvent`, `ContentUnlikedDomainEvent`, `CommentCreatedDomainEvent`, `CommentDeletedDomainEvent`
+- Key design: Like and Comment use polymorphic `TargetType + TargetId` (InteractableType) for unified interactions. Activity is a fully denormalized feed read model (fan-out on read). ContentSnapshot holds OwnerId for authorization checks.
+
 ### Web Frontend
 
 - **Location**: `web/legi-web/`
@@ -312,6 +326,30 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - Maximum 100 lists per user
 - Duplicate book detection in list (same UserBookId)
 - Supports reordering via `ReorderBooks()`
+
+### Follow Entity (Social)
+- User cannot follow themselves (validated in `Create` factory)
+- Composite natural key: (FollowerId, FollowingId)
+- Hard delete on unfollow (no soft delete)
+- Raises `FollowCreatedDomainEvent` / `FollowRemovedDomainEvent` to update UserProfile counters
+
+### UserProfile Entity (Social)
+- UserId as PK (does not inherit BaseEntity)
+- Bio: max 500 characters (`MaxBioLength` constant)
+- FollowersCount / FollowingCount cannot go negative
+- Created via integration event when user registers in Identity
+- Username is a snapshot from Identity, updated via integration events
+
+### Like Entity (Social)
+- Composite natural key: (UserId, TargetType, TargetId) — user can like same content only once
+- Hard delete on unlike
+- Polymorphic via `InteractableType` (Post, Review, List)
+
+### Comment Entity (Social)
+- Content required, 1-500 characters (`MinContentLength`, `MaxContentLength` constants)
+- Immutable — can only be created or deleted, no editing
+- Deletable by comment author OR content owner (checked via ContentSnapshot in handler)
+- Hard delete
 
 ### Authentication Flow
 - Login returns both access token (JWT, 60min) and refresh token (7 days)

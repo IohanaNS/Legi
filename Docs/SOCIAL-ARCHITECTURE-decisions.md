@@ -2,7 +2,7 @@
 
 Documento vivo com as decisões de design do domínio Social, construído incrementalmente.
 
-**Status de Implementação:** Domain 📋 | Application 📋 | Infrastructure 📋 | Api 📋
+**Status de Implementação:** Domain ✅ | Application 📋 | Infrastructure 📋 | Api 📋
 
 ---
 
@@ -380,7 +380,7 @@ Activity (Read Model — desnormalizado)
 ├── BookTitle: string?
 ├── BookAuthor: string?
 ├── BookCoverUrl: string?
-├── Data: jsonb? (progresso, rating, texto do post)
+├── Content: string? (JSON — progresso, rating, texto do post)
 └── CreatedAt: DateTime
 ```
 
@@ -555,6 +555,11 @@ IContentSnapshotRepository
 ├── GetByTargetAsync(InteractableType type, Guid targetId)
 ├── AddOrUpdateAsync(ContentSnapshot snapshot)
 ├── DeleteByTargetAsync(InteractableType type, Guid targetId)
+
+IActivityRepository
+├── AddAsync(Activity activity)
+├── DeleteByReferenceAsync(Guid referenceId)
+├── DeleteByActorAsync(Guid actorId)
 ```
 
 ### 9.2 Read Repositories (Application — a definir na fase de Application design)

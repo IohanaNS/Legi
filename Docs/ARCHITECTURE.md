@@ -11,7 +11,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
-| **Social** | 📋 Planejado | Não iniciado |
+| **Social** | 🚧 Em desenvolvimento | Domain ✅ |
 
 ## Stack Tecnológica
 
@@ -42,7 +42,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
-     │    ✅    │ │    ✅    │ │    ✅    │ │    📋    │
+     │    ✅    │ │    ✅    │ │    ✅    │ │    🚧    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
@@ -1026,81 +1026,140 @@ web/legi-web/src/
 
 ---
 
-## 5. Social Service 📋 PLANEJADO
+## 5. Social Service 🚧 EM DESENVOLVIMENTO
 
-### 5.1 Domínio
+Decisões de arquitetura detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md`.
+
+### 5.1 Domínio ✅
 
 **Aggregates:**
 
 ```
-Follow (Aggregate Root)
+Follow (Aggregate Root — magro)
 ├── Id: Guid
 ├── FollowerId: Guid
 ├── FollowingId: Guid
-└── CreatedAt: DateTime
+├── CreatedAt: DateTime
+├── Factory: Create(followerId, followingId) → valida auto-follow
+└── Hard delete no unfollow
 
-PostInteractions (Aggregate Root)
-├── PostId: Guid
-├── PostAuthorId: Guid
-├── Likes: List<PostLike>
-└── Comments: List<PostComment>
+UserProfile (Aggregate Root — UserId como PK, não herda BaseEntity)
+├── UserId: Guid (PK)
+├── Username: string (snapshot do Identity)
+├── Bio: string? (max 500, constante: MaxBioLength)
+├── AvatarUrl: string?
+├── BannerUrl: string?
+├── FollowersCount: int (≥ 0, nativo do Social)
+├── FollowingCount: int (≥ 0, nativo do Social)
+├── CreatedAt: DateTime
+└── UpdatedAt: DateTime
 
-PostLike (Entity)
+Like (Aggregate Root — magro)
 ├── Id: Guid
 ├── UserId: Guid
-└── CreatedAt: DateTime
+├── TargetType: InteractableType
+├── TargetId: Guid
+├── CreatedAt: DateTime
+├── Factory: Create(userId, targetType, targetId)
+└── Unicidade: (userId + targetType + targetId) no banco. Hard delete no unlike
 
-PostComment (Entity)
+Comment (Aggregate Root — magro, imutável)
 ├── Id: Guid
 ├── UserId: Guid
-├── Content: string (1-500)
+├── TargetType: InteractableType
+├── TargetId: Guid
+├── Content: string (1-500, constantes: MinContentLength, MaxContentLength)
+├── CreatedAt: DateTime
+├── Factory: Create(userId, targetType, targetId, content)
+└── Sem edição — só cria ou deleta. Deletável pelo autor OU pelo dono do conteúdo alvo
+
+ContentSnapshot (Read Model — PK composta)
+├── TargetType: InteractableType
+├── TargetId: Guid
+├── OwnerId: Guid (para autorização de deleção de comments)
+└── CreatedAt: DateTime
+
+Activity (Read Model — desnormalizado para feed)
+├── Id: Guid
+├── ActorId: Guid
+├── ActorUsername: string
+├── ActorAvatarUrl: string?
+├── ActivityType: ActivityType
+├── TargetType: InteractableType? (null se não é interagível, ex: BookStarted)
+├── ReferenceId: Guid (id do post, review, lista, etc)
+├── BookTitle: string?
+├── BookAuthor: string?
+├── BookCoverUrl: string?
+├── Content: string? (JSON — progresso, rating, texto do post)
 └── CreatedAt: DateTime
 ```
 
+**Enums:**
+```csharp
+enum InteractableType { Post, Review, List }
+enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, ReviewCreated, ListCreated }
+```
+
 **Regras:**
-- Não pode seguir a si mesmo
-- Follow é unique (FollowerId, FollowingId)
-- Apenas seguidores podem curtir/comentar posts (ou o próprio autor)
-- Qualquer usuário autenticado pode interagir com listas públicas
-- Usuário só pode curtir um post/lista uma vez
-- Comentários passam por filtro de conteúdo ofensivo
+- Não pode seguir a si mesmo (validado no aggregate)
+- Follow é unique (FollowerId, FollowingId). Hard delete no unfollow
+- Like é unique (UserId, TargetType, TargetId). Usuário só pode curtir o mesmo conteúdo uma vez
+- Comentários são imutáveis — só cria ou deleta, sem edição
+- Comentário deletável pelo autor OU dono do conteúdo (verificado no handler via ContentSnapshot.OwnerId)
+- Contadores de seguidores/seguindo nunca negativos (protegido no aggregate)
+- UserProfile criado via integration event no registro do Identity
+- Like e Comment usam `TargetType + TargetId` polimórfico — modelo unificado para Post, Review e List
+- Feed: fan-out on read (query com join em follows), não fan-out on write
+- LikesCount/CommentsCount no feed são query em tempo real (mesmo banco), não desnormalizados na Activity
 
-**Domain Events:**
-- `UserFollowedDomainEvent`
-- `UserUnfollowedDomainEvent`
-- `PostLikedDomainEvent`
-- `PostUnlikedDomainEvent`
-- `PostCommentedDomainEvent`
-- `CommentDeletedDomainEvent`
-- `ListLikedDomainEvent`
-- `ListCommentedDomainEvent`
+**Domain Events (6 — princípio YAGNI, apenas com consumidores identificados):**
 
-### 5.2 API Endpoints
+| Aggregate | Evento | Consumidores |
+|-----------|--------|-------------|
+| Follow | `FollowCreatedDomainEvent` | UserProfile (incrementa contadores) |
+| Follow | `FollowRemovedDomainEvent` | UserProfile (decrementa contadores) |
+| Like | `ContentLikedDomainEvent` | Library (incrementa LikesCount) via integration event |
+| Like | `ContentUnlikedDomainEvent` | Library (decrementa LikesCount) via integration event |
+| Comment | `CommentCreatedDomainEvent` | Library (incrementa CommentsCount) via integration event |
+| Comment | `CommentDeletedDomainEvent` | Library (decrementa CommentsCount) via integration event |
 
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| POST | `/api/v1/social/follows` | Seguir usuário | 🔒 |
-| DELETE | `/api/v1/social/follows/{userId}` | Deixar de seguir | 🔒 |
-| GET | `/api/v1/social/users/{userId}/followers` | Listar seguidores | 🔓 |
-| GET | `/api/v1/social/users/{userId}/following` | Listar seguindo | 🔓 |
-| GET | `/api/v1/social/feed` | Feed de atividades | 🔒 |
-| GET | `/api/v1/social/discover` | Descobrir livros | 🔒 |
-| POST | `/api/v1/social/posts/{postId}/likes` | Curtir post | 🔒 |
-| DELETE | `/api/v1/social/posts/{postId}/likes` | Descurtir post | 🔒 |
-| GET | `/api/v1/social/posts/{postId}/comments` | Listar comentários | 🔒 |
-| POST | `/api/v1/social/posts/{postId}/comments` | Comentar post | 🔒 |
-| POST | `/api/v1/social/lists/{listId}/likes` | Curtir lista | 🔒 |
-| DELETE | `/api/v1/social/lists/{listId}/likes` | Descurtir lista | 🔒 |
-| GET | `/api/v1/social/lists/{listId}/comments` | Listar comentários | 🔓 |
-| POST | `/api/v1/social/lists/{listId}/comments` | Comentar lista | 🔒 |
-| DELETE | `/api/v1/social/comments/{commentId}` | Excluir comentário | 🔒 |
+**Repository Interfaces (Domain):**
+- `IFollowRepository` — GetByIdAsync, GetByPairAsync, AddAsync, DeleteAsync
+- `IUserProfileRepository` — GetByUserIdAsync, AddAsync, UpdateAsync, DeleteAsync
+- `ILikeRepository` — GetByIdAsync, GetByUserAndTargetAsync, AddAsync, DeleteAsync
+- `ICommentRepository` — GetByIdAsync, AddAsync, DeleteAsync
+- `IContentSnapshotRepository` — GetByTargetAsync, AddOrUpdateAsync, DeleteByTargetAsync
+- `IActivityRepository` — AddAsync, DeleteByReferenceAsync, DeleteByActorAsync
 
-### 5.3 Database Schema
+### 5.2 Application 📋
+
+A definir.
+
+### 5.3 API Endpoints 📋
+
+A definir. Endpoints planejados incluem: follows, feed, likes, comments, perfil público.
+
+### 5.4 Database Schema 📋
+
+Schema planejado (sujeito a mudanças durante implementação da Infrastructure):
 
 ```sql
--- Enum type
-CREATE TYPE interactable_type AS ENUM ('post', 'list');
-CREATE TYPE feed_item_type AS ENUM ('reading_post', 'review', 'book_added', 'rating');
+-- Enum types
+CREATE TYPE interactable_type AS ENUM ('post', 'review', 'list');
+CREATE TYPE activity_type AS ENUM ('progress_posted', 'book_finished', 'book_started', 'book_rated', 'review_created', 'list_created');
+
+-- Tabela: user_profiles
+CREATE TABLE user_profiles (
+    user_id UUID PRIMARY KEY,
+    username VARCHAR(30) NOT NULL,
+    bio VARCHAR(500),
+    avatar_url VARCHAR(500),
+    banner_url VARCHAR(500),
+    followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
+    following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Tabela: follows
 CREATE TABLE follows (
@@ -1128,7 +1187,7 @@ CREATE TABLE likes (
 CREATE INDEX ix_likes_target ON likes(target_type, target_id);
 CREATE INDEX ix_likes_user_id ON likes(user_id);
 
--- Tabela: comments (polimórfica)
+-- Tabela: comments (polimórfica, imutável)
 CREATE TABLE comments (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
@@ -1142,32 +1201,34 @@ CREATE INDEX ix_comments_target ON comments(target_type, target_id);
 CREATE INDEX ix_comments_target_created ON comments(target_type, target_id, created_at DESC);
 CREATE INDEX ix_comments_user_id ON comments(user_id);
 
--- Tabela: feed_items (desnormalizada para performance)
-CREATE TABLE feed_items (
+-- Tabela: content_snapshots (projeção de outros contextos para autorização)
+CREATE TABLE content_snapshots (
+    target_type interactable_type NOT NULL,
+    target_id UUID NOT NULL,
+    owner_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (target_type, target_id)
+);
+
+-- Tabela: activities (read model desnormalizado para feed — fan-out on read)
+CREATE TABLE activities (
     id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    item_type feed_item_type NOT NULL,
+    actor_id UUID NOT NULL,
+    actor_username VARCHAR(30) NOT NULL,
+    actor_avatar_url VARCHAR(500),
+    activity_type activity_type NOT NULL,
+    target_type interactable_type,
     reference_id UUID NOT NULL,
-    book_id UUID NOT NULL,
-    user_name VARCHAR(100) NOT NULL,
-    user_avatar_url VARCHAR(500),
-    book_title VARCHAR(500) NOT NULL,
+    book_title VARCHAR(500),
+    book_author VARCHAR(500),
     book_cover_url VARCHAR(500),
-    data JSONB,
+    content JSONB,
     created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX ix_feed_items_user_created ON feed_items(user_id, created_at DESC);
-CREATE INDEX ix_feed_items_created_at ON feed_items(created_at DESC);
-
--- Tabela: user_tag_preferences (para descoberta)
-CREATE TABLE user_tag_preferences (
-    user_id UUID NOT NULL,
-    tag_slug VARCHAR(50) NOT NULL,
-    score DECIMAL(5,2) NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_id, tag_slug)
-);
+CREATE INDEX ix_activities_actor_id ON activities(actor_id);
+CREATE INDEX ix_activities_created_at ON activities(created_at DESC);
+CREATE INDEX ix_activities_reference_id ON activities(reference_id);
 ```
 
 ---
