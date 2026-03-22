@@ -98,7 +98,7 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   └── Api                    (✅ complete)
 ├── Legi.Social.*              (Social bounded context)
 │   ├── Domain                 (✅ complete)
-│   ├── Application
+│   ├── Application            (✅ complete)
 │   ├── Infrastructure
 │   └── Api
 ├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
@@ -245,11 +245,28 @@ Shared abstractions with zero external dependencies:
 ### Social Service
 
 **Legi.Social.Domain**
-- Entities: `Follow` (aggregate root), `Like` (aggregate root), `Comment` (aggregate root), `UserProfile` (aggregate root, UserId as PK), `Activity` (read model), `ContentSnapshot` (read model)
+- Entities: `Follow` (aggregate root), `Like` (aggregate root), `Comment` (aggregate root), `UserProfile` (aggregate root, UserId as PK), `FeedItem` (read model), `ContentSnapshot` (read model)
 - Enums: `InteractableType` (Post, Review, List), `ActivityType` (ProgressPosted, BookFinished, BookStarted, BookRated, ReviewCreated, ListCreated)
-- Repository interfaces: `IFollowRepository`, `IUserProfileRepository`, `ILikeRepository`, `ICommentRepository`, `IContentSnapshotRepository`, `IActivityRepository`
+- Repository interfaces: `IFollowRepository`, `IUserProfileRepository`, `ILikeRepository`, `ICommentRepository`, `IContentSnapshotRepository`, `IFeedItemRepository`
 - Domain events (6): `FollowCreatedDomainEvent`, `FollowRemovedDomainEvent`, `ContentLikedDomainEvent`, `ContentUnlikedDomainEvent`, `CommentCreatedDomainEvent`, `CommentDeletedDomainEvent`
-- Key design: Like and Comment use polymorphic `TargetType + TargetId` (InteractableType) for unified interactions. Activity is a fully denormalized feed read model (fan-out on read). ContentSnapshot holds OwnerId for authorization checks.
+- Key design: Like and Comment use polymorphic `TargetType + TargetId` (InteractableType) for unified interactions. FeedItem is a fully denormalized feed read model (fan-out on read). ContentSnapshot holds OwnerId for authorization checks.
+
+**Legi.Social.Application**
+- Follow Commands: `FollowUserCommand`, `UnfollowUserCommand`
+- Comment Commands: `CreateCommentCommand` (with validator), `DeleteCommentCommand`
+- Like Commands: `LikeContentCommand`, `UnlikeContentCommand`
+- Profile Commands: `UpdateProfileCommand` (with validator)
+- Follow Queries: `GetFollowersQuery`, `GetFollowingQuery`
+- Comment Queries: `GetContentCommentsQuery`
+- Like Queries: `GetContentLikesQuery`
+- Feed Queries: `GetFeedQuery`, `GetUserActivityQuery`
+- Profile Queries: `GetUserProfileQuery` (with IsFollowing contextual flag)
+- Content Queries: `GetContentContextQuery` (header for comments/likes pages)
+- Domain Event Handlers: `FollowCreated/RemovedDomainEventHandler` (UserProfile counters), `CommentCreated/DeletedDomainEventHandler` (stubs), `ContentLiked/UnlikedDomainEventHandler` (stubs)
+- Read Repository Interfaces: `IFollowReadRepository`, `ICommentReadRepository`, `ILikeReadRepository`, `IFeedItemReadRepository`
+- DTOs: `FollowUserDto`, `CommentDto`, `FeedItemDto`, `UserProfileDto`, `ContentContextDto`, `LikeUserDto`, `PaginatedList<T>`, response DTOs
+- Behaviors: `ValidationBehavior`, `LoggingBehavior`
+- Exceptions: `ConflictException`, `NotFoundException`, `ForbiddenException`
 
 ### Web Frontend
 

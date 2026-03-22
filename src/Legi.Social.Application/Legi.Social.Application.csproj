@@ -12,12 +12,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Reference Include="FluentValidation">
-        <HintPath>..\..\..\..\..\.nuget\packages\fluentvalidation\12.1.1\lib\net8.0\FluentValidation.dll</HintPath>
-      </Reference>
-      <Reference Include="Microsoft.Extensions.Logging.Abstractions">
-        <HintPath>..\..\..\..\..\.nuget\packages\microsoft.extensions.logging.abstractions\10.0.2\lib\net10.0\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
-      </Reference>
+      <PackageReference Include="FluentValidation" Version="12.1.1" />
+      <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Content\Queries\" />
     </ItemGroup>
 
 </Project>
