@@ -2,7 +2,7 @@
 
 Documento vivo com as decisões de design do domínio Social, construído incrementalmente.
 
-**Status de Implementação:** Domain ✅ | Application 📋 | Infrastructure 📋 | Api 📋
+**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure 📋 | Api 📋
 
 ---
 
@@ -581,9 +581,32 @@ IFeedItemRepository
 ├── DeleteByActorAsync(Guid actorId)
 ```
 
-### 9.2 Read Repositories (Application — a definir na fase de Application design)
+### 9.2 Read Repositories (Application) ✅
 
-Queries do feed, listagem de seguidores/seguindo, comentários por conteúdo, etc. Serão definidas quando atacarmos a camada Application.
+```
+IFollowReadRepository
+├── GetFollowersAsync(userId, viewerUserId?, page, pageSize)
+│     → PaginatedList<FollowUserDto> (com IsFollowedByViewer contextual)
+├── GetFollowingAsync(userId, viewerUserId?, page, pageSize)
+│     → PaginatedList<FollowUserDto>
+
+ICommentReadRepository
+├── GetByTargetAsync(targetType, targetId, page, pageSize)
+│     → PaginatedList<CommentDto> (join com user_profiles para username/avatar)
+
+ILikeReadRepository
+├── GetByTargetAsync(targetType, targetId, viewerUserId?, page, pageSize)
+│     → PaginatedList<LikeUserDto> (com IsFollowedByViewer contextual)
+
+IFeedItemReadRepository
+├── GetFeedAsync(viewerUserId, page, pageSize)
+│     → PaginatedList<FeedItemDto> (atividades de quem o viewer segue)
+│       Inclui LikesCount, CommentsCount (subquery em tempo real) e IsLikedByMe
+├── GetUserActivityAsync(targetUserId, viewerUserId?, page, pageSize)
+│     → PaginatedList<FeedItemDto> (histórico de atividades de um usuário)
+```
+
+**Padrão contextual:** Queries que exibem listas de usuários aceitam `viewerUserId?` opcional. Quando presente, o read repository faz join adicional para determinar se o viewer segue cada usuário listado (`IsFollowedByViewer`). Quando ausente (acesso anônimo), o campo é `false`.
 
 ---
 

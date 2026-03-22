@@ -11,7 +11,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
-| **Social** | 🚧 Em desenvolvimento | Domain ✅ |
+| **Social** | 🚧 Em desenvolvimento | Domain ✅, Application ✅ |
 
 ## Stack Tecnológica
 
@@ -1073,13 +1073,20 @@ Comment (Aggregate Root — magro, imutável)
 ├── Factory: Create(userId, targetType, targetId, content)
 └── Sem edição — só cria ou deleta. Deletável pelo autor OU pelo dono do conteúdo alvo
 
-ContentSnapshot (Read Model — PK composta)
+ContentSnapshot (Read Model — PK composta, enriquecido)
 ├── TargetType: InteractableType
 ├── TargetId: Guid
 ├── OwnerId: Guid (para autorização de deleção de comments)
-└── CreatedAt: DateTime
+├── OwnerUsername: string (snapshot do Identity)
+├── OwnerAvatarUrl: string? (snapshot do Identity)
+├── BookTitle: string? (do Catalog/Library)
+├── BookAuthor: string? (do Catalog/Library)
+├── BookCoverUrl: string? (do Catalog/Library)
+├── ContentPreview: string? (primeiros ~200 chars do post/review)
+├── CreatedAt: DateTime
+└── UpdatedAt: DateTime
 
-Activity (Read Model — desnormalizado para feed)
+FeedItem (Read Model — desnormalizado para feed)
 ├── Id: Guid
 ├── ActorId: Guid
 ├── ActorUsername: string
@@ -1090,7 +1097,7 @@ Activity (Read Model — desnormalizado para feed)
 ├── BookTitle: string?
 ├── BookAuthor: string?
 ├── BookCoverUrl: string?
-├── Content: string? (JSON — progresso, rating, texto do post)
+├── Data: string? (JSON — progresso, rating, texto do post)
 └── CreatedAt: DateTime
 ```
 
@@ -1131,9 +1138,51 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `IContentSnapshotRepository` — GetByTargetAsync, AddOrUpdateAsync, DeleteByTargetAsync
 - `IActivityRepository` — AddAsync, DeleteByReferenceAsync, DeleteByActorAsync
 
-### 5.2 Application 📋
+### 5.2 Application ✅
 
-A definir.
+**Follow Commands:** `FollowUserCommand`, `UnfollowUserCommand`
+**Comment Commands:** `CreateCommentCommand`, `DeleteCommentCommand`
+**Like Commands:** `LikeContentCommand`, `UnlikeContentCommand`
+**Profile Commands:** `UpdateProfileCommand`
+
+**Follow Queries:** `GetFollowersQuery`, `GetFollowingQuery`
+**Comment Queries:** `GetContentCommentsQuery`
+**Like Queries:** `GetContentLikesQuery`
+**Feed Queries:** `GetFeedQuery`, `GetUserActivityQuery`
+**Profile Queries:** `GetUserProfileQuery`
+**Content Queries:** `GetContentContextQuery`
+
+**Behaviors:** `ValidationBehavior`, `LoggingBehavior`
+**Exceptions:** `ConflictException`, `NotFoundException`, `ForbiddenException`
+
+**Read Repository Interfaces (Application):**
+- `IFollowReadRepository` — GetFollowersAsync, GetFollowingAsync (com `ViewerUserId` opcional para `IsFollowedByViewer`)
+- `ICommentReadRepository` — GetByTargetAsync (paginado, com username/avatar via join com user_profiles)
+- `ILikeReadRepository` — GetByTargetAsync (paginado, com `ViewerUserId` opcional para `IsFollowedByViewer`)
+- `IFeedItemReadRepository` — GetFeedAsync (atividades de quem o viewer segue), GetUserActivityAsync (histórico de um usuário)
+
+**DTOs:**
+- `FollowUserDto` (UserId, Username, AvatarUrl, Bio, IsFollowedByViewer)
+- `CommentDto` (Id, UserId, Username, AvatarUrl, Content, CreatedAt)
+- `FeedItemDto` (Id, ActorId, ActorUsername, ActorAvatarUrl, ActivityType, TargetType, ReferenceId, BookTitle, BookAuthor, BookCoverUrl, Data, LikesCount, CommentsCount, IsLikedByMe, CreatedAt)
+- `UserProfileDto` (UserId, Username, Bio, AvatarUrl, BannerUrl, FollowersCount, FollowingCount, IsFollowing, CreatedAt)
+- `ContentContextDto` (TargetType, TargetId, OwnerId, OwnerUsername, OwnerAvatarUrl, BookTitle, BookAuthor, BookCoverUrl, ContentPreview)
+- `LikeUserDto` (UserId, Username, AvatarUrl, IsFollowedByViewer)
+- `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious)
+- Response DTOs: `FollowResponse`, `CreateCommentResponse`, `LikeResponse`, `UpdateProfileResponse`
+
+**Domain Event Handlers:**
+- `FollowCreatedDomainEventHandler` — incrementa FollowersCount/FollowingCount no UserProfile
+- `FollowRemovedDomainEventHandler` — decrementa contadores no UserProfile
+- `CommentCreatedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
+- `CommentDeletedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
+- `ContentLikedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
+- `ContentUnlikedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
+
+**DI:** `DependencyInjection.AddSocialApplication()` — registra Mediator, handlers (reflection scan), notification handlers, behaviors e validators
+
+**Pendente (aguardando Infrastructure):**
+- Integration event publishing (aguardando RabbitMQ)
 
 ### 5.3 API Endpoints 📋
 
@@ -1201,12 +1250,19 @@ CREATE INDEX ix_comments_target ON comments(target_type, target_id);
 CREATE INDEX ix_comments_target_created ON comments(target_type, target_id, created_at DESC);
 CREATE INDEX ix_comments_user_id ON comments(user_id);
 
--- Tabela: content_snapshots (projeção de outros contextos para autorização)
+-- Tabela: content_snapshots (projeção enriquecida de outros contextos)
 CREATE TABLE content_snapshots (
     target_type interactable_type NOT NULL,
     target_id UUID NOT NULL,
     owner_id UUID NOT NULL,
+    owner_username VARCHAR(30) NOT NULL,
+    owner_avatar_url VARCHAR(500),
+    book_title VARCHAR(500),
+    book_author VARCHAR(500),
+    book_cover_url VARCHAR(500),
+    content_preview VARCHAR(200),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (target_type, target_id)
 );
 
