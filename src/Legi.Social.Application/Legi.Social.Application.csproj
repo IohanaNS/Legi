@@ -6,4 +6,18 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Legi.SharedKernel\Legi.SharedKernel.csproj" />
+      <ProjectReference Include="..\Legi.Social.Domain\Legi.Social.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="FluentValidation">
+        <HintPath>..\..\..\..\..\.nuget\packages\fluentvalidation\12.1.1\lib\net8.0\FluentValidation.dll</HintPath>
+      </Reference>
+      <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+        <HintPath>..\..\..\..\..\.nuget\packages\microsoft.extensions.logging.abstractions\10.0.2\lib\net10.0\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>
