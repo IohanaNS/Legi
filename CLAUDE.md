@@ -99,7 +99,7 @@ Legi.SharedKernel              (shared base classes + mediator)
 ├── Legi.Social.*              (Social bounded context)
 │   ├── Domain                 (✅ complete)
 │   ├── Application            (✅ complete)
-│   ├── Infrastructure
+│   ├── Infrastructure         (✅ complete)
 │   └── Api
 ├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
 └── tests/
