@@ -1,9 +1,25 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <OutputType>Library</OutputType>
     </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Legi.Social.Application\Legi.Social.Application.csproj" />
+      <ProjectReference Include="..\Legi.Social.Domain\Legi.Social.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    </ItemGroup>
 
 </Project>
