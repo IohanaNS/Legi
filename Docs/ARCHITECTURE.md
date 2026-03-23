@@ -11,7 +11,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
-| **Social** | 🚧 Em desenvolvimento | Domain ✅, Application ✅ |
+| **Social** | 🚧 Em desenvolvimento | Domain ✅, Application ✅, Infrastructure ✅ |
 
 ## Stack Tecnológica
 

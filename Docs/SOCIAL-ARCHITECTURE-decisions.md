@@ -2,7 +2,7 @@
 
 Documento vivo com as decisões de design do domínio Social, construído incrementalmente.
 
-**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure 📋 | Api 📋
+**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure ✅ | Api 📋
 
 ---
 
