@@ -2,7 +2,7 @@
 
 Documento vivo com as decisões de design do domínio Social, construído incrementalmente.
 
-**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure ✅ | Api 📋
+**Status de Implementação:** Domain ✅ | Application ✅ | Infrastructure ✅ | Api ✅
 
 ---
 
@@ -265,14 +265,15 @@ Isso segue o princípio estabelecido no Follow (seção 3.8): **o aggregate prot
 
 **Justificativa:** O Legi não é Twitter. A escala esperada é dezenas ou centenas de seguidores por usuário. O custo do join é trivial para 20 items com índices adequados. Não precisa de tabela fan-out que multiplica dados.
 
-**Query do feed:**
+**Query do feed (cursor-based — ver decisão 3.15):**
 
 ```sql
 SELECT a.* FROM activities a
 INNER JOIN follows f ON f.following_id = a.actor_id
 WHERE f.follower_id = @me
+  AND (@before IS NULL OR a.created_at < @before)
 ORDER BY a.created_at DESC
-LIMIT 20
+LIMIT @pageSize + 1   -- +1 para determinar HasMore
 ```
 
 ### 3.13 FeedItem como read model desnormalizado
@@ -302,7 +303,7 @@ LIMIT 20
 
 **Distinção conceitual:** O FeedItem é um registro histórico de algo que aconteceu. O Like é uma interação com o *conteúdo original* (post, review, lista) — não com o FeedItem. Quando alguém curte, está curtindo o *post do Carlos*, não o "fato de Carlos ter postado".
 
-**Query do feed com contadores:**
+**Query do feed com contadores (cursor-based):**
 
 ```sql
 SELECT
@@ -316,9 +317,47 @@ SELECT
 FROM activities a
 INNER JOIN follows f ON f.following_id = a.actor_id
 WHERE f.follower_id = @me
+  AND (@before IS NULL OR a.created_at < @before)
 ORDER BY a.created_at DESC
-LIMIT 20
+LIMIT @pageSize + 1
 ```
+
+### 3.15 Paginação cursor-based para feed, offset para o resto
+
+**Problema:** O feed usa paginação por página (`page, pageSize`), mas feeds são append-heavy — itens novos empurram os existentes, causando duplicatas quando o usuário avança de página.
+
+**Cenário concreto:** Ana está na página 2 do feed (items 21-40). Enquanto ela lê, 3 novos posts são publicados. Quando ela avança para a página 3, o offset shift significa que ela verá 3 items repetidos do que era a página 2. Em infinite scroll, isso é péssimo para UX.
+
+**Decisão:** Cursor-based para queries de feed; offset para todo o resto.
+
+| Query | Paginação | Justificativa |
+|-------|-----------|---------------|
+| `GetFeedQuery` | Cursor (`DateTime? Before`) | Append-heavy, infinite scroll |
+| `GetUserActivityQuery` | Cursor (`DateTime? Before`) | Mesmo raciocínio — é um feed de um usuário |
+| `GetFollowersQuery` | Offset (`page, pageSize`) | Volume baixo por usuário, muda pouco |
+| `GetFollowingQuery` | Offset | Idem |
+| `GetContentCommentsQuery` | Offset | Volume baixo por target, paginação tradicional |
+| `GetContentLikesQuery` | Offset | Idem |
+
+**Mecanismo do cursor:** `Before` é um `DateTime?`. `null` = "me dê os mais recentes". O `NextCursor` na resposta é o `CreatedAt` do último item retornado. Sem encoding, sem token opaco — datetime puro. Simples e debugável.
+
+**Novo DTO:** `CursorPaginatedList<T>` no SharedKernel (reusável por outros serviços):
+
+```
+CursorPaginatedList<T>
+├── Items: IReadOnlyList<T>
+├── NextCursor: DateTime? (null quando não há mais items)
+├── HasMore: bool
+└── PageSize: int
+```
+
+Sem `TotalItems` e sem `TotalPages` — intencionalmente. `COUNT(*)` em datasets grandes é caro e sem sentido para infinite scroll. O frontend só precisa saber se tem mais.
+
+**Impacto:**
+- `GetFeedQuery` e `GetUserActivityQuery` mudam de `(Page, PageSize)` para `(Before?, PageSize)`
+- `IFeedItemReadRepository` assinatura atualizada
+- Infrastructure (read repos) precisa ajustar query de `OFFSET` para `WHERE created_at < @before`
+- `PaginatedList<T>` permanece para queries offset (seguidores, comments, likes)
 
 ---
 
@@ -599,14 +638,18 @@ ILikeReadRepository
 │     → PaginatedList<LikeUserDto> (com IsFollowedByViewer contextual)
 
 IFeedItemReadRepository
-├── GetFeedAsync(viewerUserId, page, pageSize)
-│     → PaginatedList<FeedItemDto> (atividades de quem o viewer segue)
+├── GetFeedAsync(viewerUserId, before?, pageSize)
+│     → CursorPaginatedList<FeedItemDto> (atividades de quem o viewer segue)
+│       Cursor: DateTime? Before (null = mais recentes)
 │       Inclui LikesCount, CommentsCount (subquery em tempo real) e IsLikedByMe
-├── GetUserActivityAsync(targetUserId, viewerUserId?, page, pageSize)
-│     → PaginatedList<FeedItemDto> (histórico de atividades de um usuário)
+├── GetUserActivityAsync(targetUserId, viewerUserId?, before?, pageSize)
+│     → CursorPaginatedList<FeedItemDto> (histórico de atividades de um usuário)
+│       Mesmo padrão cursor-based
 ```
 
 **Padrão contextual:** Queries que exibem listas de usuários aceitam `viewerUserId?` opcional. Quando presente, o read repository faz join adicional para determinar se o viewer segue cada usuário listado (`IsFollowedByViewer`). Quando ausente (acesso anônimo), o campo é `false`.
+
+**Padrão de paginação:** Feed queries usam cursor-based (decisão 3.15). Demais queries usam offset (page/pageSize). Ver decisão 3.15 para justificativa detalhada.
 
 ---
 
@@ -614,6 +657,7 @@ IFeedItemReadRepository
 
 | Feature | Motivo | Caminho de implementação |
 |---------|--------|--------------------------|
+| **Discover (recomendações)** | Complexidade de algoritmo de relevância + tabela de preferências | Tabela `user_tag_preferences`, query cruzando preferências com livros populares (seção 12.2) |
 | **IsPublic (perfil público/privado)** | Sem sistema de notificação, privacidade é ilusória | Adicionar `IsPublic` ao UserProfile, ligar check no handler de Follow e interações |
 | **Follow com estado (Pending/Accepted/Rejected)** | Depende de IsPublic + notificações | Adicionar `FollowStatus` enum, transições no aggregate, handlers consultam visibilidade |
 | **Sistema de notificações** | Complexidade de infra (push, email, in-app) | Novo bounded context ou módulo transversal |
@@ -643,3 +687,134 @@ IFeedItemReadRepository
 
 - BookReview (planejado) precisará emitir ReviewCreated/ReviewDeleted integration events
 - Sem impacto nos componentes já implementados
+
+---
+
+## 12. API Layer
+
+### 12.1 Organização de Controllers — resource-oriented
+
+**Problema:** A Application layer usa `InteractableType` genérico (LikeContentCommand com TargetType), mas a API expõe rotas orientadas a recurso (`/posts/{id}/likes`, `/lists/{id}/likes`). Como organizar os controllers?
+
+**Opções avaliadas:**
+
+| Opção | Descrição | Problema |
+|-------|-----------|----------|
+| **A — Resource-oriented** | `PostInteractionsController` traduz `/posts/{id}/likes` para `InteractableType.Post` | Tradução duplicada entre controllers, mas REST intuitivo |
+| **B — Generic** | `LikesController` com `/likes?targetType=post&targetId=...` | Matches Application shape, mas URL feia e não-RESTful |
+
+**Decisão:** Opção A — resource-oriented. A API é consumida por frontend devs que pensam em recursos, não em abstrações de domínio. O overhead de tradução (mapear `{postId}` para `InteractableType.Post`) é trivial.
+
+**Controllers resultantes:**
+
+| Controller | Rotas | Responsabilidade |
+|------------|-------|------------------|
+| `FollowsController` | `/follows`, `/users/{userId}/followers`, `/users/{userId}/following` | Follow/unfollow + listagem |
+| `UserProfilesController` | `/users/{userId}` | Perfil público (inclui IsFollowing contextual) |
+| `PostInteractionsController` | `/posts/{postId}/likes`, `/posts/{postId}/comments` | Likes e comments em posts |
+| `ListInteractionsController` | `/lists/{listId}/likes`, `/lists/{listId}/comments` | Likes e comments em listas |
+| `CommentsController` | `/comments/{commentId}` | Deleção de comentário (cross-type) |
+| `FeedController` | `/feed`, `/users/{userId}/activity` | Feed pessoal + atividade de usuário |
+
+**Nota:** Delete de comentário (`DELETE /comments/{commentId}`) fica num controller separado porque a operação não é específica de tipo — o commentId é suficiente para encontrar e deletar.
+
+### 12.2 Endpoint: Discover (deferido)
+
+**Decisão:** `GET /api/v1/social/discover` fica fora do v1.
+
+**Motivo:** Requer sistema de preferências do usuário (tags favoritas), análise de atividades, e potencialmente algoritmo de relevância. Complexidade desproporcional para o valor entregue neste estágio.
+
+**Caminho para implementação futura:**
+1. Tabela `user_tag_preferences` (calculada a partir de ratings e leituras)
+2. `GetDiscoverQuery` na Application layer
+3. `IDiscoverReadRepository` com query que cruza preferências com livros populares
+4. Controller expõe `GET /discover` com `limit` como query param
+
+### 12.3 Perfil público no Social
+
+**Decisão:** `GET /api/v1/social/users/{userId}` retorna o perfil público completo, servido pelo Social — não pelo Identity.
+
+**Justificativa:** O `UserProfileDto` inclui Bio, AvatarUrl, BannerUrl, FollowersCount, FollowingCount, e `IsFollowing` (contextual ao viewer). Todos são dados nativos do Social. O Identity foi refatorado para cuidar apenas de autenticação (seção 3.1).
+
+### 12.4 Paginação na API
+
+**Feed (cursor):** Query params `before` (ISO datetime, opcional) + `pageSize` (default 20, max 50). Response inclui `nextCursor` (datetime do último item) e `hasMore`.
+
+**Demais queries (offset):** Query params `page` (default 1) + `pageSize` (default 20, max 50). Response inclui `totalItems`, `totalPages`, `hasNext`, `hasPrevious`.
+
+### 12.5 Endpoints (15 planejados, 14 v1 + Discover deferido)
+
+**Follows (4):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| POST | `/api/v1/social/follows` | `FollowUserCommand` | 🔒 |
+| DELETE | `/api/v1/social/follows/{userId}` | `UnfollowUserCommand` | 🔒 |
+| GET | `/api/v1/social/users/{userId}/followers` | `GetFollowersQuery` | 🔓 |
+| GET | `/api/v1/social/users/{userId}/following` | `GetFollowingQuery` | 🔓 |
+
+**Perfil (1):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| GET | `/api/v1/social/users/{userId}` | `GetUserProfileQuery` | 🔓 |
+
+**Feed (2):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| GET | `/api/v1/social/feed` | `GetFeedQuery` | 🔒 |
+| GET | `/api/v1/social/users/{userId}/activity` | `GetUserActivityQuery` | 🔓 |
+
+**Post Interactions (4):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| POST | `/api/v1/social/posts/{postId}/likes` | `LikeContentCommand(Post)` | 🔒 |
+| DELETE | `/api/v1/social/posts/{postId}/likes` | `UnlikeContentCommand(Post)` | 🔒 |
+| GET | `/api/v1/social/posts/{postId}/comments` | `GetContentCommentsQuery(Post)` | 🔓 |
+| POST | `/api/v1/social/posts/{postId}/comments` | `CreateCommentCommand(Post)` | 🔒 |
+
+**List Interactions (4):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| POST | `/api/v1/social/lists/{listId}/likes` | `LikeContentCommand(List)` | 🔒 |
+| DELETE | `/api/v1/social/lists/{listId}/likes` | `UnlikeContentCommand(List)` | 🔒 |
+| GET | `/api/v1/social/lists/{listId}/comments` | `GetContentCommentsQuery(List)` | 🔓 |
+| POST | `/api/v1/social/lists/{listId}/comments` | `CreateCommentCommand(List)` | 🔒 |
+
+**Comments (1):**
+
+| Método | Endpoint | Comando/Query | Auth |
+|--------|----------|---------------|------|
+| DELETE | `/api/v1/social/comments/{commentId}` | `DeleteCommentCommand` | 🔒 |
+
+**Autenticação:** JWT Bearer (mesma config do Identity — `JwtSettings` compartilhado). UserId extraído do claim `sub`.
+
+**Middleware:** `ExceptionHandlingMiddleware` — mesmo padrão do Library:
+- `ValidationException` → 400
+- `DomainException` → 400
+- `NotFoundException` → 404
+- `ConflictException` → 409
+- `ForbiddenException` → 403
+- `UnhandledException` → 500
+
+### 12.6 Estrutura do Projeto API
+
+```
+Legi.Social.Api/
+├── Controllers/
+│   ├── FollowsController.cs
+│   ├── UserProfilesController.cs
+│   ├── PostInteractionsController.cs
+│   ├── ListInteractionsController.cs
+│   ├── CommentsController.cs
+│   └── FeedController.cs
+├── Middleware/
+│   └── ExceptionHandlingMiddleware.cs
+├── Program.cs
+├── appsettings.json
+├── appsettings.Development.json
+└── Legi.Social.Api.csproj
+```

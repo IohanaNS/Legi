@@ -1,9 +1,26 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Legi.Social.Infrastructure\Legi.Social.Infrastructure.csproj" />
+      <ProjectReference Include="..\Legi.Social.Application\Legi.Social.Application.csproj" />
+      <ProjectReference Include="..\Legi.Identity.Infrastructure\Legi.Identity.Infrastructure.csproj" />
+      <ProjectReference Include="..\Legi.SharedKernel\Legi.SharedKernel.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="DotNetEnv" Version="3.1.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        <PrivateAssets>all</PrivateAssets>
+      </PackageReference>
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
+    </ItemGroup>
 
 </Project>

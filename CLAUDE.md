@@ -100,7 +100,7 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Domain                 (✅ complete)
 │   ├── Application            (✅ complete)
 │   ├── Infrastructure         (✅ complete)
-│   └── Api
+│   └── Api                    (✅ complete)
 ├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
 └── tests/
     ├── Legi.Identity.Domain.Tests
@@ -267,6 +267,22 @@ Shared abstractions with zero external dependencies:
 - DTOs: `FollowUserDto`, `CommentDto`, `FeedItemDto`, `UserProfileDto`, `ContentContextDto`, `LikeUserDto`, `PaginatedList<T>`, response DTOs
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
 - Exceptions: `ConflictException`, `NotFoundException`, `ForbiddenException`
+
+**Legi.Social.Infrastructure**
+- `SocialDbContext`: EF Core with PostgreSQL (connection string key: `SocialDatabase`), domain event dispatch on SaveChanges
+- Entity configurations: `FollowConfiguration`, `LikeConfiguration`, `CommentConfiguration`, `UserProfileConfiguration`, `FeedItemConfiguration`, `ContentSnapshotConfiguration`
+- Write repositories: `FollowRepository`, `LikeRepository`, `CommentRepository`, `UserProfileRepository`, `ContentSnapshotRepository`, `FeedItemRepository`
+- Read repositories: `FollowReadRepository`, `CommentReadRepository`, `LikeReadRepository`, `FeedItemReadRepository`
+
+**Legi.Social.Api**
+- `FollowsController`: `/api/v1/social/follows` — follow/unfollow; `/api/v1/social/users/{userId}/followers|following` — list followers/following
+- `UserProfilesController`: `/api/v1/social/users/{userId}` — public profile with IsFollowing contextual flag
+- `FeedController`: `/api/v1/social/feed` — personal feed (auth); `/api/v1/social/users/{userId}/activity` — user activity
+- `PostInteractionsController`: `/api/v1/social/posts/{postId}/likes|comments` — like/unlike/comment on posts
+- `ListInteractionsController`: `/api/v1/social/lists/{listId}/likes|comments` — like/unlike/comment on lists
+- `CommentsController`: `/api/v1/social/comments/{commentId}` — delete comment (cross-type)
+- JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
+- `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
 
 ### Web Frontend
 

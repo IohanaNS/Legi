@@ -11,7 +11,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
-| **Social** | 🚧 Em desenvolvimento | Domain ✅, Application ✅, Infrastructure ✅ |
+| **Social** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 
 ## Stack Tecnológica
 
@@ -102,7 +102,11 @@ Abstrações compartilhadas com zero dependências externas.
 - `IRequestHandler<TRequest, TResponse>` — Handler interface
 - `IPipelineBehavior<TRequest, TResponse>` — Cross-cutting concerns (validation, logging)
 - `RequestHandlerDelegate<TResponse>` — Delegate para pipeline continuation
+- `INotification` / `INotificationHandler<T>` — Publish/subscribe para domain events
 - `Unit` — Tipo void para C#
+
+**Pagination:**
+- `CursorPaginatedList<T>` — Paginação cursor-based para feeds (Items, NextCursor, HasMore, PageSize). Sem TotalItems/TotalPages (intencionalmente — COUNT(*) é caro e inútil para infinite scroll)
 
 ---
 
@@ -1023,10 +1027,11 @@ web/legi-web/src/
   - `/api/v1/identity/` → `identity-api:8080`
   - `/api/v1/catalog/` → `catalog-api:8080`
   - `/api/v1/library/` → `library-api:8080`
+  - `/api/v1/social/` → `social-api:8080`
 
 ---
 
-## 5. Social Service 🚧 EM DESENVOLVIMENTO
+## 5. Social Service ✅
 
 Decisões de arquitetura detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md`.
 
@@ -1159,7 +1164,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `IFollowReadRepository` — GetFollowersAsync, GetFollowingAsync (com `ViewerUserId` opcional para `IsFollowedByViewer`)
 - `ICommentReadRepository` — GetByTargetAsync (paginado, com username/avatar via join com user_profiles)
 - `ILikeReadRepository` — GetByTargetAsync (paginado, com `ViewerUserId` opcional para `IsFollowedByViewer`)
-- `IFeedItemReadRepository` — GetFeedAsync (atividades de quem o viewer segue), GetUserActivityAsync (histórico de um usuário)
+- `IFeedItemReadRepository` — GetFeedAsync (cursor-based: `before?, pageSize` → `CursorPaginatedList<FeedItemDto>`), GetUserActivityAsync (idem cursor-based)
 
 **DTOs:**
 - `FollowUserDto` (UserId, Username, AvatarUrl, Bio, IsFollowedByViewer)
@@ -1168,7 +1173,8 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `UserProfileDto` (UserId, Username, Bio, AvatarUrl, BannerUrl, FollowersCount, FollowingCount, IsFollowing, CreatedAt)
 - `ContentContextDto` (TargetType, TargetId, OwnerId, OwnerUsername, OwnerAvatarUrl, BookTitle, BookAuthor, BookCoverUrl, ContentPreview)
 - `LikeUserDto` (UserId, Username, AvatarUrl, IsFollowedByViewer)
-- `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious)
+- `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious) — para queries offset
+- `CursorPaginatedList<T>` (SharedKernel) — para queries de feed (Items, NextCursor, HasMore, PageSize)
 - Response DTOs: `FollowResponse`, `CreateCommentResponse`, `LikeResponse`, `UpdateProfileResponse`
 
 **Domain Event Handlers:**
@@ -1184,9 +1190,73 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 **Pendente (aguardando Infrastructure):**
 - Integration event publishing (aguardando RabbitMQ)
 
-### 5.3 API Endpoints 📋
+### 5.3 API Endpoints ✅
 
-A definir. Endpoints planejados incluem: follows, feed, likes, comments, perfil público.
+Decisões detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md` seção 12.
+
+**Follows (implementados — `FollowsController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/api/v1/social/follows` | Seguir usuário | 🔒 |
+| DELETE | `/api/v1/social/follows/{userId}` | Deixar de seguir | 🔒 |
+| GET | `/api/v1/social/users/{userId}/followers` | Listar seguidores | 🔓 |
+| GET | `/api/v1/social/users/{userId}/following` | Listar seguindo | 🔓 |
+
+**Profile (implementado — `UserProfilesController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| GET | `/api/v1/social/users/{userId}` | Perfil público | 🔓 |
+
+**Feed (implementado — `FeedController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| GET | `/api/v1/social/feed` | Feed de atividades (cursor-based) | 🔒 |
+| GET | `/api/v1/social/users/{userId}/activity` | Atividades de um usuário (cursor-based) | 🔓 |
+
+**Post Interactions (implementados — `PostInteractionsController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/api/v1/social/posts/{postId}/likes` | Curtir post | 🔒 |
+| DELETE | `/api/v1/social/posts/{postId}/likes` | Descurtir post | 🔒 |
+| GET | `/api/v1/social/posts/{postId}/comments` | Listar comentários do post | 🔓 |
+| POST | `/api/v1/social/posts/{postId}/comments` | Comentar em post | 🔒 |
+
+**List Interactions (implementados — `ListInteractionsController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/api/v1/social/lists/{listId}/likes` | Curtir lista | 🔒 |
+| DELETE | `/api/v1/social/lists/{listId}/likes` | Descurtir lista | 🔒 |
+| GET | `/api/v1/social/lists/{listId}/comments` | Listar comentários da lista | 🔓 |
+| POST | `/api/v1/social/lists/{listId}/comments` | Comentar em lista | 🔒 |
+
+**Comments (implementado — `CommentsController`):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| DELETE | `/api/v1/social/comments/{commentId}` | Excluir comentário | 🔒 |
+
+**Discover (deferido — v2):**
+
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| GET | `/api/v1/social/discover` | Descobrir livros (deferido) | 🔒 |
+
+**Query Params para feed (`GET /api/v1/social/feed` e `/users/{userId}/activity`):**
+- `before` - cursor datetime ISO (opcional, null = mais recentes)
+- `pageSize` - tamanho da página (default 20, max 50)
+
+**Query Params para listas paginadas (seguidores, comments, likes):**
+- `page` - número da página (default 1)
+- `pageSize` - tamanho da página (default 20, max 50)
+
+**Autenticação:** JWT Bearer (mesma config do Identity — `JwtSettings` compartilhado). Endpoints de escrita e feed pessoal requerem `[Authorize]`. Leitura pública (perfil, seguidores, comments, atividade de usuário) é `[AllowAnonymous]`. UserId extraído do claim `sub`.
+
+**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 400, DomainException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, UnhandledException → 500)
 
 ### 5.4 Database Schema 📋
 
@@ -1513,7 +1583,7 @@ web/legi-web/                  (React SPA)
 | Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
 | Library | 19 | ✅ Implementado (Domain, Application, Infrastructure, Api) |
 | Web Frontend | 6 rotas | 🚧 Em desenvolvimento (mock data, sem integração API) |
-| Social | 15 | 📋 Planejado |
+| Social | 15 (14 v1 + discover deferido) | ✅ Implementado (Domain ✅, Application ✅, Infrastructure ✅, Api ✅) |
 | **Total** | **57 endpoints API + 6 rotas frontend** | |
 
 ## 9. Resumo de Tabelas
