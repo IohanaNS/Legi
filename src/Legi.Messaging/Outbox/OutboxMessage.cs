@@ -55,4 +55,13 @@ public class OutboxMessage
     /// Null on success.
     /// </summary>
     public string? Error { get; set; }
+    
+    /// <summary>
+    /// Timestamp at which this row becomes eligible for the next publish attempt.
+    /// Defaults to the row's creation time (immediately eligible). On publish
+    /// failure, the dispatcher pushes this forward by the backoff for the current
+    /// attempt count. The dispatcher's polling query filters by
+    /// <c>NextRetryAt &lt;= now()</c> to honor the schedule.
+    /// </summary>
+    public DateTime NextRetryAt { get; set; }
 }

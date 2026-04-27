@@ -40,12 +40,14 @@ public class OutboxEventBus<TContext>(TContext context, IntegrationEventSerializ
 
         var (typeName, payload) = serializer.Serialize(@event);
 
+        var now = DateTime.UtcNow;
         var message = new OutboxMessage
         {
             Id = Guid.NewGuid(),
             Type = typeName,
             Payload = payload,
-            OccurredAt = DateTime.UtcNow,
+            OccurredAt = now,
+            NextRetryAt = now,
         };
 
         context.Add(message);

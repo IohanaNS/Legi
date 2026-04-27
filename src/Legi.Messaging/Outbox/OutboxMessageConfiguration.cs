@@ -39,15 +39,20 @@ public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage
             .IsRequired()
             .HasDefaultValue(0);
 
+        builder.Property(m => m.NextRetryAt)
+            .IsRequired()
+            .HasDefaultValueSql("NOW()");
+
         builder.Property(m => m.Error);
 
         // Partial index optimized for the dispatcher's hot query:
-        //   SELECT ... FROM outbox_messages
-        //   WHERE processed_at IS NULL
-        //   ORDER BY occurred_at LIMIT N FOR UPDATE SKIP LOCKED
-        // The partial filter keeps the index small (only pending rows),
-        // which matters once processed rows accumulate.
-        builder.HasIndex(m => new { m.ProcessedAt, m.OccurredAt })
+        //   SELECT ... FROM OutboxMessages
+        //   WHERE ProcessedAt IS NULL AND Attempts < @max AND NextRetryAt <= NOW()
+        //   ORDER BY OccurredAt LIMIT N FOR UPDATE SKIP LOCKED
+        // Filter keeps the index small by excluding processed rows. Leading column
+        // is NextRetryAt because the eligibility filter is more selective than
+        // occurred-at ordering once retries are happening.
+        builder.HasIndex(m => new { m.NextRetryAt, m.OccurredAt })
             .HasDatabaseName("ix_outbox_messages_pending")
             .HasFilter("\"ProcessedAt\" IS NULL");
     }

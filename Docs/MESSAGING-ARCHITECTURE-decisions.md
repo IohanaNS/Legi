@@ -840,21 +840,21 @@ O ARCHITECTURE.md seção 6.2 foi escrito antes dos documentos de arquitetura de
 
 ```yaml
 rabbitmq:
-  image: rabbitmq:3-management-alpine
-  container_name: legi-rabbitmq
-  ports:
-    - "5672:5672"        # AMQP protocol
-    - "15672:15672"      # Management UI (http://localhost:15672)
-  environment:
-    RABBITMQ_DEFAULT_USER: legi
-    RABBITMQ_DEFAULT_PASS: legi_dev
-  volumes:
-    - rabbitmq_data:/var/lib/rabbitmq
-  healthcheck:
-    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+    image: rabbitmq:3-management-alpine
+    container_name: legi-rabbitmq
+    ports:
+        - "5672:5672"        # AMQP protocol
+        - "15672:15672"      # Management UI (http://localhost:15672)
+    environment:
+        RABBITMQ_DEFAULT_USER: legi
+        RABBITMQ_DEFAULT_PASS: legi_dev
+    volumes:
+        - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 ```
 
 **Porta 15672** expõe o Management UI — dashboard web para monitorar exchanges, queues, mensagens em trânsito, consumers ativos. Essencial para debugging.
@@ -1018,10 +1018,13 @@ Cada serviço tem suas próprias duas tabelas, no seu próprio banco. Schema def
 | `occurred_at` | `timestamptz` | quando o domain event ocorreu |
 | `processed_at` | `timestamptz NULL` | quando o broker confirmou recepção; null = pendente |
 | `attempts` | `integer NOT NULL DEFAULT 0` | contador de tentativas de publicação |
+| `next_retry_at` | `timestamptz NOT NULL DEFAULT NOW()` | quando esta linha fica elegível para a próxima tentativa; default `NOW()` para que linhas novas sejam imediatamente elegíveis |
 | `error` | `text NULL` | última mensagem de erro (para diagnóstico) |
 
 **Índices:**
-- `(processed_at, occurred_at)` parcial `WHERE processed_at IS NULL` — query do dispatcher é otimizada para mensagens pendentes em ordem cronológica.
+- `(NextRetryAt, OccurredAt)` parcial `WHERE ProcessedAt IS NULL` — query do dispatcher (`WHERE processed_at IS NULL AND attempts < max AND next_retry_at <= now() ORDER BY occurred_at`) é otimizada para escanear apenas mensagens pendentes elegíveis em ordem cronológica.
+
+**Política de retry (gerenciada pelo dispatcher, ver decisão 8.2):** Em falha de publicação, dispatcher incrementa `attempts`, registra `error`, e define `next_retry_at = now() + backoff(attempts)`. A próxima iteração do polling pega a linha de volta apenas quando `next_retry_at` já passou. Quando `attempts >= MaxAttempts`, o dispatcher para de incrementar — a linha fica como poison pendente para diagnóstico manual (filtrada pelo `attempts < max` na query).
 
 **`inbox_messages`:**
 
