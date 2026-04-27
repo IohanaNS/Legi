@@ -1,6 +1,6 @@
 using Legi.SharedKernel.Mediator;
 
-namespace Legi.IntegrationEvents;
+namespace Legi.Contracts;
 
 /// <summary>
 /// Marker interface for events that cross bounded context boundaries.

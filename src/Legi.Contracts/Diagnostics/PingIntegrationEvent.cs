@@ -1,4 +1,4 @@
-namespace Legi.IntegrationEvents.Diagnostics;
+namespace Legi.Contracts.Diagnostics;
 
 /// <summary>
 /// Diagnostic event used to validate the messaging pipeline end-to-end.
