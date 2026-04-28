@@ -15,5 +15,5 @@ public class MessagingHostingOptions
     /// infrastructure (e.g., "identity", "library", "catalog", "social").
     /// Used as the prefix for RabbitMQ queue names.
     /// </summary>
-    public string ServiceName { get; init; } = null!;
+    public string ServiceName { get; set; } = null!;
 }
