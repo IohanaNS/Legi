@@ -1061,6 +1061,8 @@ Cada serviço tem suas próprias duas tabelas, no seu próprio banco. Schema def
 
 **Idempotência defensiva ainda importa:** Mesmo com inbox, é boa prática que os handlers sejam idempotentes em si. A inbox não protege contra (a) clock skew em casos extremos, (b) falhas após o INSERT mas antes do ack ao broker (gerando reentrega que será capturada pela inbox, mas ainda é processamento perdido). Os padrões na tabela acima continuam aplicáveis.
 
+**Convenção: integration event handlers NÃO chamam `SaveChangesAsync`.** Diferente de command handlers (que comitam o trabalho do request) ou domain event handlers (que rodam dentro do `SaveChangesAsync` do request), integration event handlers são invocados pelo `IntegrationEventDispatcher` fora de qualquer request. O dispatcher é dono do ciclo: adiciona o `InboxMessage`, invoca o handler via `IMediator.Publish`, e então chama `SaveChangesAsync` uma única vez. Isso garante que o INSERT na inbox commite atomicamente com as mudanças do handler. Se o handler chamasse `SaveChangesAsync` por conta própria, a inbox row commitaria separadamente — quebrando a atomicidade que protege contra processamento duplicado.
+
 ### 8.2 Retry Policy
 
 **Producer side (outbox dispatcher):**
@@ -1078,11 +1080,13 @@ Implementado no `OutboxDispatcherWorker`. `MaxAttempts` configurável (default 5
 
 **Consumer side (RabbitMQ delivery):**
 
-Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue até `MaxConsumerAttempts` (default 5). Após exceder, é `nack`-ed *sem* requeue (descartada).
+Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. RabbitMQ a reentrega na próxima janela de consumo. Em v1, **não há limite explícito de tentativas no lado do consumer** — uma mensagem permanentemente quebrada redeliverá indefinidamente.
 
-**Suficiente para:** falhas transitórias de banco (lock timeout, connection pool), broker temporariamente indisponível, picos de carga.
+**Justificativa para v1:** projeto pessoal, logs sob observação ativa. Loop de redelivery é loud e visível, o que acelera diagnóstico de bugs em handlers. Contar tentativas exigiria header customizado ou uso de quorum queues — complexidade adiada.
 
-**Não resolve:** bugs no código, dados corrompidos, violações de constraint. Para v1, esses casos resultam em mensagem perdida (consumer side) ou poison row (producer side) — registrados em log para investigação manual. Dead-letter exchange dedicado é Fase 6.
+**Suficiente para:** falhas transitórias de banco (lock timeout, connection pool), broker temporariamente indisponível, picos de carga, deploys sequenciais.
+
+**Não resolve:** bugs no código, dados corrompidos, violações de constraint. Esses casos manifestam como redelivery loop visível em log. Quando observado, requer correção do handler ou descarte manual da mensagem (purge da queue no Management UI). Dead-letter exchange dedicado e contagem de attempts são hardening de Fase 6.
 
 ### 8.3 Ordering
 
