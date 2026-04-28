@@ -3,6 +3,7 @@ using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Persistence.Repositories;
 using Legi.Identity.Infrastructure.Security;
+using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,8 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Database
-        services.AddDbContext<IdentityDbContext>(options =>
+        services.AddScoped<DispatchDomainEventsInterceptor>();
+        services.AddDbContext<IdentityDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("IdentityDb"),
                 npgsqlOptions =>
@@ -24,7 +26,7 @@ public static class DependencyInjection
                     npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "identity");
                     npgsqlOptions.EnableRetryOnFailure(3);
                 }
-            ));
+            ).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();

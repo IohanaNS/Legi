@@ -2,6 +2,7 @@ using Legi.Social.Application.Common.Interfaces;
 using Legi.Social.Domain.Repositories;
 using Legi.Social.Infrastructure.Persistence;
 using Legi.Social.Infrastructure.Persistence.Repositories;
+using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,14 +16,15 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Database
-        services.AddDbContext<SocialDbContext>(options =>
+        services.AddScoped<DispatchDomainEventsInterceptor>();
+        services.AddDbContext<SocialDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("SocialDatabase"),
                 npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly(typeof(SocialDbContext).Assembly.FullName);
                     npgsqlOptions.EnableRetryOnFailure(3);
-                }));
+                }).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();

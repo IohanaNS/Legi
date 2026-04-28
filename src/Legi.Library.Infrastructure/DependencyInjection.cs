@@ -2,6 +2,7 @@
 using Legi.Library.Domain.Repositories;
 using Legi.Library.Infrastructure.Persistence;
 using Legi.Library.Infrastructure.Persistence.Repositories;
+using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,14 +16,15 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Database
-        services.AddDbContext<LibraryDbContext>(options =>
+        services.AddScoped<DispatchDomainEventsInterceptor>();
+        services.AddDbContext<LibraryDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("LibraryDatabase"),
                 npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly(typeof(LibraryDbContext).Assembly.FullName);
                     npgsqlOptions.EnableRetryOnFailure(3);
-                }));
+                }).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IUserBookRepository, UserBookRepository>();
