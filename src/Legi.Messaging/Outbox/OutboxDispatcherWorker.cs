@@ -80,45 +80,56 @@ public class OutboxDispatcherWorker<TContext> : BackgroundService
         var ctx = scope.ServiceProvider.GetRequiredService<TContext>();
         var publisher = scope.ServiceProvider.GetRequiredService<IRabbitMqPublisher>();
 
-        // The transaction holds the row locks acquired by FOR UPDATE SKIP LOCKED.
-        // It always commits — failures are handled per-row by updating Attempts
-        // and NextRetryAt, not by rolling back the whole batch.
-        await using var transaction = await ctx.Database.BeginTransactionAsync(stoppingToken);
-
-        var batch = await FetchBatchAsync(ctx, stoppingToken);
-
-        if (batch.Count == 0)
+        // EnableRetryOnFailure installs NpgsqlRetryingExecutionStrategy, which
+        // refuses manual BeginTransactionAsync calls unless they are wrapped in
+        // CreateExecutionStrategy().ExecuteAsync. The strategy replays the whole
+        // delegate on transient failures (connection reset, etc.).
+        // ChangeTracker.Clear() at the top of the delegate ensures retries start
+        // with a clean slate — no stale tracked entities from the failed attempt.
+        await ctx.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            await transaction.CommitAsync(stoppingToken);
-            return;
-        }
+            ctx.ChangeTracker.Clear();
 
-        _logger.LogDebug(
-            "Outbox dispatcher claimed batch of {Count} message(s) for {Context}",
-            batch.Count, typeof(TContext).Name);
+            // The transaction holds the row locks acquired by FOR UPDATE SKIP LOCKED.
+            // It always commits — failures are handled per-row by updating Attempts
+            // and NextRetryAt, not by rolling back the whole batch.
+            await using var transaction = await ctx.Database.BeginTransactionAsync(stoppingToken);
 
-        var succeeded = 0;
-        var failed = 0;
+            var batch = await FetchBatchAsync(ctx, stoppingToken);
 
-        foreach (var message in batch)
-        {
-            // We deliberately pass stoppingToken to the publish; if shutdown
-            // is requested, in-flight publishes are cancelled and the row
-            // stays pending (Attempts unchanged, picked up next startup).
-            var success = await TryPublishAsync(message, publisher, stoppingToken);
-            if (success) succeeded++; else failed++;
-        }
+            if (batch.Count == 0)
+            {
+                await transaction.CommitAsync(stoppingToken);
+                return;
+            }
 
-        // Persist row updates with CancellationToken.None: even if shutdown was
-        // requested mid-batch, we MUST record the state of messages we already
-        // sent — the broker has them. Losing the ProcessedAt update would cause
-        // duplicate publishes on next startup.
-        await ctx.SaveChangesAsync(CancellationToken.None);
-        await transaction.CommitAsync(CancellationToken.None);
+            _logger.LogDebug(
+                "Outbox dispatcher claimed batch of {Count} message(s) for {Context}",
+                batch.Count, typeof(TContext).Name);
 
-        _logger.LogInformation(
-            "Outbox batch dispatched for {Context}: {Succeeded} succeeded, {Failed} failed",
-            typeof(TContext).Name, succeeded, failed);
+            var succeeded = 0;
+            var failed = 0;
+
+            foreach (var message in batch)
+            {
+                // We deliberately pass stoppingToken to the publish; if shutdown
+                // is requested, in-flight publishes are cancelled and the row
+                // stays pending (Attempts unchanged, picked up next startup).
+                var success = await TryPublishAsync(message, publisher, stoppingToken);
+                if (success) succeeded++; else failed++;
+            }
+
+            // Persist row updates with CancellationToken.None: even if shutdown was
+            // requested mid-batch, we MUST record the state of messages we already
+            // sent — the broker has them. Losing the ProcessedAt update would cause
+            // duplicate publishes on next startup.
+            await ctx.SaveChangesAsync(CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+
+            _logger.LogInformation(
+                "Outbox batch dispatched for {Context}: {Succeeded} succeeded, {Failed} failed",
+                typeof(TContext).Name, succeeded, failed);
+        });
     }
 
     private async Task<List<OutboxMessage>> FetchBatchAsync(
@@ -136,7 +147,7 @@ public class OutboxDispatcherWorker<TContext> : BackgroundService
         // Identifiers are quoted to match the default Npgsql PascalCase
         // casing used elsewhere in the project.
         var sql = """
-            SELECT * FROM "OutboxMessages"
+            SELECT * FROM "outbox_messages"
             WHERE "ProcessedAt" IS NULL
               AND "Attempts" < {0}
               AND "NextRetryAt" <= NOW()

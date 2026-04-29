@@ -1,8 +1,10 @@
+using Legi.Contracts.Identity;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Persistence.Repositories;
 using Legi.Identity.Infrastructure.Security;
+using Legi.Messaging.DependencyInjection;
 using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -35,6 +37,14 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+
+        // Messaging infrastructure (own outbox + RabbitMQ).
+        // Registers IEventBus, OutboxDispatcherWorker, RabbitMQ connection/publisher,
+        // and the integration event dispatcher for Identity.
+        services.AddLegiMessaging<IdentityDbContext>("identity", configuration);
+
+        // Register the smoke-test self-consumer.
+        services.AddIntegrationEventConsumer<UserRegisteredIntegrationEvent, IdentityDbContext>();
 
         return services;
     }

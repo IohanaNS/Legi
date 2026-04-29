@@ -59,6 +59,28 @@ services:
         networks:
             - legi-network
 
+    # Message Broker
+    rabbitmq:
+        image: rabbitmq:4-management-alpine
+        container_name: legi-rabbitmq
+        restart: unless-stopped
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        environment:
+            RABBITMQ_DEFAULT_USER: legi
+            RABBITMQ_DEFAULT_PASS: legi_dev
+            RABBITMQ_DEFAULT_VHOST: /
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - legi-network
+
     # Identity API
     identity-api:
         build:
@@ -150,6 +172,7 @@ volumes:
     identity_db_data:
     catalog_db_data:
     library_db_data:
+    rabbitmq_data:
 
 networks:
     legi-network:

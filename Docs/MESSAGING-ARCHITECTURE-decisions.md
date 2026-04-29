@@ -463,8 +463,6 @@ Contém **apenas** os records (contratos) de integration events. Sem lógica, se
 ```
 Legi.Contracts/
 ├── IIntegrationEvent.cs
-├── Diagnostics/
-│   └── PingIntegrationEvent.cs
 ├── Identity/
 │   ├── UserRegisteredIntegrationEvent.cs
 │   ├── UserDeletedIntegrationEvent.cs
@@ -600,10 +598,14 @@ Legi.SharedKernel (+ IEventBus)          Legi.Contracts
 ### 6.2 Identity → Todos
 
 ```csharp
-// Criado quando um novo usuário se registra
+// Criado quando um novo usuário se registra. Carrega o username escolhido
+// no registro — a obrigatoriedade no domínio do Identity garante que sempre
+// está presente.
 public record UserRegisteredIntegrationEvent(
     Guid UserId,
-    string Username
+    string Username,
+    string Email,
+    DateTime RegisteredAt
 ) : IIntegrationEvent;
 
 // Criado quando um usuário deleta sua conta
@@ -612,7 +614,7 @@ public record UserDeletedIntegrationEvent(
     DateTime DeletedAt
 ) : IIntegrationEvent;
 
-// Criado quando o username é alterado
+// Criado quando o username é alterado pelo próprio usuário (após registro)
 public record UsernameChangedIntegrationEvent(
     Guid UserId,
     string NewUsername
@@ -623,7 +625,7 @@ public record UsernameChangedIntegrationEvent(
 
 | Evento | Consumidor | Efeito |
 |--------|------------|--------|
-| `UserRegistered` | Social | Cria `UserProfile` com defaults |
+| `UserRegistered` | Social | Cria `UserProfile` com username e email |
 | `UserDeleted` | Catalog | Atualiza `created_by` para referência genérica |
 | `UserDeleted` | Library | Deleta `user_books`, `reading_posts`, `user_lists` |
 | `UserDeleted` | Social | Deleta `UserProfile`, `Follows`, `Likes`, `Comments`, `FeedItems` |
@@ -840,21 +842,21 @@ O ARCHITECTURE.md seção 6.2 foi escrito antes dos documentos de arquitetura de
 
 ```yaml
 rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: legi-rabbitmq
-    ports:
-        - "5672:5672"        # AMQP protocol
-        - "15672:15672"      # Management UI (http://localhost:15672)
-    environment:
-        RABBITMQ_DEFAULT_USER: legi
-        RABBITMQ_DEFAULT_PASS: legi_dev
-    volumes:
-        - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+  image: rabbitmq:3-management-alpine
+  container_name: legi-rabbitmq
+  ports:
+    - "5672:5672"        # AMQP protocol
+    - "15672:15672"      # Management UI (http://localhost:15672)
+  environment:
+    RABBITMQ_DEFAULT_USER: legi
+    RABBITMQ_DEFAULT_PASS: legi_dev
+  volumes:
+    - rabbitmq_data:/var/lib/rabbitmq
+  healthcheck:
+    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
 ```
 
 **Porta 15672** expõe o Management UI — dashboard web para monitorar exchanges, queues, mensagens em trânsito, consumers ativos. Essencial para debugging.
@@ -1175,7 +1177,6 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 |--------|-----------|
 | 1B.1 | Criar projeto `Legi.Contracts` (.NET 10 class library) |
 | 1B.2 | Adicionar `IIntegrationEvent : INotification` |
-| 1B.3 | Adicionar `PingIntegrationEvent` (apenas para o smoke test; remover ou manter como exemplo no fim da Fase 1) |
 
 **1C — Outbox producer (Legi.Messaging — parte 1)**
 
@@ -1229,18 +1230,21 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 | Tarefa | Descrição |
 |--------|-----------|
-| 1I.1 | Adicionar RabbitMQ ao docker-compose com Management UI exposto |
-| 1I.2 | Atualizar `appsettings.json` do Identity com `RabbitMq` e `Outbox` |
-| 1I.3 | Chamar `AddLegiMessaging<IdentityDbContext>` na DI do Identity |
-| 1I.4 | Chamar `AddIntegrationEventConsumer<PingIntegrationEvent>` no Identity (auto-consumo para validar pipeline) |
-| 1I.5 | Adicionar `OutboxMessageConfiguration` e `InboxMessageConfiguration` ao `IdentityDbContext.OnModelCreating` |
-| 1I.6 | Migration `AddOutboxAndInbox` no Identity |
-| 1I.7 | Endpoint temporário `POST /diagnostics/ping` que publica `PingIntegrationEvent` via `IEventBus` |
-| 1I.8 | Handler temporário `PingIntegrationEventHandler` que loga "ping received" |
-| 1I.9 | **Teste manual:** subir docker-compose, chamar endpoint, ver log do handler. Verificar Management UI: exchange criado, queue criada, mensagem entregue. Verificar tabelas: outbox row com `processed_at` preenchido, inbox row criado |
-| 1I.10 | **Teste de integração automatizado:** TestContainers (RabbitMQ + Postgres), publica `PingIntegrationEvent`, espera (com timeout) o handler processar, valida outbox/inbox |
+| 1I.1 | Adicionar RabbitMQ ao docker-compose com Management UI exposto (porta 15672) |
+| 1I.2 | Atualizar `appsettings.json` (e `appsettings.Development.json`) do Identity com seções `RabbitMq` e `Outbox` |
+| 1I.3 | Chamar `AddLegiMessaging<IdentityDbContext>("identity", configuration)` na DI do Identity |
+| 1I.4 | Adicionar `modelBuilder.ApplyMessagingConfigurations()` em `IdentityDbContext.OnModelCreating` |
+| 1I.5 | Migration `AddOutboxAndInbox` no Identity (`dotnet ef migrations add AddOutboxAndInbox`) |
+| 1I.6 | Adicionar `UserRegisteredIntegrationEvent` em `Legi.Contracts/Identity/` (record com `UserId`, `Username`, `Email`, `RegisteredAt`) — código de produção, ficará permanente |
+| 1I.7 | Adicionar `UserRegisteredDomainEventHandler` em `Legi.Identity.Application` (traduz domain event → integration event, chama `IEventBus.PublishAsync`) — código de produção, ficará permanente |
+| 1I.8 | Adicionar `UserRegisteredIntegrationEventHandler` em `Legi.Identity.Application` (apenas log; existe para validar consumo no smoke test e como canário em produção) |
+| 1I.9 | Chamar `AddIntegrationEventConsumer<UserRegisteredIntegrationEvent, IdentityDbContext>()` na DI do Identity (auto-consumo para validar pipeline) |
+| 1I.10 | **Teste manual:** subir docker-compose, registrar um usuário via endpoint existente do Identity, observar logs. Verificar Management UI: exchange criado, queue `identity.user-registered` criada, mensagem entregue. Verificar tabelas: outbox row com `processed_at` preenchido, inbox row criada |
+| 1I.11 | **Teste de integração automatizado:** TestContainers (RabbitMQ + Postgres), executar fluxo de registro de usuário, esperar (com timeout) inbox row aparecer, validar atomicidade outbox/inbox |
 
-**Entregável da Fase 1:** Pipeline próprio de mensageria funcionando ponta-a-ponta. Dispatch de domain events refatorado em todos os serviços. Smoke test (manual + automatizado) passando. Zero eventos de negócio fluindo ainda.
+**Justificativa de escolha do fluxo de teste:** Em vez de criar um `PingIntegrationEvent` descartável, o smoke test usa o fluxo real de registro de usuário (`UserRegisteredDomainEvent` → `UserRegisteredIntegrationEvent`). Isto significa que o "código de smoke test" é, na verdade, código de produção que será permanente — exigido pela Fase 5 (eventos de Identity para Library/Social). Zero código diagnóstico para apagar depois; a Fase 1 já entrega a primeira meia-flecha do produto real.
+
+**Entregável da Fase 1:** Pipeline próprio de mensageria funcionando ponta-a-ponta. Dispatch de domain events refatorado em todos os serviços. Smoke test (manual + automatizado) passando. Primeiro evento de negócio (`UserRegistered`) já fluindo do Identity para si mesmo — pronto para Fase 5 ligar Library e Social como consumidores adicionais.
 
 ### Fase 2 — Primeiro evento end-to-end (Catalog → Library: BookCreated)
 
@@ -1323,8 +1327,6 @@ src/
 │
 ├── Legi.Contracts/                        ← NOVO PROJETO
 │   ├── IIntegrationEvent.cs
-│   ├── Diagnostics/
-│   │   └── PingIntegrationEvent.cs
 │   ├── Identity/
 │   │   ├── UserRegisteredIntegrationEvent.cs
 │   │   ├── UserDeletedIntegrationEvent.cs

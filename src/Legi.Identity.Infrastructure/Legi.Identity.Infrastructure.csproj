@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Legi.Identity.Domain\Legi.Identity.Domain.csproj" />
     <ProjectReference Include="..\Legi.Identity.Application\Legi.Identity.Application.csproj" />
+    <ProjectReference Include="..\Legi.Messaging\Legi.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

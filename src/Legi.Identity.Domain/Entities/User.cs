@@ -27,7 +27,7 @@ public class User : BaseAuditableEntity
             UpdatedAt = DateTime.UtcNow
         };
 
-        user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, email.Value));
+        user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, username.Value, email.Value));
 
         return user;
     }

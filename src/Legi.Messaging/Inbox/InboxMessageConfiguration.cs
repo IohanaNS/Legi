@@ -14,7 +14,7 @@ public class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {
     public void Configure(EntityTypeBuilder<InboxMessage> builder)
     {
-        builder.ToTable("InboxMessages");
+        builder.ToTable("inbox_messages");
 
         builder.HasKey(m => m.Id);
 
