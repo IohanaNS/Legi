@@ -1,5 +1,6 @@
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Infrastructure.Persistence.Entities;
+using Legi.Messaging.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Legi.Catalog.Infrastructure.Persistence;
@@ -15,6 +16,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyMessagingConfigurations();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CatalogDbContext).Assembly);
     }
 }

@@ -94,6 +94,8 @@ public class Book : BaseAuditableEntity
             book.Isbn.Value,
             book.Title,
             book._authors.Select(a => a.Name).ToList(),
+            book.CoverUrl,
+            book.PageCount,
             book.CreatedByUserId));
 
         return book;

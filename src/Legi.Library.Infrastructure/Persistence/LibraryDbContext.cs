@@ -1,4 +1,5 @@
 using Legi.Library.Domain.Entities;
+using Legi.Messaging.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Legi.Library.Infrastructure.Persistence;
@@ -14,6 +15,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyMessagingConfigurations();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LibraryDbContext).Assembly);
     }
 }

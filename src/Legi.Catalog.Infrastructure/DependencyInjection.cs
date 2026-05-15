@@ -5,6 +5,7 @@ using Legi.Catalog.Infrastructure.ExternalServices.GoogleBooks;
 using Legi.Catalog.Infrastructure.ExternalServices.OpenLibrary;
 using Legi.Catalog.Infrastructure.Persistence;
 using Legi.Catalog.Infrastructure.Persistence.Repositories;
+using Legi.Messaging.DependencyInjection;
 using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,8 @@ public static class DependencyInjection
                     npgsqlOptions.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName);
                     npgsqlOptions.EnableRetryOnFailure(3);
                 }).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
+
+        services.AddLegiMessaging<CatalogDbContext>("catalog", configuration);
 
         // Repositories
         services.AddScoped<IBookRepository, BookRepository>();

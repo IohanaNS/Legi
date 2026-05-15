@@ -10,6 +10,8 @@
     <ItemGroup>
       <ProjectReference Include="..\Legi.Library.Application\Legi.Library.Application.csproj" />
       <ProjectReference Include="..\Legi.Library.Domain\Legi.Library.Domain.csproj" />
+      <ProjectReference Include="..\Legi.Messaging\Legi.Messaging.csproj" />
+      <ProjectReference Include="..\Legi.Contracts\Legi.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>

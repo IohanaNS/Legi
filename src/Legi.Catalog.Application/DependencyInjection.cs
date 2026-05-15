@@ -37,7 +37,8 @@ public static class DependencyInjection
                 Interfaces = t.GetInterfaces()
                     .Where(i => i.IsGenericType &&
                                 (i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>) ||
-                                 i.GetGenericTypeDefinition() == typeof(IRequestHandler<>)))
+                                 i.GetGenericTypeDefinition() == typeof(IRequestHandler<>) ||
+                                 i.GetGenericTypeDefinition() == typeof(INotificationHandler<>)))
                     .ToList()
             })
             .Where(x => x.Interfaces.Any())

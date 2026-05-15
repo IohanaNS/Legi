@@ -634,12 +634,14 @@ public record UsernameChangedIntegrationEvent(
 ### 6.3 Catalog → Library, Social
 
 ```csharp
-// Criado quando um livro é adicionado ao catálogo
+// Criado quando um livro é adicionado ao catálogo. Consumidores (Library, Social)
+// usam para criar BookSnapshot local. AuthorDisplay não é carregado — cada
+// consumidor faz a junção dos autores conforme sua convenção de display.
 public record BookCreatedIntegrationEvent(
     Guid BookId,
+    string Isbn,
     string Title,
     List<string> Authors,
-    string AuthorDisplay,
     string? CoverUrl,
     int? PageCount
 ) : IIntegrationEvent;
@@ -647,9 +649,9 @@ public record BookCreatedIntegrationEvent(
 // Criado quando dados de um livro são atualizados
 public record BookUpdatedIntegrationEvent(
     Guid BookId,
+    string Isbn,
     string Title,
     List<string> Authors,
-    string AuthorDisplay,
     string? CoverUrl,
     int? PageCount
 ) : IIntegrationEvent;
