@@ -23,6 +23,19 @@ public class BookSnapshotRepository : IBookSnapshotRepository
     public async Task AddOrUpdateAsync(
         BookSnapshot snapshot, CancellationToken cancellationToken = default)
     {
+        await StageAddOrUpdateAsyncCore(snapshot, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task StageAddOrUpdateAsync(
+        BookSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        return StageAddOrUpdateAsyncCore(snapshot, cancellationToken);
+    }
+
+    private async Task StageAddOrUpdateAsyncCore(
+        BookSnapshot snapshot, CancellationToken cancellationToken)
+    {
         var existing = await _context.BookSnapshots
             .FirstOrDefaultAsync(bs => bs.BookId == snapshot.BookId, cancellationToken);
 
@@ -38,7 +51,5 @@ public class BookSnapshotRepository : IBookSnapshotRepository
                 snapshot.CoverUrl,
                 snapshot.PageCount);
         }
-
-        await _context.SaveChangesAsync(cancellationToken);
     }
 }

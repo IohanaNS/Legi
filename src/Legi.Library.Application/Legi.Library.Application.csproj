@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Legi.Contracts\Legi.Contracts.csproj" />
       <ProjectReference Include="..\Legi.Library.Domain\Legi.Library.Domain.csproj" />
       <ProjectReference Include="..\Legi.SharedKernel\Legi.SharedKernel.csproj" />
     </ItemGroup>
