@@ -1158,7 +1158,7 @@ Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. Rabbi
 
 ## 10. Fases de Implementação
 
-### Fase 1 — Foundation (sem eventos de negócio, pipeline próprio validado ponta-a-ponta)
+### Fase 1 — Foundation (sem eventos de negócio, pipeline próprio validado ponta-a-ponta) ✅ CONCLUÍDA
 
 **Objetivo:** Infraestrutura própria de mensageria pronta, dispatch pré-save refatorado, smoke test end-to-end passando.
 
@@ -1248,7 +1248,7 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 **Entregável da Fase 1:** Pipeline próprio de mensageria funcionando ponta-a-ponta. Dispatch de domain events refatorado em todos os serviços. Smoke test (manual + automatizado) passando. Primeiro evento de negócio (`UserRegistered`) já fluindo do Identity para si mesmo — pronto para Fase 5 ligar Library e Social como consumidores adicionais.
 
-### Fase 2 — Primeiro evento end-to-end (Catalog → Library: BookCreated)
+### Fase 2 — Primeiro evento end-to-end (Catalog → Library: BookCreated) ✅ CONCLUÍDA
 
 **Objetivo:** Validar o fluxo completo com um caso real.
 
@@ -1265,7 +1265,7 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 **Entregável:** BookSnapshots mantidos automaticamente via eventos. Workaround removido.
 
-### Fase 3 — Identity events (UserDeleted → todos)
+### Fase 3 — Identity events (UserDeleted → todos) ▶ PRÓXIMA
 
 **Objetivo:** Cascata de deleção de usuário.
 

@@ -97,8 +97,16 @@ services:
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            RabbitMq__Host: rabbitmq
+            RabbitMq__Port: 5672
+            RabbitMq__VirtualHost: /
+            RabbitMq__Username: legi
+            RabbitMq__Password: legi_dev
+            RabbitMq__ClientProvidedName: legi-identity
         depends_on:
             identity-db:
+                condition: service_healthy
+            rabbitmq:
                 condition: service_healthy
         networks:
             - legi-network
@@ -120,10 +128,18 @@ services:
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            RabbitMq__Host: rabbitmq
+            RabbitMq__Port: 5672
+            RabbitMq__VirtualHost: /
+            RabbitMq__Username: legi
+            RabbitMq__Password: legi_dev
+            RabbitMq__ClientProvidedName: legi-catalog
         depends_on:
             catalog-db:
                 condition: service_healthy
             identity-db:
+                condition: service_healthy
+            rabbitmq:
                 condition: service_healthy
         networks:
             - legi-network
@@ -145,10 +161,18 @@ services:
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            RabbitMq__Host: rabbitmq
+            RabbitMq__Port: 5672
+            RabbitMq__VirtualHost: /
+            RabbitMq__Username: legi
+            RabbitMq__Password: legi_dev
+            RabbitMq__ClientProvidedName: legi-library
         depends_on:
             library-db:
                 condition: service_healthy
             identity-db:
+                condition: service_healthy
+            rabbitmq:
                 condition: service_healthy
         networks:
             - legi-network

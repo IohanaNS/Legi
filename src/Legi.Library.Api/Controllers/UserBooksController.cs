@@ -55,8 +55,7 @@ public class UserBooksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new AddBookToLibraryCommand(
-            GetUserId(), request.BookId, request.Wishlist,
-            request.BookTitle, request.BookAuthorDisplay, request.BookCoverUrl, request.BookPageCount);
+            GetUserId(), request.BookId, request.Wishlist);
 
         var result = await _mediator.Send(command, cancellationToken);
         return CreatedAtAction(nameof(GetMyLibrary), new { }, result);
@@ -127,11 +126,7 @@ public class UserBooksController : ControllerBase
 // Request DTOs (API contracts, separate from commands)
 public record AddBookToLibraryRequest(
     Guid BookId,
-    bool Wishlist = false,
-    string? BookTitle = null,
-    string? BookAuthorDisplay = null,
-    string? BookCoverUrl = null,
-    int? BookPageCount = null);
+    bool Wishlist = false);
 
 public record UpdateUserBookRequest(
     ReadingStatus? Status = null,

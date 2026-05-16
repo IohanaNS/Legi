@@ -656,21 +656,6 @@ BookSnapshot (Read Model — não é aggregate) ✅
 └── UpdatedAt: DateTime
 ```
 
-> **⚠️ TODO: Remover workaround de criação inline do BookSnapshot**
->
-> Atualmente, o `AddBookToLibraryCommand` aceita campos opcionais (`BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount`) e cria o `BookSnapshot` inline quando ele não existe no banco do Library. Isso é um **workaround temporário** porque a integração via eventos (RabbitMQ) entre Catalog e Library ainda não foi implementada.
->
-> **Quando o RabbitMQ estiver implementado:**
-> 1. O Catalog publicará eventos `BookCreated`/`BookUpdated`
-> 2. O Library consumirá esses eventos e criará/atualizará o `BookSnapshot` automaticamente
-> 3. Remover os campos `BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount` do `AddBookToLibraryCommand` e `AddBookToLibraryRequest`
-> 4. Restaurar o handler original que apenas faz `throw NotFoundException` quando o snapshot não existe
->
-> **Arquivos afetados:**
-> - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommand.cs`
-> - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommandHandler.cs`
-> - `src/Legi.Library.Api/Controllers/UserBooksController.cs` (request DTO)
-
 **Decisão: ReadingProgress como Aggregate Root.** Registros de progresso são independentes entre si — não existe invariante cross-registro. Evita carregar centenas de registros na memória ao adicionar um novo. Coordenação de progresso (registro com progresso → atualiza UserBook.CurrentProgress) feita na mesma transação pelo command handler.
 
 **Decisão: UserListItem como entity filha.** Justificativa: invariantes exigem os itens (duplicação, reordenação, BooksCount). UserListItem é minúsculo (IDs + order + timestamp) — carregar 500 itens é trivial.
