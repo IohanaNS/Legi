@@ -844,21 +844,21 @@ O ARCHITECTURE.md seção 6.2 foi escrito antes dos documentos de arquitetura de
 
 ```yaml
 rabbitmq:
-  image: rabbitmq:3-management-alpine
-  container_name: legi-rabbitmq
-  ports:
-    - "5672:5672"        # AMQP protocol
-    - "15672:15672"      # Management UI (http://localhost:15672)
-  environment:
-    RABBITMQ_DEFAULT_USER: legi
-    RABBITMQ_DEFAULT_PASS: legi_dev
-  volumes:
-    - rabbitmq_data:/var/lib/rabbitmq
-  healthcheck:
-    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+    image: rabbitmq:3-management-alpine
+    container_name: legi-rabbitmq
+    ports:
+        - "5672:5672"        # AMQP protocol
+        - "15672:15672"      # Management UI (http://localhost:15672)
+    environment:
+        RABBITMQ_DEFAULT_USER: legi
+        RABBITMQ_DEFAULT_PASS: legi_dev
+    volumes:
+        - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 ```
 
 **Porta 15672** expõe o Management UI — dashboard web para monitorar exchanges, queues, mensagens em trânsito, consumers ativos. Essencial para debugging.
@@ -1066,6 +1066,17 @@ Cada serviço tem suas próprias duas tabelas, no seu próprio banco. Schema def
 **Idempotência defensiva ainda importa:** Mesmo com inbox, é boa prática que os handlers sejam idempotentes em si. A inbox não protege contra (a) clock skew em casos extremos, (b) falhas após o INSERT mas antes do ack ao broker (gerando reentrega que será capturada pela inbox, mas ainda é processamento perdido). Os padrões na tabela acima continuam aplicáveis.
 
 **Convenção: integration event handlers NÃO chamam `SaveChangesAsync`.** Diferente de command handlers (que comitam o trabalho do request) ou domain event handlers (que rodam dentro do `SaveChangesAsync` do request), integration event handlers são invocados pelo `IntegrationEventDispatcher` fora de qualquer request. O dispatcher é dono do ciclo: adiciona o `InboxMessage`, invoca o handler via `IMediator.Publish`, e então chama `SaveChangesAsync` uma única vez. Isso garante que o INSERT na inbox commite atomicamente com as mudanças do handler. Se o handler chamasse `SaveChangesAsync` por conta própria, a inbox row commitaria separadamente — quebrando a atomicidade que protege contra processamento duplicado.
+
+**Exceção: operações bulk com `ExecuteUpdateAsync` / `ExecuteDeleteAsync`.** Para limpezas em cascata (ex: `UserDeleted` em múltiplas tabelas), handlers podem usar bulk operations diretamente em vez de stage no change tracker. Bulk operations commitam imediatamente, **antes** do `SaveChangesAsync` do dispatcher que persiste a inbox row — isso viola a atomicidade que 8.1 normalmente garante. É **aceitável apenas se** o handler for completamente idempotente:
+
+- **Deletes filtrados** (`WHERE x = @value`): rodar duas vezes deleta zero rows na segunda. ✅
+- **Updates convergentes para valor fixo** (`SET column = @newValue WHERE x = @value`): rodar duas vezes deixa o mesmo estado final. ✅
+- **Decrementos/incrementos pareados com delete da fonte** (`SET column = column - 1 WHERE x IN (SELECT ... FROM source WHERE ...)`) **seguidos** de `DELETE FROM source WHERE ...` no mesmo handler: a primeira execução decrementa e deleta a fonte; a segunda execução vê a fonte vazia, o subquery retorna zero rows, nada é decrementado. **Idempotente apenas como conjunto, e apenas na ordem correta — o delete da fonte deve vir DEPOIS do decremento.** Documentar a ordem no handler.
+- **Inserts, incrementos sem delete pareado, transições de estado**: NÃO idempotentes — devem usar o padrão de change-tracker para que o dispatcher commit atomicamente. ❌
+
+Custo observável: entre as bulk-writes do handler e o `SaveChangesAsync` do dispatcher, o sistema pode estar em estado parcialmente atualizado se o processo crashar. A próxima redelivery converge para o estado correto via idempotência. Hardening da Fase 6 pode introduzir transação explícita ao redor do handler para eliminar essa janela.
+
+**Outro custo: bulk operations bypassam domain events.** Um `ExecuteDeleteAsync` em `UserBooks` não dispara `BookRemovedFromLibraryDomainEvent`. Para `UserDeleted` isso é desejado (Social tem sua própria subscrição direta ao `UserDeletedIntegrationEvent`, não precisamos que Library faça fanout de N eventos). Mas o handler deve documentar isso explicitamente para o próximo leitor.
 
 ### 8.2 Retry Policy
 
