@@ -15,7 +15,7 @@ public record GetBookDetailsResponse(
     int RatingsCount,
     int ReviewsCount,
     List<TagDto> Tags,
-    Guid CreatedByUserId,
+    Guid? CreatedByUserId,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

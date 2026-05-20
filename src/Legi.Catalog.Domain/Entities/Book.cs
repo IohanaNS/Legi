@@ -18,7 +18,7 @@ public class Book : BaseAuditableEntity
     public decimal AverageRating { get; private set; }
     public int RatingsCount { get; private set; }
     public int ReviewsCount { get; private set; }
-    public Guid CreatedByUserId { get; private set; }
+    public Guid? CreatedByUserId { get; private set; }
 
     private readonly List<Author> _authors = [];
     public IReadOnlyCollection<Author> Authors => _authors.AsReadOnly();
@@ -96,7 +96,7 @@ public class Book : BaseAuditableEntity
             book._authors.Select(a => a.Name).ToList(),
             book.CoverUrl,
             book.PageCount,
-            book.CreatedByUserId));
+            createdByUserId));
 
         return book;
     }
@@ -259,6 +259,28 @@ public class Book : BaseAuditableEntity
             CoverUrl = coverUrl.Trim();
         }
 
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    #endregion
+
+    #region Creator Anonymization
+
+    /// <summary>
+    /// Anonymizes the creator of this book by setting <see cref="CreatedByUserId"/>
+    /// to null. Called when the user who originally added this book to the catalog
+    /// deletes their account.
+    ///
+    /// Note: this method is the canonical domain-level expression of the operation.
+    /// The production path for <c>UserDeleted</c> uses a bulk SQL update via the
+    /// repository for performance — see <c>IBookRepository.AnonymizeCreatorsAsync</c>
+    /// and <c>UserDeletedIntegrationEventHandler</c> in the Catalog Application
+    /// project. This method exists so the invariant ("only this path may null the
+    /// creator") is sanctioned and discoverable from the aggregate itself.
+    /// </summary>
+    public void AnonymizeCreator()
+    {
+        CreatedByUserId = null;
         UpdatedAt = DateTime.UtcNow;
     }
 

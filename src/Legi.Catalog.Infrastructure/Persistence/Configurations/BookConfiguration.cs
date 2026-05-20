@@ -63,8 +63,7 @@ public class BookConfiguration : IEntityTypeConfiguration<Book>
             .HasDefaultValue(0);
 
         builder.Property(b => b.CreatedByUserId)
-            .HasColumnName("created_by_user_id")
-            .IsRequired();
+            .HasColumnName("created_by_user_id");
 
         builder.Property(b => b.CreatedAt)
             .HasColumnName("created_at")

@@ -1,3 +1,4 @@
+using Legi.Messaging.DependencyInjection;
 using Legi.Social.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,7 @@ public class SocialDbContext(DbContextOptions<SocialDbContext> options) : DbCont
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyMessagingConfigurations();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SocialDbContext).Assembly);
     }
 }

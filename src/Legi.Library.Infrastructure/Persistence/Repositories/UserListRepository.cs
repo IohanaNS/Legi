@@ -65,4 +65,11 @@ public class UserListRepository : IUserListRepository
             .Where(ul => ul.Items.Any(i => i.UserBookId == userBookId))
             .ToListAsync(cancellationToken);
     }
+
+    public Task<int> DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _context.UserLists
+            .Where(ul => ul.UserId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

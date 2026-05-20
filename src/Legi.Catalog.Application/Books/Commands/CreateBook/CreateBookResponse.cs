@@ -14,6 +14,6 @@ public record CreateBookResponse(
     decimal AverageRating,
     int RatingsCount,
     List<TagDto> Tags,
-    Guid CreatedByUserId,
+    Guid? CreatedByUserId,
     DateTime CreatedAt
 );

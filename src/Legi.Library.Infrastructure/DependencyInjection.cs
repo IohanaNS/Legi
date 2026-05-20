@@ -1,4 +1,5 @@
 ﻿using Legi.Contracts.Catalog;
+using Legi.Contracts.Identity;
 using Legi.Library.Application.Common.Interfaces;
 using Legi.Library.Domain.Repositories;
 using Legi.Library.Infrastructure.Persistence;
@@ -30,6 +31,7 @@ public static class DependencyInjection
 
         services.AddLegiMessaging<LibraryDbContext>("library", configuration);
         services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, LibraryDbContext>();
+        services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, LibraryDbContext>();
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IUserBookRepository, UserBookRepository>();

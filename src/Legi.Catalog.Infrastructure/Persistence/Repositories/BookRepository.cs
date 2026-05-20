@@ -59,6 +59,17 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public Task<int> AnonymizeCreatorsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return context.Books
+            .Where(b => b.CreatedByUserId == userId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(b => b.CreatedByUserId, (Guid?)null)
+                    .SetProperty(b => b.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
+    }
+
     public async Task DeleteAsync(Book book, CancellationToken cancellationToken = default)
     {
         // Get existing relationships to update counts before deletion

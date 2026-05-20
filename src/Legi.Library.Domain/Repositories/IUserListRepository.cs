@@ -13,4 +13,15 @@ public interface IUserListRepository
 
     Task<IReadOnlyList<UserList>> GetListsContainingBookAsync(Guid userBookId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hard-deletes every <c>UserList</c> row for the given user. The cascade-delete
+    /// FK on <c>UserListItem</c> takes care of associated items automatically.
+    /// Uses a bulk SQL delete — does not call SaveChangesAsync.
+    ///
+    /// Called by the Library <c>UserDeletedIntegrationEventHandler</c>.
+    /// Idempotent: rerunning deletes zero rows the second time.
+    /// </summary>
+    /// <returns>The number of <c>UserList</c> rows deleted.</returns>
+    Task<int> DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using Legi.Messaging.DependencyInjection;
 using Legi.Social.Application.Common.Interfaces;
 using Legi.Social.Domain.Repositories;
 using Legi.Social.Infrastructure.Persistence;
@@ -25,6 +26,8 @@ public static class DependencyInjection
                     npgsqlOptions.MigrationsAssembly(typeof(SocialDbContext).Assembly.FullName);
                     npgsqlOptions.EnableRetryOnFailure(3);
                 }).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
+
+        services.AddLegiMessaging<SocialDbContext>("social", configuration);
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();

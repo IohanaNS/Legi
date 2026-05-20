@@ -40,4 +40,12 @@ public class UserBookRepository : IUserBookRepository
         _context.UserBooks.Update(userBook);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public Task<int> DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _context.UserBooks
+            .IgnoreQueryFilters()
+            .Where(ub => ub.UserId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

@@ -25,6 +25,16 @@ public interface IBookRepository
     Task UpdateAsync(Book book, CancellationToken cancellationToken = default);
     Task DeleteAsync(Book book, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Anonymizes the creator field on all books created by the given user.
+    /// Uses a bulk SQL update — does not call SaveChangesAsync.
+    ///
+    /// Called by <c>UserDeletedIntegrationEventHandler</c> in response to a user
+    /// account deletion. Idempotent: running twice updates zero rows the second
+    /// time.
+    /// </summary>
+    /// <returns>The number of books anonymized.</returns>
+    Task<int> AnonymizeCreatorsAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 
 
@@ -58,7 +68,7 @@ public record BookDetailsResult(
     int RatingsCount,
     int ReviewsCount,
     List<(string Name, string Slug)> Tags,
-    Guid CreatedByUserId,
+    Guid? CreatedByUserId,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

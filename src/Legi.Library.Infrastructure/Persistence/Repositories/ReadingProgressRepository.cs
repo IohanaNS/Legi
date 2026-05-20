@@ -29,4 +29,11 @@ public class ReadingProgressRepository(LibraryDbContext context) : IReadingPostR
         context.ReadingPosts.Remove(progress);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public Task<int> DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return context.ReadingPosts
+            .Where(rp => rp.UserId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }
