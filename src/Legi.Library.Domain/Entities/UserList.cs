@@ -25,6 +25,7 @@ public class UserList : BaseAuditableEntity
         ValidateDescription(description);
         return new UserList
         {
+            Id = Guid.NewGuid(),
             UserId = userId,
             Name = name,
             Description = description,

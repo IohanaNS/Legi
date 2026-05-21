@@ -1276,7 +1276,7 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 **Entregável:** BookSnapshots mantidos automaticamente via eventos. Workaround removido.
 
-### Fase 3 — Identity events (UserRegistered + UserDeleted → todos) 🚧 EM ANDAMENTO
+### Fase 3 — Identity events (UserRegistered + UserDeleted → todos) ✅ CONCLUÍDA
 
 **Objetivo:** Lifecycle do usuário propagado automaticamente — criação de UserProfile no Social, e cascata de deleção em todos os serviços.
 
@@ -1290,9 +1290,11 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 | 3B | Preconditions do Social (project refs, registro de `INotificationHandler<>`, `ApplyMessagingConfigurations`, `AddLegiMessaging<SocialDbContext>`, migration outbox/inbox, appsettings) | ✅ |
 | 3C | Catalog consome `UserDeleted` → anonimiza `created_by` | ✅ |
 | 3D | Library consome `UserDeleted` → hard-delete de `user_books`, `user_lists`, `reading_posts` | ✅ |
-| 3E | Social consome `UserRegistered` (cria UserProfile) + `UserDeleted` (purge completo) | 🚧 especificado |
-| 3F | Teste end-to-end: registro → cria conteúdo nos 3 serviços → delete → verificar cascata | ⏳ |
-| 3G | Teste de dedup: re-publicar UserDeleted, verificar que os 3 consumers pulam via inbox | ⏳ |
+| 3E | Social consome `UserRegistered` (cria UserProfile) + `UserDeleted` (purge completo) | ✅ |
+| 3F | Teste end-to-end: registro → cria conteúdo nos 3 serviços → delete → verificar cascata | ✅ |
+| 3G | Teste de dedup: re-publicar UserDeleted, verificar que os 3 consumers pulam via inbox | ✅ |
+
+**Idempotência dependente de ordem — provada empiricamente (3G).** Dois testes distintos: (A) redelivery COM inbox dedup → handler pulado silenciosamente, contadores intactos — prova que o *ledger* funciona. (B) redelivery com a inbox row APAGADA, forçando o purger a re-rodar de fato → contadores permaneceram 0/0 porque o delete de `Follows` da primeira execução esvaziou as subqueries de decremento da segunda — prova que o *handler em si* é idempotente, independente do ledger. Teste B é a prova real; Teste A sozinho só provaria o inbox.
 
 **Decisões por consumidor:**
 

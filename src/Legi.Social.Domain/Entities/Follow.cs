@@ -16,6 +16,7 @@ public class Follow : BaseEntity
         
         var follow = new Follow
         {
+            Id = Guid.NewGuid(),
             FollowerId = followerId,
             FollowingId = followingId,
             CreatedAt = DateTime.UtcNow
