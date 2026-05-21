@@ -57,5 +57,8 @@ public class ContentSnapshotConfiguration : IEntityTypeConfiguration<ContentSnap
         builder.Property(cs => cs.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
+
+        builder.HasIndex(cs => cs.OwnerId)
+            .HasDatabaseName("ix_content_snapshots_owner_id");
     }
 }

@@ -22,7 +22,7 @@ public class UserProfile
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
-    internal static UserProfile Create(Guid userId, string userName)
+    public static UserProfile Create(Guid userId, string userName)
     {
         return new UserProfile
         {

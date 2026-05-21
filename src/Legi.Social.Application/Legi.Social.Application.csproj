@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Legi.Contracts\Legi.Contracts.csproj" />
       <ProjectReference Include="..\Legi.SharedKernel\Legi.SharedKernel.csproj" />
       <ProjectReference Include="..\Legi.Social.Domain\Legi.Social.Domain.csproj" />
     </ItemGroup>

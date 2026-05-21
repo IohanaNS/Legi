@@ -1,3 +1,4 @@
+using Legi.Contracts.Identity;
 using Legi.Messaging.DependencyInjection;
 using Legi.Social.Application.Common.Interfaces;
 using Legi.Social.Domain.Repositories;
@@ -28,6 +29,10 @@ public static class DependencyInjection
                 }).AddInterceptors(sp.GetRequiredService<DispatchDomainEventsInterceptor>()));
 
         services.AddLegiMessaging<SocialDbContext>("social", configuration);
+
+        services.AddScoped<IUserDataPurger, UserDataPurger>();
+        services.AddIntegrationEventConsumer<UserRegisteredIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, SocialDbContext>();
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();

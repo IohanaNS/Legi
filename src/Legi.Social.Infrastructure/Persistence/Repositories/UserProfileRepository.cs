@@ -30,4 +30,14 @@ public class UserProfileRepository(SocialDbContext context) : IUserProfileReposi
         context.UserProfiles.Remove(profile);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task StageCreateIfMissingAsync(
+        UserProfile profile, CancellationToken cancellationToken = default)
+    {
+        var exists = await context.UserProfiles
+            .AnyAsync(p => p.UserId == profile.UserId, cancellationToken);
+
+        if (!exists)
+            await context.UserProfiles.AddAsync(profile, cancellationToken);
+    }
 }
