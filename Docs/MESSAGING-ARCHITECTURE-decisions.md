@@ -1276,18 +1276,43 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 **Entregável:** BookSnapshots mantidos automaticamente via eventos. Workaround removido.
 
-### Fase 3 — Identity events (UserDeleted → todos) ▶ PRÓXIMA
+### Fase 3 — Identity events (UserRegistered + UserDeleted → todos) 🚧 EM ANDAMENTO
 
-**Objetivo:** Cascata de deleção de usuário.
+**Objetivo:** Lifecycle do usuário propagado automaticamente — criação de UserProfile no Social, e cascata de deleção em todos os serviços.
 
-| Tarefa | Descrição |
-|--------|-----------|
-| 3.1 | Identity publica `UserRegisteredIntegrationEvent`, `UserDeletedIntegrationEvent`, `UsernameChangedIntegrationEvent` |
-| 3.2 | Social consome `UserRegistered` (cria UserProfile), `UserDeleted` (deleta tudo), `UsernameChanged` (atualiza) |
-| 3.3 | Library consome `UserDeleted` (deleta user_books, reading_posts, user_lists) |
-| 3.4 | Catalog consome `UserDeleted` (atualiza created_by) |
+**Escopo ajustado:** `UsernameChanged` foi **removido desta fase**. Identity não tem fluxo de rename hoje (sem `UpdateProfileCommand`, sem mutator em `User`, sem `UsernameChangedDomainEvent`). Adicionar o evento exigiria construir a feature inteira primeiro. Os mutators do lado consumidor já existem e esperando (`UserProfile.UpdateUsername`, `ContentSnapshot.UpdateOwner`) — quando a feature de rename for construída, o plumbing cross-service é a parte fácil. Fase 3 cobre **UserRegistered + UserDeleted apenas**.
 
-**Entregável:** Lifecycle do usuário propagado automaticamente.
+**Sub-fases:**
+
+| Sub-fase | Descrição | Status |
+|----------|-----------|--------|
+| 3A | Identity publica `UserDeletedIntegrationEvent` (contract + translator; `UserDeletedDomainEvent` já existia, raised em `DeleteAccountCommandHandler`) | ✅ |
+| 3B | Preconditions do Social (project refs, registro de `INotificationHandler<>`, `ApplyMessagingConfigurations`, `AddLegiMessaging<SocialDbContext>`, migration outbox/inbox, appsettings) | ✅ |
+| 3C | Catalog consome `UserDeleted` → anonimiza `created_by` | ✅ |
+| 3D | Library consome `UserDeleted` → hard-delete de `user_books`, `user_lists`, `reading_posts` | ✅ |
+| 3E | Social consome `UserRegistered` (cria UserProfile) + `UserDeleted` (purge completo) | 🚧 especificado |
+| 3F | Teste end-to-end: registro → cria conteúdo nos 3 serviços → delete → verificar cascata | ⏳ |
+| 3G | Teste de dedup: re-publicar UserDeleted, verificar que os 3 consumers pulam via inbox | ⏳ |
+
+**Decisões por consumidor:**
+
+**Catalog (3C) — anonimizar, não deletar.** `Book.CreatedByUserId` passou de `Guid` para `Guid?` (propriedade nullable; `Book.Create` ainda exige non-null — não se cria livro sem saber quem adicionou). Adicionado `Book.AnonymizeCreator()` como caminho de domínio canônico, mas o handler de produção usa bulk update via `IBookRepository.AnonymizeCreatorsAsync` (`ExecuteUpdateAsync SET CreatedByUserId = null WHERE CreatedByUserId = @userId`). Livros persistem (outros usuários têm eles em suas bibliotecas); só perdem a atribuição de criador. `BookCreatedDomainEvent.CreatedByUserId` permanece `Guid` non-null — é um fato histórico do momento da criação, nunca null. Migration: `ALTER COLUMN created_by_user_id DROP NOT NULL`. Idempotente (filtro casa zero rows no rerun).
+
+**Library (3D) — hard-delete tudo.** Soft-delete existe para recuperabilidade voltada ao usuário (remover um livro e re-adicionar). No instante em que o usuário some, não há mais "voltado ao usuário" — e erasure estilo GDPR implica hard-delete na deleção de conta. Três bulk deletes via repository methods (`DeleteAllForUserAsync` em `IUserBookRepository`, `IReadingProgressRepository`, `IUserListRepository`): `reading_posts`, `user_lists` (cascata DB-level para `user_list_items`), `user_books`. O delete de `user_books` usa **`IgnoreQueryFilters()`** — sem isso o filtro global `DeletedAt == null` excluiria rows já soft-deletadas, deixando órfãos. Bypassa domain events de propósito (não queremos fanout de N `BookRemovedDomainEvent`; Social tem sua própria subscrição direta a `UserDeleted`). Idempotente individualmente.
+
+**Social (3E) — purge coordenado via `IUserDataPurger`.** A cascata toca 7 tabelas + ajuste de contadores. Não é persistência de aggregate — é purge coordenado de read models. A forma certa é um **serviço** (`IUserDataPurger` em Application/Common/Interfaces, `UserDataPurger` em Infrastructure/Persistence), não repository methods espalhados. O serviço retorna um `UserPurgeResult` record com contagens para observability.
+
+A purga tem **idempotência dependente de ordem**: os decrementos de contadores (`FollowersCount`/`FollowingCount` em perfis de OUTROS usuários) devem rodar **antes** do delete de `Follows`. Em redelivery, as rows de `Follows` já foram deletadas → subqueries dos decrementos retornam vazio → nada é decrementado duas vezes. Reordenar quebraria a idempotência.
+
+Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não carrega o owner id — usa `ContentSnapshot` como chave de join (`OwnerId`). Adicionado índice `ix_content_snapshots_owner_id` (3E migration). Batched por target type para evitar N round-trips. Aceita race teórico (like inserido entre query e delete) — órfão aponta para conteúdo que será deletado de qualquer forma; recompute periódico (Fase 6) corrige drift.
+
+**`UserRegistered` no Social — `StageCreateIfMissingAsync`, não overwrite.** Diferente do `StageAddOrUpdateAsync` do BookSnapshot (que sobrescreve, porque BookUpdated traz dados mais frescos), o handler de UserProfile faz **no-op se já existe**. O username de `UserRegistered` é o de registro — não pode sobrescrever um rename posterior. `UserProfile.Create` promovido de `internal` para `public` (factory de aggregate deve ser público para a Application chamar). Social ignora `Email` do evento — UserProfile não tem campo email; o evento carrega Email para outros consumidores (ex: notification service futuro), e cada consumidor projeta o que precisa.
+
+**Convenção bulk-ops + 8.1:** `ExecuteDeleteAsync`/`ExecuteUpdateAsync` são commit-imediato, fora do change tracker. A regra "handlers não chamam SaveChangesAsync" (8.1) não se aplica a elas — são a exceção documentada em 8.1. Mas o handler de `UserRegistered` escreve via change tracker (`StageCreateIfMissingAsync`), então *esse* não chama SaveChangesAsync — o dispatcher commita inbox row + profile juntos.
+
+**Cut-over dev:** usuários registrados antes de 3E estar no ar não recebem UserProfile retroativo. Política dev: wipe-and-re-register. Backfill scripts (Social.UserProfile, Library.BookSnapshot para usuários pré-messaging) ficam para quando o projeto se aproximar de produção.
+
+**Entregável:** Lifecycle do usuário propagado automaticamente — UserProfile criado no registro, dados removidos/anonimizados na deleção, através de Catalog + Library + Social, todos via fanout do mesmo `UserDeletedIntegrationEvent`.
 
 ### Fase 4 — Library ↔ Social (eventos bidirecionais)
 
