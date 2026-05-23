@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 📋 Planejado
+**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A ✅ código (gate runtime pendente); Fase 4B (publishers do Library) iniciando
 
 ---
 
@@ -262,7 +262,7 @@ Os eventos ficam focados em sua semântica (quem, o quê, quando). O display é 
 **Vantagens:**
 
 - **Eventos focados.** Cada evento carrega *exatamente* o que sua semântica sugere, nada mais.
-- **Dados sempre frescos.** Quando o Catalog atualiza o cover de um livro, o `BookSnapshot` do Social é atualizado automaticamente via `BookUpdated`. Todos os `FeedItem`s daquele livro passam a exibir o cover novo, sem lógica de back-population.
+- **Snapshot único, atualizável.** O `BookSnapshot` do Social é mantido fresco via `BookUpdated` — quando o Catalog atualiza o cover, o snapshot reflete o novo valor para *futuras* leituras de display.
 - **Simetria.** Library e Social ambos mantêm `BookSnapshot` local — mesmo padrão, mesmo consumer, mesmo contrato.
 - **Payload menor.** Eventos Library → Social ficam mais compactos.
 
@@ -273,6 +273,16 @@ Os eventos ficam focados em sua semântica (quem, o quê, quando). O display é 
 - Custo compensado pela eliminação de 3 campos redundantes em 3 eventos diferentes.
 
 **Princípio geral:** Integration events carregam *semântica e IDs*. Display data é resolvida por read models locais alimentados pelos eventos do produtor dos dados em questão (o Catalog é quem "dita" os dados do livro). Evitar carregar display data em eventos de comportamento.
+
+#### 2.6.1 `BookSnapshot` é fonte de lookup em *write-time*, não join em *read-time*
+
+**Contradição corrigida (revisão Fase 4).** Uma versão anterior desta seção afirmava que, ao atualizar o cover via `BookUpdated`, "todos os `FeedItem`s daquele livro passam a exibir o cover novo, sem lógica de back-population". **Isso era falso** e contradizia o design real do `FeedItem`.
+
+`FeedItem` é um read model **totalmente desnormalizado** (fan-out on read): carrega suas próprias colunas `BookTitle`, `BookAuthor`, `BookCoverUrl`, gravadas no momento da criação do item, justamente para que a query do feed seja um `SELECT` sem joins. O mesmo vale para `ContentSnapshot`. Esses valores **não** são resolvidos por join contra `BookSnapshot` em tempo de query.
+
+**Papel real do `BookSnapshot` no Social:** é a **fonte de lookup que o handler de evento consulta no momento da escrita** para *assar* (bake) título/autor/cover dentro do novo `FeedItem`/`ContentSnapshot`. Sem ele, os 3 campos teriam que voltar para os eventos Library → Social — exatamente o que 2.6 elimina. O `BookSnapshot` justifica sua existência como fonte de write-time, não como tabela de join.
+
+**Consequência aceita explicitamente:** um `BookUpdated` posterior atualiza o `BookSnapshot`, mas **não** reescreve os `FeedItem`s/`ContentSnapshot`s já criados — eles mantêm os valores do momento da criação (staleness). Para um tracker de leitura isso é negligenciável: título e autor praticamente nunca mudam, e um cover trocado é puramente cosmético. Se algum dia importar, um recompute periódico (Fase 6) reconcilia o drift. A alternativa (dropar as 3 colunas do `FeedItem` e fazer join com `BookSnapshot` na `FeedItemReadRepository`) foi **rejeitada** porque anula a razão de existir do `FeedItem` (leitura sem joins) e introduz custo de query em troca de frescor que o domínio não exige.
 
 ---
 
@@ -476,9 +486,7 @@ Legi.Contracts/
 │   ├── BookAddedToLibraryIntegrationEvent.cs
 │   ├── ReadingStatusChangedIntegrationEvent.cs
 │   ├── ReadingPostCreatedIntegrationEvent.cs
-│   ├── ReadingPostDeletedIntegrationEvent.cs
-│   ├── UserListCreatedIntegrationEvent.cs
-│   └── UserListDeletedIntegrationEvent.cs
+│   └── ReadingPostDeletedIntegrationEvent.cs
 └── Social/
     ├── ContentLikedIntegrationEvent.cs
     ├── ContentUnlikedIntegrationEvent.cs
@@ -736,20 +744,23 @@ public record ReadingPostDeletedIntegrationEvent(
 // Nota: UserBookRatedIntegrationEvent (seção 6.4) é o mesmo evento consumido
 // tanto pelo Catalog quanto pelo Social — RabbitMQ fanout entrega em filas separadas
 
-// Criado quando o usuário cria uma lista
-public record UserListCreatedIntegrationEvent(
-    Guid ListId,
-    Guid UserId,
-    string Name,
-    bool IsPublic,
-    DateTime CreatedAt
-) : IIntegrationEvent;
-
-// Criado quando uma lista é deletada
-public record UserListDeletedIntegrationEvent(
-    Guid ListId,
-    Guid UserId
-) : IIntegrationEvent;
+// ─────────────────────────────────────────────────────────────────────────
+// REMOVIDO (decisão Fase 4 — listas fora do feed):
+//   UserListCreatedIntegrationEvent / UserListDeletedIntegrationEvent
+//
+// LIBRARY-ARCHITECTURE-decisions.md §6.3 já havia cortado
+// UserListCreatedDomainEvent por YAGNI ("criar lista vazia não é fato social
+// relevante"). Honramos essa decisão: listas NÃO entram no feed. Sem
+// FeedItem(ListCreated) e sem ContentSnapshot(List) → UserListDeleted também
+// não tem nada para limpar no Social, então seu consumer Social seria no-op.
+// Ambos os integration events ficam sem consumidor e são DROPADOS.
+//
+// UserListDeletedDomainEvent permanece no Library (não tem efeito cross-service
+// na Fase 4). Reversível no futuro sem refactor: adicionar
+// UserListCreatedDomainEvent em UserList.Create() + translator + consumer.
+// Social já tem ActivityType.ListCreated e suporte a ContentSnapshot(List)
+// definidos, então a reativação é barata.
+// ─────────────────────────────────────────────────────────────────────────
 ```
 
 **Consumidores:**
@@ -761,8 +772,6 @@ public record UserListDeletedIntegrationEvent(
 | `ReadingPostCreated` | Social | Cria `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted) |
 | `ReadingPostDeleted` | Social | Remove `ContentSnapshot` + `Likes` + `Comments` + `FeedItem` |
 | `UserBookRated` | Social | Cria `FeedItem` (BookRated) |
-| `UserListCreated` | Social | Cria `ContentSnapshot` (List) + `FeedItem` (ListCreated) |
-| `UserListDeleted` | Social | Remove `ContentSnapshot` + `Likes` + `Comments` + `FeedItem` |
 
 ### 6.6 Social → Library
 
@@ -808,13 +817,13 @@ public record CommentDeletedIntegrationEvent(
 
 ### 6.7 Resumo de Eventos
 
-**Total: 17 integration events.**
+**Total: 15 integration events.** *(Revisão Fase 4: `UserListCreated`/`UserListDeleted` dropados — listas fora do feed, ver 6.5. Era 17.)*
 
 | Origem | Eventos | Destino(s) |
 |--------|---------|------------|
 | Identity | 3 (Registered, Deleted, UsernameChanged) | Social, Catalog, Library |
 | Catalog | 2 (BookCreated, BookUpdated) | Library, Social |
-| Library | 8 (BookAdded, StatusChanged, PostCreated, PostDeleted, Rated, RatingRemoved, ListCreated, ListDeleted) | Catalog, Social |
+| Library | 6 (BookAdded, StatusChanged, PostCreated, PostDeleted, Rated, RatingRemoved) | Catalog, Social |
 | Social | 4 (ContentLiked, ContentUnliked, ContentCommented, CommentDeleted) | Library |
 
 ### 6.8 Divergências resolvidas com ARCHITECTURE.md
@@ -825,8 +834,8 @@ O ARCHITECTURE.md seção 6.2 foi escrito antes dos documentos de arquitetura de
 |------|--------------------------|---------------------|--------|
 | `UserBookRatingRemovedIntegrationEvent` | Ausente | Adicionado | Library.Domain tem `UserBookRatingRemovedDomainEvent` com consumidor no Catalog |
 | `ReadingPostCreatedIntegrationEvent` | Dados mínimos (sem book data) | Mantido lean; dados do livro resolvidos via `BookSnapshot` no Social | Decisão 2.6: snapshots locais em vez de denormalização em eventos |
-| `UserListCreatedIntegrationEvent` | Ausente no ARCHITECTURE.md | Adicionado | SOCIAL-ARCHITECTURE-decisions.md seção 7.1 define como incoming |
-| `UserListDeletedIntegrationEvent` | Ausente no ARCHITECTURE.md | Adicionado | Idem |
+| `UserListCreatedIntegrationEvent` | Ausente no ARCHITECTURE.md | **Dropado (Fase 4)** | Library §6.3 cortou o domain event por YAGNI; listas fora do feed (ver 6.5) |
+| `UserListDeletedIntegrationEvent` | Ausente no ARCHITECTURE.md | **Dropado (Fase 4)** | Sem FeedItem/ContentSnapshot de lista para limpar → consumer Social seria no-op |
 | `ContentUnlikedIntegrationEvent` | Ausente no ARCHITECTURE.md | Adicionado | SOCIAL-ARCHITECTURE-decisions.md seção 7.2 define como outgoing |
 | `CommentDeletedIntegrationEvent` | Ausente no ARCHITECTURE.md | Adicionado | Idem |
 | `UserRegisteredIntegrationEvent` | Ausente no ARCHITECTURE.md | Adicionado | Social precisa criar UserProfile no registro |
@@ -1078,6 +1087,18 @@ Custo observável: entre as bulk-writes do handler e o `SaveChangesAsync` do dis
 
 **Outro custo: bulk operations bypassam domain events.** Um `ExecuteDeleteAsync` em `UserBooks` não dispara `BookRemovedFromLibraryDomainEvent`. Para `UserDeleted` isso é desejado (Social tem sua própria subscrição direta ao `UserDeletedIntegrationEvent`, não precisamos que Library faça fanout de N eventos). Mas o handler deve documentar isso explicitamente para o próximo leitor.
 
+#### 8.1.1 Contadores no Library (Fase 4) — idempotência depende *exclusivamente* da inbox
+
+Os handlers de `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted` no Library ajustam `LikesCount`/`CommentsCount` em `ReadingPost`/`UserList`. Diferente de outros consumers idempotentes (recompute de rating, deletes filtrados), aqui **não há estado de domínio local que torne o incremento naturalmente idempotente**: as rows de `Like`/`Comment` vivem no Social, não no Library. O Library não tem como fazer "check-before-increment" — não enxerga o `Like`. Logo, a **inbox é a única defesa contra contagem dupla**.
+
+**Regra obrigatória:** esses handlers usam o **caminho do change-tracker** (carregar o aggregate, chamar `IncrementLikes()`/`DecrementLikes()`/etc., e deixar o `IntegrationEventDispatcher` fazer o único `SaveChangesAsync`). É o inverso da exceção bulk-ops de 8.1: usar `ExecuteUpdateAsync` aqui **quebraria** a idempotência, porque o update commitaria *antes* da inbox row, abrindo a janela de double-count que a atomicidade inbox+handler existe para fechar. Anotar essa proibição no próprio handler.
+
+**Aggregate alvo:** `TargetType` do evento mapeia `"Post"` → `ReadingPost`, `"List"` → `UserList`; `TargetId` é o `PostId`/`ListId`. Aggregate não encontrado (ex: post deletado concorrentemente) → no-op idempotente (o contador é irrelevante se o conteúdo sumiu).
+
+#### 8.1.2 Handlers de deleção no Social NÃO re-emitem eventos de contador
+
+Quando o Social processa `ReadingPostDeleted` e purga os `Like`s/`Comment`s daquele conteúdo, ele **não** deve publicar `ContentUnliked`/`CommentDeleted` de volta para o Library. O post já foi deletado no Library — seus contadores foram embora junto. Re-emitir decrementaria um contador que não existe mais. O bypass de domain events das bulk operations (acima) entrega esse comportamento de graça (o `ExecuteDeleteAsync` nos `Like`s/`Comment`s não levanta `ContentUnlikedDomainEvent`), mas o handler deve comentar a intenção para que ninguém "conserte" isso no futuro. *(Listas estão fora do feed na Fase 4, ver 6.5 — quando reativadas, a mesma regra vale para `UserListDeleted`.)*
+
 ### 8.2 Retry Policy
 
 **Producer side (outbox dispatcher):**
@@ -1113,6 +1134,10 @@ Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. Rabbi
 **Impacto no Legi:** Baixo. Cada consumer é independente. Um FeedItem de "post criado" não depende de um FeedItem de "livro adicionado" já existir. O único caso sensível é `UserDeleted` — mas a limpeza é idempotente (deletar o que não existe é no-op).
 
 **Se no futuro for necessário ordering por aggregate:** opções são (a) particionar por `UserId` no payload e usar consumer single-instance por partição, (b) usar headers do AMQP para priorização. Não implementar agora — YAGNI.
+
+**Caso concreto introduzido na Fase 4 — `BookSnapshot` ausente quando um evento Library → Social chega.** Os handlers do Social que criam `FeedItem`/`ContentSnapshot` (ReadingPostCreated, BookAddedToLibrary, etc.) consultam o `BookSnapshot` local para resolver título/autor/cover (ver 2.6.1). Como não há ordering cross-event, um usuário que adiciona um livro novo e imediatamente posta progresso pode fazer com que `ReadingPostCreated` chegue **antes** do `BookCreated` (Catalog → Social) ter criado o `BookSnapshot`.
+
+**Regra:** snapshot ausente é tratado como **condição transitória**. O handler lança, a mensagem é `nack`-ed *com* requeue, e o RabbitMQ reentrega. Quando o `BookCreated` correspondente chegar e criar o snapshot, a reentrega seguinte tem sucesso. Isto é coerente com a filosofia de "redelivery loop loud e visível" da decisão 8.2 — e deve emitir um log de warning identificando o `BookId` ausente, para que um loop genuíno (BookCreated que nunca chega) seja diagnosticável. Em monorepo com Catalog saudável, é uma janela de subsegundos.
 
 ---
 
@@ -1160,7 +1185,7 @@ Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. Rabbi
 | Nova dependência | `Legi.Contracts` na Application layer |
 | **Novo read model local** | **`BookSnapshot` (análogo ao de Library) — ver decisão 2.6. Entity, EF configuration, migration. Resolve display data (título, autor, cover) para FeedItems sem depender de denormalização em eventos** |
 | Novos domain event handlers (outgoing) | 4 handlers (`ContentLiked`, `ContentUnliked`, `ContentCommented`, `CommentDeleted`) substituindo stubs |
-| Novos notification handlers (incoming) | `UserRegisteredIntegrationEventHandler` (cria UserProfile). `UserDeletedIntegrationEventHandler` (deleta tudo). `UsernameChangedIntegrationEventHandler` (atualiza username). `BookCreatedIntegrationEventHandler` (cria BookSnapshot). `BookUpdatedIntegrationEventHandler` (upsert BookSnapshot). 7 handlers de Library events (FeedItem/ContentSnapshot creation — resolvem dados do livro via BookSnapshot). |
+| Novos notification handlers (incoming) | `UserRegisteredIntegrationEventHandler` (cria UserProfile). `UserDeletedIntegrationEventHandler` (deleta tudo). `UsernameChangedIntegrationEventHandler` (atualiza username). `BookCreatedIntegrationEventHandler` (cria BookSnapshot). `BookUpdatedIntegrationEventHandler` (upsert BookSnapshot). **5** handlers de Library events (FeedItem/ContentSnapshot — resolvem dados do livro via BookSnapshot; listas fora do feed, ver 6.5). |
 | Remoção stubs | Substituir domain event handlers stub por versões que publicam integration events |
 | Infrastructure | `AddLegiMessaging<SocialDbContext>()` com consumers registrados |
 | Outbox | Migration para tabelas de outbox no `social` DB |
@@ -1261,6 +1286,8 @@ Esta fase é dividida em sub-fases para revisão incremental. Cada sub-fase é u
 
 ### Fase 2 — Primeiro evento end-to-end (Catalog → Library: BookCreated) ✅ CONCLUÍDA
 
+> **Reconciliação (Fase 4A):** apesar de marcada concluída, apenas a metade `BookCreated` estava de fato ligada ponta-a-ponta. O pipeline `BookUpdated` (tarefas 2.2/2.4 — `BookUpdatedDomainEvent`, `Book.RaiseUpdatedEvent()`, `BookUpdatedDomainEventHandler` no Catalog, contrato `BookUpdatedIntegrationEvent`, consumer no Library) não existia e foi construído durante a 4A, junto com o consumer do Social. Agora sim a Fase 2 está completa para ambos os eventos. *Ponto em aberto:* confirmar que `RaiseUpdatedEvent()` só dispara quando algum campo de fato mudou (evitar evento espúrio em update no-op).
+
 **Objetivo:** Validar o fluxo completo com um caso real.
 
 | Tarefa | Descrição |
@@ -1318,17 +1345,90 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 ### Fase 4 — Library ↔ Social (eventos bidirecionais)
 
-**Objetivo:** Feed e interações sociais funcionais.
+**Objetivo:** Feed e interações sociais funcionais — a fase em que o feed "ganha vida". É a maior fase até aqui; dividida em sub-fases para revisão incremental, cada uma um marco antes de seguir.
 
-| Tarefa | Descrição |
-|--------|-----------|
-| 4.1 | Library publica 8 integration events (BookAdded, StatusChanged, PostCreated, PostDeleted, Rated, RatingRemoved, ListCreated, ListDeleted) |
-| 4.2 | Social consome todos → cria FeedItems e ContentSnapshots |
-| 4.3 | Social publica 4 integration events (ContentLiked, ContentUnliked, ContentCommented, CommentDeleted) |
-| 4.4 | Library consome → atualiza LikesCount, CommentsCount |
-| 4.5 | **Remover stubs** em Social's Application layer |
+**Decisões de design que esta fase força (revisar antes de implementar):**
 
-**Entregável:** Sistema social completo. Feed funcional. Contadores atualizados via eventos.
+1. **`FeedItem`/`ContentSnapshot` permanecem desnormalizados; `BookSnapshot` é fonte de write-time, não join.** Ver decisão 2.6.1. Consequência aceita: book metadata fica stale em itens já criados após `BookUpdated`.
+2. **`BookSnapshot` ausente em evento Library → Social = condição transitória → nack-com-requeue.** Ver 8.3 (caso concreto Fase 4).
+3. **Contadores no Library dependem exclusivamente da inbox; caminho change-tracker é obrigatório.** Ver 8.1.1. Handlers de deleção no Social não re-emitem eventos de contador. Ver 8.1.2.
+
+**Sub-fases:**
+
+**4A — `BookSnapshot` no Social (pré-requisito)**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4A.1 | Entity `BookSnapshot` no Social.Domain (análogo ao de Library) + EF configuration + migration | ⏳ |
+| 4A.2 | Repository com `StageAddOrUpdateAsync` (upsert idempotente, mesmo padrão do Library) | ⏳ |
+| 4A.3 | `BookCreatedIntegrationEventHandler` (cria snapshot) + `BookUpdatedIntegrationEventHandler` (upsert) na Application | ⏳ |
+| 4A.4 | Registrar consumers `BookCreated` + `BookUpdated` na DI do Social | ⏳ |
+| 4A.5 | **Teste:** criar livro no Catalog → `BookSnapshot` aparece no Social | ⏳ |
+
+*Por que primeiro:* desbloqueia 4C (handlers não resolvem display data sem ele). Espelha a Fase 2 mecanicamente — baixo risco, bom aquecimento.
+
+*Status 4A:* ✅ código completo (171 testes verdes). ⏳ gate de runtime 4A.5 (docker) pendente antes de fechar. **Bônus:** 4A fechou um gap da Fase 2 — o pipeline `BookUpdated` (publisher no Catalog + consumer no Library + consumer no Social) não existia e foi construído aqui (ver nota na Fase 2).
+
+**4B — Publishers do Library (outgoing)**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4B.1 | Adicionar contratos faltantes em `Legi.Contracts/Library/` | ⏳ |
+| 4B.2 | **5** domain event handlers traduzindo domain → integration via `IEventBus`: `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` | ⏳ |
+| 4B.3 | **Teste:** cada ação no Library grava uma outbox row | ⏳ |
+
+*Escopo (dois cortes YAGNI conscientes):*
+- **`UserBookRatingRemoved` adiado para a Fase 5.** Único consumidor é o Catalog (Fase 5). Publicá-lo agora gera outbox rows para zero queues vinculadas — inofensivo, mas inútil. `UserBookRated` *é* construído agora (Social precisa para o FeedItem `BookRated`); Fase 5 só adiciona o consumer do Catalog no mesmo exchange fanout.
+- **`UserListCreated`/`UserListDeleted` dropados** — listas fora do feed (ver 6.5). Library §6.3 já havia cortado `UserListCreatedDomainEvent`. Não há publisher de lista na Fase 4.
+
+*Alinhamento de campos (domain events enriquecidos aditivamente):* os domain events do Library não carregam tudo que os integration events exigem. Verificar a forma real de cada um e alinhar, enriquecendo o domain event de forma aditiva quando faltar campo (em vez de dropar dado):
+- `BookAddedToLibraryDomainEvent`: integration event precisa de `UserBookId` + `AddedAt` (o evento de `Remove()` já carrega o `Id`, então é consistente adicionar ao de Added).
+- `ReadingPostCreatedDomainEvent`: faltam `Content`, `ProgressValue`, `ProgressType`, `CreatedAt`.
+- `UserBookRatedDomainEvent`: carrega `Rating` (value objects) → mapear para `int`/`int?` via `rating.Value` no translator.
+- `ReadingStatusChangedDomainEvent`: status como enum → `.ToString()` na fronteira (§6.5).
+
+**4C — Social consome eventos do Library (incoming) — o núcleo "feed ganha vida"**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4C.1 | `BookAddedToLibraryIntegrationEventHandler` → `FeedItem` (BookStarted) se não wishlist; sem ContentSnapshot (não interagível) | ⏳ |
+| 4C.2 | `ReadingStatusChangedIntegrationEventHandler` → `FeedItem` (BookFinished) se `NewStatus == "Finished"` | ⏳ |
+| 4C.3 | `ReadingPostCreatedIntegrationEventHandler` → `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted) | ⏳ |
+| 4C.4 | `ReadingPostDeletedIntegrationEventHandler` → purga `ContentSnapshot` + `Like`s + `Comment`s + `FeedItem` (sem re-emitir; ver 8.1.2) | ⏳ |
+| 4C.5 | `UserBookRatedIntegrationEventHandler` → `FeedItem` (BookRated) | ⏳ |
+| 4C.6 | Todos os handlers resolvem book data via `BookSnapshot` (decisão 2.6.1); snapshot ausente → nack transitório (decisão 8.3) | ⏳ |
+| 4C.7 | Registrar os **5** consumers na DI do Social | ⏳ |
+| 4C.8 | **Teste:** ações no Library populam o feed com os dados de livro corretos | ⏳ |
+
+*Listas:* sem handlers de `UserListCreated`/`UserListDeleted` (ver 6.5). `ActivityType.ListCreated` e suporte a `ContentSnapshot(List)` ficam definidos-mas-ociosos até reativação futura.
+
+**4D — Social publica interações (outgoing) + remoção de stubs**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4D.1 | Substituir os 4 stubs (`ContentLiked`, `ContentUnliked`, `ContentCommented`, `CommentDeleted` domain event handlers) por tradutores que publicam via `IEventBus` | ⏳ |
+| 4D.2 | Remover os stubs antigos da Application do Social (tarefa 4.5 original) | ⏳ |
+| 4D.3 | **Teste:** like/comment no Social grava outbox row | ⏳ |
+
+**4E — Library consome interações (incoming) — fecha o loop**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4E.1 | 4 handlers ajustando `LikesCount`/`CommentsCount` em `ReadingPost`/`UserList` via caminho change-tracker (decisão 8.1.1) | ⏳ |
+| 4E.2 | Registrar os 4 consumers na DI do Library | ⏳ |
+| 4E.3 | **Teste:** like no Social → `LikesCount` incrementa no Library; idempotência via replay | ⏳ |
+
+**4F — End-to-end + reconciliação de docs**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 4F.1 | Teste e2e: usuário A posta progresso → seguidor B vê no feed → B curte → contador ↑ no Library → B comenta → contador ↑ → A deleta o post → Social purga feed/snapshot/likes/comments | ⏳ |
+| 4F.2 | Teste de dedup (replay de cada evento, verificar inbox skip) | ⏳ |
+| 4F.3 | Atualizar `ARCHITECTURE.md` §6; marcar Fase 4 ✅ | ⏳ |
+
+**Edge case a confirmar (decisão de produto, não bloqueante):** transição `Wishlist → Reading` não produz FeedItem hoje (apenas `BookAdded`-não-wishlist → `BookStarted`, e `→ Finished` → `BookFinished` estão mapeados). Se um item "começou a ler" for desejado nessa transição, é uma adição pequena ao handler de `ReadingStatusChanged` (4C.2).
+
+**Entregável:** Sistema social completo. Feed funcional com dados de livro corretos. Contadores de like/comment atualizados via eventos. Stubs removidos.
 
 ### Fase 5 — Library → Catalog (ratings)
 
@@ -1336,10 +1436,11 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 | Tarefa | Descrição |
 |--------|-----------|
-| 5.1 | Library publica `UserBookRatedIntegrationEvent` e `UserBookRatingRemovedIntegrationEvent` |
-| 5.2 | Catalog consome → recalcula `average_rating` e `ratings_count` no `Book` |
+| 5.1 | Library publica `UserBookRatingRemovedIntegrationEvent` (publisher adiado da Fase 4 — ver 4B; `UserBookRatedIntegrationEvent` já é publicado desde a Fase 4) |
+| 5.2 | Catalog consome `UserBookRated` + `UserBookRatingRemoved` → recalcula `average_rating` e `ratings_count` no `Book` (binda novas queues no exchange fanout de `UserBookRated` já existente) |
 
 **Entregável:** Ratings no catálogo mantidos automaticamente.
+
 
 ### Fase 6 — Hardening
 
@@ -1380,9 +1481,7 @@ src/
 │   │   ├── BookAddedToLibraryIntegrationEvent.cs
 │   │   ├── ReadingStatusChangedIntegrationEvent.cs
 │   │   ├── ReadingPostCreatedIntegrationEvent.cs
-│   │   ├── ReadingPostDeletedIntegrationEvent.cs
-│   │   ├── UserListCreatedIntegrationEvent.cs
-│   │   └── UserListDeletedIntegrationEvent.cs
+│   │   └── ReadingPostDeletedIntegrationEvent.cs
 │   └── Social/
 │       ├── ContentLikedIntegrationEvent.cs
 │       ├── ContentUnlikedIntegrationEvent.cs

@@ -58,10 +58,15 @@ public class UpdateBookCommandHandler(IBookRepository bookRepository)
             }
         }
 
-        // 5. Persist changes
+        // 5. Raise BookUpdated domain event capturing the final state.
+        //    Translated to BookUpdatedIntegrationEvent so Library/Social can
+        //    upsert their BookSnapshot read models.
+        book.RaiseUpdatedEvent();
+
+        // 6. Persist changes
         await bookRepository.UpdateAsync(book, cancellationToken);
 
-        // 6. Return response
+        // 7. Return response
         return new UpdateBookResponse(
             book.Id,
             book.Isbn.Value,

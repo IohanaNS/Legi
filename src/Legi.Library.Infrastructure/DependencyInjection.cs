@@ -31,6 +31,7 @@ public static class DependencyInjection
 
         services.AddLegiMessaging<LibraryDbContext>("library", configuration);
         services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, LibraryDbContext>();
+        services.AddIntegrationEventConsumer<BookUpdatedIntegrationEvent, LibraryDbContext>();
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, LibraryDbContext>();
 
         // Write repositories (Domain interfaces)

@@ -1,3 +1,4 @@
+using Legi.Contracts.Catalog;
 using Legi.Contracts.Identity;
 using Legi.Messaging.DependencyInjection;
 using Legi.Social.Application.Common.Interfaces;
@@ -33,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<IUserDataPurger, UserDataPurger>();
         services.AddIntegrationEventConsumer<UserRegisteredIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<BookUpdatedIntegrationEvent, SocialDbContext>();
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();
@@ -41,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
         services.AddScoped<IContentSnapshotRepository, ContentSnapshotRepository>();
         services.AddScoped<IFeedItemRepository, FeedItemRepository>();
+        services.AddScoped<IBookSnapshotRepository, BookSnapshotRepository>();
 
         // Read repositories (Application interfaces)
         services.AddScoped<IFollowReadRepository, FollowReadRepository>();

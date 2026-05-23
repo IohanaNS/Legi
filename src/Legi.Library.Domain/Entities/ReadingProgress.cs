@@ -47,8 +47,14 @@ public class ReadingProgress : BaseAuditableEntity
         };
 
         readingPost.AddDomainEvent(
-            new ReadingProgressCreatedDomainEvent(readingPost.Id, readingPost.UserBookId, readingPost.UserId,
-                readingPost.BookId));
+            new ReadingProgressCreatedDomainEvent(
+                readingPost.Id,
+                readingPost.UserBookId,
+                readingPost.UserId,
+                readingPost.BookId,
+                readingPost.Content,
+                readingPost.CurrentProgress?.Value,
+                readingPost.CurrentProgress?.Type.ToString()));
         return readingPost;
     }
 

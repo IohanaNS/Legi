@@ -262,6 +262,23 @@ public class Book : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Raises a <see cref="BookUpdatedDomainEvent"/> capturing the book's current
+    /// display data (title, authors, cover, page count). Called by the
+    /// UpdateBook command handler once, after all mutations are applied, so a
+    /// single integration event reflects the final state of the book.
+    /// </summary>
+    public void RaiseUpdatedEvent()
+    {
+        AddDomainEvent(new BookUpdatedDomainEvent(
+            Id,
+            Isbn.Value,
+            Title,
+            _authors.Select(a => a.Name).ToList(),
+            CoverUrl,
+            PageCount));
+    }
+
     #endregion
 
     #region Creator Anonymization

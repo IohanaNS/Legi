@@ -12,6 +12,7 @@ public class SocialDbContext(DbContextOptions<SocialDbContext> options) : DbCont
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<ContentSnapshot> ContentSnapshots => Set<ContentSnapshot>();
     public DbSet<FeedItem> FeedItems => Set<FeedItem>();
+    public DbSet<BookSnapshot> BookSnapshots => Set<BookSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

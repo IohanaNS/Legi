@@ -31,8 +31,8 @@ public class UserBook : BaseAuditableEntity
         };
         
         userBook.AddDomainEvent(
-            new BookAddedToLibraryDomainEvent(userId, bookId, wishList));
-        return userBook;    
+            new BookAddedToLibraryDomainEvent(userBook.Id, userId, bookId, wishList));
+        return userBook;
     }
 
     public void ChangeReadingStatus(ReadingStatus readingStatus)
