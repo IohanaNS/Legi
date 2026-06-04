@@ -1,3 +1,5 @@
+using Legi.Contracts.Social;
+using Legi.SharedKernel;
 using Legi.SharedKernel.Mediator;
 using Legi.Social.Domain.Events;
 using Microsoft.Extensions.Logging;
@@ -5,26 +7,32 @@ using Microsoft.Extensions.Logging;
 namespace Legi.Social.Application.Likes.EventHandlers;
 
 /// <summary>
-/// Stub handler for ContentUnlikedDomainEvent.
-/// Consumer lives in Library (decrementing LikesCount on ReadingPost/UserList).
+/// Translates the in-process <see cref="ContentUnlikedDomainEvent"/> into the
+/// cross-context <see cref="ContentUnlikedIntegrationEvent"/> and publishes it via
+/// <see cref="IEventBus"/>. Library consumes it (4E) to decrement LikesCount.
 ///
-/// ⚠️ TODO: When RabbitMQ is implemented, publish ContentUnlikedIntegrationEvent here:
-///   await messageBus.PublishAsync(new ContentUnlikedIntegrationEvent(
-///       notification.TargetType.ToString(), notification.TargetId));
+/// No SaveChangesAsync — <c>OutboxEventBus</c> writes the outbox row into the
+/// current SocialDbContext, and the dispatcher commits it atomically with the
+/// Like aggregate (see MESSAGING-ARCHITECTURE-decisions.md, decisions 2.5 / 3.4).
 /// </summary>
 public class ContentUnlikedDomainEventHandler(
+    IEventBus eventBus,
     ILogger<ContentUnlikedDomainEventHandler> logger)
     : INotificationHandler<ContentUnlikedDomainEvent>
 {
-    public Task Handle(
+    public async Task Handle(
         ContentUnlikedDomainEvent notification,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Content unliked — TargetType: {TargetType}, TargetId: {TargetId}, UserId: {UserId}. " +
-            "Integration event to Library pending RabbitMQ implementation.",
-            notification.TargetType, notification.TargetId, notification.UserId);
+        var integrationEvent = new ContentUnlikedIntegrationEvent(
+            TargetType: notification.TargetType.ToString(),
+            TargetId: notification.TargetId,
+            UserId: notification.UserId);
 
-        return Task.CompletedTask;
+        await eventBus.PublishAsync(integrationEvent, cancellationToken);
+
+        logger.LogDebug(
+            "Translated ContentUnlikedDomainEvent ({TargetType} {TargetId}) to integration event",
+            notification.TargetType, notification.TargetId);
     }
 }

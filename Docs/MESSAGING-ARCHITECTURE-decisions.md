@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A ✅ e 4B ✅ (código; gate runtime pendente); Fase 4C (Social consome eventos do Library — feed) iniciando
+**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A/4B/4C ✅ (runtime-verified e2e — o feed está real); Fase 4D (Social publica interações + remoção de stubs) iniciando
 
 ---
 
@@ -1401,19 +1401,23 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 - `UserBookRatedDomainEvent`: carrega `Rating` (value objects) → mapear para `int`/`int?` via `rating.Value` no translator.
 - `ReadingStatusChangedDomainEvent`: status como enum → `.ToString()` na fronteira (§6.5).
 
-**4C — Social consome eventos do Library (incoming) — o núcleo "feed ganha vida"**
+**4C — Social consome eventos do Library (incoming) — o núcleo "feed ganha vida"** ✅ CONCLUÍDA (runtime-verified)
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4C.1 | `BookAddedToLibraryIntegrationEventHandler` → `FeedItem` (BookStarted) se não wishlist; sem ContentSnapshot (não interagível); `TargetType=null`, `ReferenceId=BookId` | ⏳ |
-| 4C.2 | `ReadingStatusChangedIntegrationEventHandler` → `FeedItem` (BookFinished) **só se** `NewStatus == "Finished"`; senão no-op (mas ver 4C.8 — no-op ainda precisa ackar) | ⏳ |
-| 4C.3 | `ReadingPostCreatedIntegrationEventHandler` → `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted); `TargetType=Post`, `ReferenceId=PostId`; `Data` JSON = progresso/conteúdo; `ContentPreview` = ~200 chars | ⏳ |
-| 4C.4 | `ReadingPostDeletedIntegrationEventHandler` → purga `ContentSnapshot` + `Like`s + `Comment`s + `FeedItem` por PostId (sem re-emitir; ver 8.1.2). Sem lookups. | ⏳ |
-| 4C.5 | `UserBookRatedIntegrationEventHandler` → `FeedItem` (BookRated); `TargetType=null`, `ReferenceId=BookId`, `Data` JSON = `{ rating }` | ⏳ |
-| 4C.6 | **Dois lookups locais por handler de criação:** `UserProfile` (por `UserId` do evento → `ActorUsername`/`ActorAvatarUrl`) **e** `BookSnapshot` (por `BookId` → título/autor/cover, decisão 2.6.1). **Qualquer um** ausente → nack transitório (decisão 8.3 — vale para ambos os snapshots). | ⏳ |
-| 4C.7 | Handlers usam **staging** (sem `SaveChangesAsync`); idempotência depende da inbox (FeedItem tem Guid novo a cada vez, sem chave natural — ver 8.1.3). Adicionar métodos `Stage*` aos repos de `FeedItem`/`ContentSnapshot` se os existentes commitam (espelhar `BookSnapshotRepository.StageAddOrUpdateAsync` da 4A). | ⏳ |
-| 4C.8 | Registrar os **5** consumers na DI do Social. **Verificar:** handler no-op (ex: status ≠ Finished) ainda resulta em inbox row commitada → mensagem ackada, sem loop de redelivery (item de housekeeping da Fase 3). | ⏳ |
-| 4C.9 | **Teste:** ações no Library populam o feed com dados de ator e livro corretos; replay → sem FeedItem duplicado (inbox dedup) | ⏳ |
+| 4C.1 | `BookAddedToLibraryIntegrationEventHandler` → `FeedItem` (BookStarted) se não wishlist; sem ContentSnapshot (não interagível); `TargetType=null`, `ReferenceId=BookId` | ✅ |
+| 4C.2 | `ReadingStatusChangedIntegrationEventHandler` → `FeedItem` (BookFinished) **só se** `NewStatus == "Finished"`; senão no-op | ✅ |
+| 4C.3 | `ReadingPostCreatedIntegrationEventHandler` → `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted) | ✅ |
+| 4C.4 | `ReadingPostDeletedIntegrationEventHandler` → purga `ContentSnapshot` + `Like`s + `Comment`s + `FeedItem` via load+`RemoveRange` (atômico com inbox; sem re-emitir, 8.1.2) | ✅ |
+| 4C.5 | `UserBookRatedIntegrationEventHandler` → `FeedItem` (BookRated); `Data = {"rating": <half-star int ÷ 2>}` | ✅ |
+| 4C.6 | Dois lookups locais (`UserProfile` + `BookSnapshot`) via helper `FeedLookups`; qualquer um ausente → throw → nack transitório (8.3) | ✅ |
+| 4C.7 | Staging (sem `SaveChangesAsync`); `Stage*` adicionados aos repos Feed/ContentSnapshot/Like/Comment (load + RemoveRange, nunca ExecuteDelete) | ✅ |
+| 4C.8 | 5 consumers registrados na DI do Social; no-op acka (dispatcher sempre commita a inbox row — **silent-on-skip RESOLVIDO**) | ✅ |
+| 4C.9 | 16 testes (Social.Application.Tests) + **runtime e2e** (docker, RabbitMQ + outbox/inbox real) — feed de B mostrou todas as atividades de A com username/título/autor/cover corretos, purge do post deletado confirmado | ✅ |
+
+**Gate de runtime PASSOU** — este e2e fecha 4A, 4B e 4C de uma vez. Infra adicionada para viabilizar: serviço `social-api` no docker-compose + Dockerfile + rota nginx `/api/v1/social/` + `Database.Migrate()` idempotente no startup das 4 APIs.
+**Housekeeping resolvido:** "no-op precisa ackar" / "inbox dedup silent-on-skip" — confirmado que o dispatcher sempre commita a inbox row mesmo sem mudanças de entidade.
+**Item Fase 6:** `Database.Migrate()` no startup corre risco de race com múltiplas instâncias — mover para step separado no hardening.
 
 *Listas:* sem handlers de `UserListCreated`/`UserListDeleted` (ver 6.5). `ActivityType.ListCreated` e suporte a `ContentSnapshot(List)` ficam definidos-mas-ociosos até reativação futura.
 
