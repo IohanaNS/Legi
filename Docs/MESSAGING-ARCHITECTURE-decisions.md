@@ -443,14 +443,17 @@ Exemplo concreto: Library publica rating, Catalog consome.
    ├── SELECT 1 FROM inbox_messages WHERE id = MessageId
    │   ├── Já existe → ack no RabbitMQ, retorna (idempotência)
    │   └── Não existe → continua
+   ├── _ctx.Set<InboxMessage>().Add(new InboxMessage(MessageId, NOW()))   ← dispatcher stage a inbox row
    ├── IMediator.Publish(UserBookRatedIntegrationEvent)
+   │   │
+   │   └── UserBookRatedIntegrationEventHandler (Application)  [Fase 5, Opção B]
+   │       ├── Carrega Book (ausente → nack-com-requeue transitório, §8.3)
+   │       ├── upsert BookRating(BookId, UserId, Rating)        ← row por-usuário
+   │       ├── recompute AVG/COUNT das rows daquele book
+   │       └── book.RecalculateRating(avg5, count)              ← staging; SEM SaveChangesAsync
    │
-   └── UserBookRatedIntegrationEventHandler (Application)
-       ├── Carrega Book do repositório
-       ├── book.RecalculateRating(rating, previousRating)
-       ├── _ctx.InboxMessages.Add(new InboxMessage(MessageId, NOW()))
-       └── await bookRepository.UpdateAsync(book) → SaveChangesAsync()
-           (UPDATE books + INSERT inbox_messages na mesma transação)
+   └── await _ctx.SaveChangesAsync()   ← o DISPATCHER faz o único commit
+       (UPSERT book_ratings + UPDATE books + INSERT inbox_messages na mesma transação)
 
 8. IntegrationEventDispatcher
    └── Ack no RabbitMQ (mensagem removida da fila)
@@ -689,7 +692,8 @@ public record UserBookRatedIntegrationEvent(
 public record UserBookRatingRemovedIntegrationEvent(
     Guid BookId,
     Guid UserId,
-    int PreviousRating     // valor que foi removido
+    int RemovedRating      // half-star int removido; traceability/log — Catalog IGNORA sob Opção B
+                           // (delete da row BookRating é por (BookId, UserId)). Ver Fase 5.
 ) : IIntegrationEvent;
 ```
 
@@ -1073,7 +1077,7 @@ Cada serviço tem suas próprias duas tabelas, no seu próprio banco. Schema def
 | Criar entidade (BookSnapshot, FeedItem) | Upsert (`AddOrUpdateAsync`) — se já existe, atualiza |
 | Incrementar contador (LikesCount) | Check-before-increment: verificar se o Like já existe antes de incrementar |
 | Deletar entidade | `DELETE WHERE id = @id` é naturalmente idempotente (deletar o que não existe = no-op) |
-| Recalcular valor (average_rating) | Recalcular do zero é idempotente por natureza |
+| Recalcular valor (average_rating) | Recompute-from-rows é convergente/auto-curável — **mas só porque** o Catalog passa a guardar rows `BookRating` por-usuário (Fase 5, Opção B). É a partir daí que esta linha vira verdade: o handler faz upsert/delete da row e recalcula `AVG`/`COUNT`, então uma mensagem perdida/duplicada não corrompe a média permanentemente. Sem essas rows (estado anterior à 5B) não haveria fonte local completa para recalcular — a inbox seria o único guard. |
 
 **Inbox como deduplicação primária:** Cada `IntegrationEventDispatcher` consulta `inbox_messages` antes de invocar o handler. Se a mensagem já foi processada (matching `MessageId`), ela é silenciosamente ignorada — ack imediato no broker, sem invocar handler. Se nova, o handler executa, e o `INSERT INTO inbox_messages` faz parte da mesma transação que as mudanças do handler. Isso garante: ou ambos commitam (handler logic + inbox row) ou nenhum (rollback completo). Na próxima entrega da mesma mensagem, o handler não roda de novo.
 
@@ -1470,14 +1474,61 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 ### Fase 5 — Library → Catalog (ratings)
 
-**Objetivo:** Average rating calculado via eventos.
+**Objetivo:** `Book.AverageRating` + `RatingsCount` mantidos automaticamente via eventos. `UserBookRatedIntegrationEvent` já é publicado desde a Fase 4 (Social consome para o FeedItem `BookRated`); a Fase 5 adiciona o **segundo consumer** (Catalog) no mesmo exchange fanout, mais o publisher de `UserBookRatingRemoved` que ficou adiado da 4B.
 
-| Tarefa | Descrição |
-|--------|-----------|
-| 5.1 | Library publica `UserBookRatingRemovedIntegrationEvent` (publisher adiado da Fase 4 — ver 4B; `UserBookRatedIntegrationEvent` já é publicado desde a Fase 4) |
-| 5.2 | Catalog consome `UserBookRated` + `UserBookRatingRemoved` → recalcula `average_rating` e `ratings_count` no `Book` (binda novas queues no exchange fanout de `UserBookRated` já existente) |
+**Decisões de design (travadas 2026-06-04, via ddd-architecture-advisor):**
 
-**Entregável:** Ratings no catálogo mantidos automaticamente.
+1. **Como o Catalog recalcula = Opção B (rows por-usuário).** Nova projeção leve `BookRating(BookId, UserId, Rating)` no Catalog — modelada como projeção (igual a `BookSnapshot`/`ContentSnapshot`), **não** um aggregate root; `Book` continua o único aggregate root. Os handlers fazem upsert/delete da row e então **recalculam** `AVG`/`COUNT` sobre as rows daquele book → `Book.RecalculateRating(decimal avg5, int count)`.
+   - *Por que B e não A (coluna `RatingsSum` incremental + delta, dependente só da inbox):* `AverageRating` é o número mais visível/ordenável do catálogo (um `LikesCount` com drift é cosmético; uma média com drift mente para o usuário). B é **convergente/auto-curável** — uma mensagem perdida ou duplicada não corrompe permanentemente a média, o próximo evento recalcula a partir da verdade. Faz a afirmação de §8.1 ("recompute idempotente") ser *verdadeira* em vez de meia-verdade. Custo: uma tabela + write repo + EF config + migration (forma já construída ×3: BookSnapshot, BookSnapshot Social, ContentSnapshot).
+   - *Consequência:* o Catalog ignora `PreviousRating`; o contrato de remoção precisa só de `BookId + UserId` (campo `RemovedRating` mantido para traceability/log e viabilidade de um futuro flip para Opção A). `PreviousRating` permanece em `UserBookRated` — Social usa, e removê-lo seria breaking change sem ganho.
+
+2. **`Book` não encontrado num evento de rating (race rate-antes-de-`BookCreated`) = nack-com-requeue transitório** (espelha o snapshot-ausente da 4C, ver §8.3), **não** no-op terminal. Um rating para um book que o Catalog ainda não criou é a mesma janela de ordering da 4C; logar warning com `BookId`.
+
+3. **Idempotência (inverso da regra 4E §8.1.1):** aqui upsert/delete + recompute é convergente, então a **inbox é defesa-em-profundidade, não o único guard**. Os handlers fazem staging (sem `SaveChangesAsync`); o dispatcher commita a row do `BookRating` + a inbox row atomicamente. (Em §8.1.1 os contadores do Library dependiam *exclusivamente* da inbox porque não havia estado local; aqui há.)
+
+**Sub-fases:**
+
+**5A — Contrato + publisher do Library (a metade adiada da 4B)** ✅ CONCLUÍDA
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 5A.1 | Adicionar `UserBookRatingRemovedIntegrationEvent(BookId, UserId, RemovedRating)` em `Legi.Contracts/Library/` (campo `RemovedRating` = half-star int; Catalog ignora sob Opção B) | ✅ |
+| 5A.2 | `UserBookRatingRemovedDomainEventHandler` (translator em `Legi.Library.Application/UserBooks/EventHandlers/`) espelhando o de `UserBookRated`: mapeia `OldRating.Value` → `RemovedRating`, publica via `IEventBus`; sem `SaveChangesAsync`; auto-registrado pelo reflection scan | ✅ |
+| 5A.3 | Confirmar que `UserBook.RemoveRating()` levanta `UserBookRatingRemovedDomainEvent` carregando o rating pré-remoção (verificar `UserBook.cs`) | ✅ (só levanta quando `CurrentRating` != null; captura `oldRating` antes de limpar) |
+| 5A.4 | **Teste:** translator publica 1 integration event por remoção, shape correto, `VerifyNoOtherCalls` | ✅ |
+
+**5B — Domínio + persistência de rating no Catalog** ✅ CONCLUÍDA
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 5B.1 | Projeção `BookRatingEntity` (persistence entity em `Catalog.Infrastructure`, padrão `AuthorEntity`/`TagEntity` — Catalog tem split domínio/persistência; chave natural `(BookId, UserId)`, `Rating` half-star 1-10). `BookRatingConfiguration` → tabela `book_ratings` | ✅ |
+| 5B.2 | **`Book.RecalculateRating(decimal newAverage, int totalRatings)` já existe e tem a assinatura certa** (valida 0-5, arredonda 2dp, levanta `BookRatingRecalculatedDomainEvent`) — sem mudança no domínio. Pseudo-código errado do doc corrigido na §6.4/fluxo. Rounding já coberto 6× em `BookTests`. | ✅ |
+| 5B.3 | `IBookRatingRepository` (Domain) + `BookRatingAggregate` (record com `FromHalfStarRatings` puro/testável — conversão half-star→0-5). Impl `BookRatingRepository` faz **load tracked → muta no change-tracker → recompute in-memory** (não SQL `AVG`, pois a row staged não é visível a query SQL antes do commit); sem `SaveChangesAsync`. `DbSet<BookRatingEntity>` + DI. | ✅ |
+| 5B.4 | Migration `AddBookRatings` (só cria `book_ratings`, PK composta `(book_id, user_id)`; sem drift) | ✅ |
+| 5B.5 | Testes: `FromHalfStarRatings` — 0 rows→(0,0); `[7,9]`→(4.0, 2); single 10→5.0 / 1→0.5; `[7,8,8]`→~3.833 (round 2dp = 3.83). (4 testes; Catalog.Domain 62→66) | ✅ |
+
+**5C — Consumers no Catalog + DI**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 5C.1 | `UserBookRatedIntegrationEventHandler` (Catalog): upsert `BookRating(BookId,UserId,Rating)` → recompute `AVG`/`COUNT` → `book.RecalculateRating(avg5, count)`. **Staging, sem `SaveChangesAsync`** (dispatcher commita + inbox row, §8.1) | ⏳ |
+| 5C.2 | `UserBookRatingRemovedIntegrationEventHandler` (Catalog): delete `BookRating` por `(BookId,UserId)` (no-op se ausente) → recompute → `RecalculateRating`. Staging. | ⏳ |
+| 5C.3 | `Book` não encontrado → **nack-com-requeue transitório** (decisão 2 acima, §8.3); warning com `BookId` | ⏳ |
+| 5C.4 | Registrar os 2 consumers na DI do Catalog (`AddIntegrationEventConsumer<…, CatalogDbContext>()`; `AddLegiMessaging<CatalogDbContext>` já existe). Confirmar que o consumer existente de `UserBookRated` no Social **não regride** (2 queues independentes no mesmo fanout) | ⏳ |
+| 5C.5 | XML-doc da regra de idempotência em cada handler: "upsert/delete convergente; recompute lê as rows atuais; inbox é defesa-em-profundidade, não o único guard; staging via change-tracker" | ⏳ |
+
+**5D — Testes + gate de runtime**
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 5D.1 | Testes de handler (Catalog.Application.Tests): primeiro rating → média/count setados; re-rate → média muda, count igual; remoção → recompute, count −1; remover último → média 0 count 0; book não encontrado → throw (transitório) | ⏳ |
+| 5D.2 | **Runtime e2e (docker):** criar book → user avalia no Library → `AverageRating`/`RatingsCount` atualizam no Catalog → re-rate → média move, count estável → remove rating → recompute, count −1. Verificar que o Social **ainda** recebe o FeedItem `BookRated` do mesmo `UserBookRated` (não regredir 4C) | ⏳ |
+| 5D.3 | **Gate de idempotência (§8.1.1-style — o que importa):** dirigir o `IntegrationEventDispatcher<CatalogDbContext>` real contra o Postgres do compose (clone de `tests/Legi.Library.Integration.Tests/InboxReplayDedupTests`). Mesmo `MessageId` 2× → média/count movem **exatamente 1×** + 1 inbox row; `MessageId` distinto move de novo. **Bônus Opção B:** mesmo sem a inbox (dup que escapa), o upsert/recompute converge para o mesmo valor. `[SkippableFact]` + `Skip.If` em `CATALOG_TEST_DB` (suíte default segue verde/sem Docker) | ⏳ |
+| 5D.4 | Reconciliar docs: marcar Fase 5 ✅; atualizar `ARCHITECTURE.md` §6 com o fluxo Library→Catalog rating | ⏳ |
+
+**Fora de escopo:** `ReviewsCount`/eventos de review (fluxo separado); backfill de ratings pré-Fase-5 (gap de cold-start aceito → job de reconciliação é Fase 6); dropar `PreviousRating` de `UserBookRated` (Social precisa); dead-letter/attempt-counting nas queues (Fase 6).
+
+**Entregável:** Ratings no catálogo mantidos automaticamente, convergentes e idempotentes sob redelivery.
 
 
 ### Fase 6 — Hardening
