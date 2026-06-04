@@ -1,3 +1,4 @@
+using Legi.SharedKernel;
 using Legi.Social.Domain.Entities;
 using Legi.Social.Domain.Repositories;
 using Microsoft.Extensions.Logging;
@@ -29,7 +30,7 @@ internal static class FeedLookups
                 "UserProfile lookup failed for user {UserId}; the UserRegistered event " +
                 "has likely not been consumed yet. Throwing to redeliver.",
                 userId);
-            throw new InvalidOperationException(
+            throw new TransientMessagingException(
                 $"UserProfile for user {userId} not found; cannot build feed activity.");
         }
 
@@ -49,7 +50,7 @@ internal static class FeedLookups
                 "BookSnapshot lookup failed for book {BookId}; the BookCreated event " +
                 "has likely not been consumed yet. Throwing to redeliver.",
                 bookId);
-            throw new InvalidOperationException(
+            throw new TransientMessagingException(
                 $"BookSnapshot for book {bookId} not found; cannot build feed activity.");
         }
 

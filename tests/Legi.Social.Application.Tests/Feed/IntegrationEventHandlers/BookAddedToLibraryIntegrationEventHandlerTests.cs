@@ -1,4 +1,5 @@
 using Legi.Contracts.Library;
+using Legi.SharedKernel;
 using Legi.Social.Application.Feed.IntegrationEventHandlers;
 using Legi.Social.Domain.Entities;
 using Legi.Social.Domain.Enums;
@@ -94,7 +95,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
         var evt = new BookAddedToLibraryIntegrationEvent(
             Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
         _feed.Verify(r => r.StageAddAsync(It.IsAny<FeedItem>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -110,7 +111,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
         var evt = new BookAddedToLibraryIntegrationEvent(
             Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
         _feed.Verify(r => r.StageAddAsync(It.IsAny<FeedItem>(), It.IsAny<CancellationToken>()), Times.Never);
     }

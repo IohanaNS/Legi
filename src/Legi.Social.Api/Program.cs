@@ -91,11 +91,15 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Apply EF Core migrations on startup so the schema is ready in any environment
-// (containers, fresh dev databases). Idempotent — no-ops when already current.
-using (var scope = app.Services.CreateScope())
+// Schema migration (Fase 6 6D.1). Single-instance dev migrates on startup by
+// default; for multi-replica, run the image with `--migrate` as a one-shot step
+// and set RunMigrationsOnStartup=false so replicas don't race.
+if (args.Contains("--migrate") || builder.Configuration.GetValue("RunMigrationsOnStartup", true))
 {
+    using var scope = app.Services.CreateScope();
     scope.ServiceProvider.GetRequiredService<SocialDbContext>().Database.Migrate();
+    if (args.Contains("--migrate"))
+        return;
 }
 
 // Exception handling (first in pipeline)
@@ -115,5 +119,6 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

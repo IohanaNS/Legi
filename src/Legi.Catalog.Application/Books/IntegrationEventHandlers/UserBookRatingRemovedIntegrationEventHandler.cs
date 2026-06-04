@@ -1,5 +1,6 @@
 using Legi.Catalog.Domain.Repositories;
 using Legi.Contracts.Library;
+using Legi.SharedKernel;
 using Legi.SharedKernel.Mediator;
 using Microsoft.Extensions.Logging;
 
@@ -38,7 +39,7 @@ public sealed class UserBookRatingRemovedIntegrationEventHandler(
             logger.LogWarning(
                 "Book {BookId} not found for UserBookRatingRemoved; throwing to redeliver.",
                 integrationEvent.BookId);
-            throw new InvalidOperationException(
+            throw new TransientMessagingException(
                 $"Book {integrationEvent.BookId} not found; cannot recompute rating.");
         }
 

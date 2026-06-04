@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — **Fases 1–5 ✅ CONCLUÍDAS e runtime-verified** (incl. os gates de replay/dedup §8.1.1: mesmo `MessageId` entregue 2× move contador/rating 1× só, provado em Library E Catalog contra Postgres real). Próxima: Fase 6 (hardening).
+**Status de Implementação:** ✅ **Fases 1–6 CONCLUÍDAS e runtime-verified** (6D.4 feed-drift recompute adiado YAGNI; `CausationId` descartado — seria sempre null, nenhum consumer republica; ver nota em 6C). Resiliência: DLX/retry/parking + classificação transitório-vs-poison (6A/6B); observabilidade: correlação MessageId + métricas OTel + `/health` (6C); auditoria de idempotência dos 19 consumers + 3 gates de replay + `JsonStringEnumConverter` (6E); ops: `--migrate` step + flag, retenção outbox/inbox, `--reconcile-ratings` (6D). Pipeline completo: outbox/inbox sobre RabbitMQ.Client, sem MassTransit (decisão 2.2).
 
 ---
 
@@ -1024,7 +1024,7 @@ Quando o producer publica, a mensagem vai para o exchange. O exchange entrega pa
 - Producer: declara o exchange ao publicar (idempotente).
 - Consumer host: declara o exchange + sua queue + binding ao iniciar (idempotente).
 
-**Dead-letter:** Para v1, mensagens que falham `MaxAttempts` no consumer são logadas e a `delivery tag` é `nack`-ed sem requeue, descartando a mensagem. Não há dead-letter exchange dedicado nesta fase — adicionável em hardening (Fase 6).
+**Dead-letter (Fase 6 6A/6B — implementado):** cada work queue tem `x-dead-letter-exchange` apontando para uma **retry queue** (TTL fixo, default 30s) que dead-letteria de volta ao work (backoff flat). Em falha o host faz `nack(requeue:false)` → caminho de retry; a contagem de tentativas vem do header `x-death` (sem aritmética custom). Ao exceder o cap, a mensagem é **publicada no parking** (`legi.parking.{service}` → `{queue}.error`, sem consumer) e ack-ada — terminal, sem loop infinito. `TransientMessagingException` (§8.3) recebe budget generoso (`MaxTransientAttempts`); exceções genéricas parkam rápido (`MaxConsumerAttempts`). Park **não** escreve inbox row, então re-drive manual do error queue reprocessa exactly-once. *(Histórico: uma versão anterior afirmava "nack sem requeue, descarta após MaxAttempts" — isso nunca existiu; o comportamento v1 pré-6A era nack-com-requeue infinito.)*
 
 ### 7.5 Outbox e Inbox — Tabelas no Banco
 
@@ -1116,6 +1116,35 @@ Quando o Social processa `ReadingPostDeleted` e purga os `Like`s/`Comment`s daqu
 
 **No-op ainda precisa ackar.** O handler de `ReadingStatusChanged` só cria FeedItem quando `NewStatus == "Finished"`; nos demais casos é no-op. A infra de consumer **deve** commitar a inbox row mesmo quando o handler não muda nenhuma entidade — caso contrário a mensagem nunca é marcada como processada e entra em loop de redelivery. Verificar que o caminho no-op persiste a inbox row (item de housekeeping herdado da Fase 3: "inbox dedup silent-on-skip").
 
+#### 8.1.4 Matriz de auditoria de idempotência (Fase 6 6E.1) — 19 consumers
+
+Cada consumer cai em uma de três classes. **A dedup por MessageId vive no `IntegrationEventDispatcher` compartilhado** — provada uma vez por serviço pelos gates de replay (Library 4F.2, Catalog 5D.3, Social 6E.2), válida para todos. A coluna abaixo registra a defesa *adicional* (ou a falta dela) de cada handler.
+
+| Serviço | Consumer | Efeito | Base de idempotência |
+|---------|----------|--------|----------------------|
+| Identity | `UserRegistered` | self-consumption (smoke/diagnóstico) | inbox |
+| Catalog | `UserDeleted` | anonimiza `created_by` (`ExecuteUpdate`) | **convergente** (update filtrado → valor fixo) + inbox |
+| Catalog | `UserBookRated` | upsert `BookRating` + recompute média | **convergente** (upsert por `(BookId,UserId)` + recompute-from-rows, Opção B) + inbox |
+| Catalog | `UserBookRatingRemoved` | delete `BookRating` + recompute | **convergente** (delete-by-key + recompute) + inbox |
+| Library | `BookCreated` / `BookUpdated` | upsert `BookSnapshot` | **convergente** (upsert por `BookId`) + inbox |
+| Library | `UserDeleted` | hard-delete user_books/lists/posts (`ExecuteDelete`) | **convergente** (delete filtrado) + inbox — gate 6E.3 |
+| Library | `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted` | ±`LikesCount`/`CommentsCount` no `ReadingProgress` | **só-inbox** (§8.1.1 — sem estado local p/ check-before-increment) — gate 4F.2 |
+| Social | `UserRegistered` | cria `UserProfile` (StageCreateIfMissing) | **convergente** (no-op se já existe) + inbox |
+| Social | `UserDeleted` | purga follows/likes/comments/feed | **convergente** (deletes filtrados) + inbox |
+| Social | `BookCreated` / `BookUpdated` | upsert `BookSnapshot` | **convergente** (upsert por `BookId`) + inbox |
+| Social | `BookAddedToLibrary` / `ReadingStatusChanged` / `UserBookRated` | cria `FeedItem` | **só-inbox** (§8.1.3 — `FeedItem` sem chave natural) — gate 6E.2 |
+| Social | `ReadingPostCreated` | cria `FeedItem` (só-inbox) + `ContentSnapshot` (upsert) | **só-inbox** p/ o FeedItem; ContentSnapshot convergente |
+| Social | `ReadingPostDeleted` | purga ContentSnapshot/likes/comments/FeedItem por PostId | **convergente** (delete-by-target) + inbox |
+
+*Transitório (§8.3), ortogonal às classes acima:* os handlers de feed do Social e os de rating do Catalog lançam `TransientMessagingException` quando um lookup local (`UserProfile`/`BookSnapshot`/`Book`) ainda não chegou → retry com budget generoso (6B), não park. Não é uma classe de idempotência — é a política de retry para uma pré-condição que vai se resolver.
+
+**Conclusão da auditoria:** nenhum consumer depende de algo além de (inbox) e/ou (convergência natural). Os dois caminhos só-inbox sem chave natural (contadores do Library, FeedItem do Social) têm gates de replay dedicados; as cascatas bulk que commitam fora da transação da inbox (UserDeleted) têm o gate 6E.3. Cobertura completa.
+
+#### 8.1.5 Evolução de schema / contratos (Fase 6 6E.4–6E.5)
+
+- **Enums no fio:** o `IntegrationEventSerializer` registra `JsonStringEnumConverter` — qualquer campo enum futuro serializa como nome, não ordinal. Hoje nenhum contrato carrega enum (usam strings na fronteira, §6.5), então adotar isso **não exigiu drenar filas** (não há mensagens int-encoded). Se um contrato ganhar um enum no futuro, o nome é estável a renomeações de membros adjacentes — mas **reordenar/renomear membros do enum** continua sendo breaking p/ mensagens em voo.
+- **Type rename/move = breaking:** a discriminação de tipo é por *assembly-qualified name* gravado na coluna `Type` do outbox e no header. Renomear/mover um contrato (namespace, assembly, classe) quebra a desserialização de qualquer mensagem já produzida (`Type.GetType` retorna null → handler lança → retry → eventualmente park). Mitigação aceita p/ o modelo monorepo single-deploy do Legi: drenar filas antes de tais renomeações, ou manter um shim do nome antigo. Documentado no docstring de `IntegrationEventSerializer`.
+
 ### 8.2 Retry Policy
 
 **Producer side (outbox dispatcher):**
@@ -1133,7 +1162,7 @@ Implementado no `OutboxDispatcherWorker`. `MaxAttempts` configurável (default 5
 
 **Consumer side (RabbitMQ delivery):**
 
-Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. RabbitMQ a reentrega na próxima janela de consumo. Em v1, **não há limite explícito de tentativas no lado do consumer** — uma mensagem permanentemente quebrada redeliverá indefinidamente.
+Quando o handler do consumer falha (a partir da Fase 6 6A/6B): `nack(requeue:false)` → a mensagem é dead-lettered para a **retry queue** (TTL fixo), reentregue ao work após o TTL, e ao exceder o cap de tentativas (`MaxConsumerAttempts` p/ genérico, `MaxTransientAttempts` p/ `TransientMessagingException`) é desviada ao **parking** (error queue, terminal). Contagem via `x-death`. *Não* há mais loop infinito de redelivery. (Antes da 6A o host fazia `nack` **com** requeue sem limite — redelivery indefinido.)
 
 **Justificativa para v1:** projeto pessoal, logs sob observação ativa. Loop de redelivery é loud e visível, o que acelera diagnóstico de bugs em handlers. Contar tentativas exigiria header customizado ou uso de quorum queues — complexidade adiada.
 
@@ -1533,16 +1562,87 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 ### Fase 6 — Hardening
 
-**Objetivo:** Resiliência e observabilidade.
+**Objetivo:** Tornar o sistema outbox/inbox-sobre-RabbitMQ.Client (sem MassTransit, decisão 2.2) production-leaning: limitar e desviar mensagens poison sem perder at-least-once + idempotência, observabilidade mínima viável para operador solo, corrigir o race de migrate-on-startup, reconciliação de drift, e fechar formalmente a auditoria de idempotência.
 
-| Tarefa | Descrição |
-|--------|-----------|
-| 6.1 | Verificar idempotência de todos os consumers |
-| 6.2 | Configurar retry policies por consumer (se algum precisar de tuning diferente) |
-| 6.3 | Testar cenários de falha: RabbitMQ down, consumer crash, mensagem duplicada |
-| 6.4 | Documentar runbook para _error queues |
+**Estado verificado (o sketch de 4 linhas estava desatualizado — corrigido):**
+- ✅ **Retry do producer/outbox JÁ ESTÁ PRONTO** — `OutboxDispatcherWorker` tem backoff (1/5/30/60s), `MaxAttempts`, marcação poison, `NextRetryAt` (ver §8.2). O antigo "6.2 retry policies" é producer-side e já entregue; só falta o lado do consumer.
+- ⚠️ **O gap real é o consumer:** `RabbitMqConsumerHost` faz `nack(requeue:true)` em **toda** exceção → poison redeliveria para sempre. Sem DLX, sem cap de tentativas, sem parking. (O texto de §7.4 que dizia "descarta após MaxAttempts" estava errado — corrigido.)
+- ⚠️ **OpenTelemetry referenciado em `Legi.Messaging.csproj` mas SEM wiring** — zero métricas, zero health checks.
+- ✅ Recuperação de conexão (`AutomaticRecoveryEnabled`/`TopologyRecoveryEnabled`) e isolamento de canal já corretos — não são gap.
 
-**Entregável:** Sistema resiliente a falhas transitórias.
+**Decisões travadas (2026-06-04, via ddd-architecture-advisor):**
+1. **Deploy = single-instance docker-compose.** O race do migrate-on-startup (6D) é latente-não-ativo → corrige, mas urgência menor; 6A/6B é a parte load-bearing.
+2. **Retry do consumer = TTL fixo único (backoff flat, ex. 30s)**, não filas de retry escalonadas/exponenciais. Simplificação documentada, não TODO.
+3. **Métricas = wire `Meter` + OTel hosting + `/health` + correlação de logs; DEFERIR backend de exporter** (console / Management UI / `/health` é a superfície operacional do dia-um).
+
+**Sub-fases (ordem recomendada: 6A/6B → 6C → 6E → 6D):**
+
+**6A — Topologia de retry/DLX no consumer** ✅ CONCLUÍDA (runtime-verified)
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 6A.1 | `RabbitMqTopology`: helpers `RetryExchangeNameFor`/`RetryQueueNameFor`/`ParkingExchangeNameFor`/`ErrorQueueNameFor` (por serviço) | ✅ |
+| 6A.2 | Consumer host declara: work queue com `x-dead-letter-exchange` (→ retry), retry queue (`x-message-ttl` + DLX de volta ao work, keyed por nome de queue p/ não fan-out), error queue no parking (sem consumer). Declares idempotentes | ✅ |
+| 6A.3 | `nack(requeue:false)` (dead-letter → retry). Contagem via header `x-death` (`ConsumerRetryPolicy.GetRejectedDeathCount`, sem aritmética custom). Malformed MessageId → parking (publish + ack), não drop | ✅ |
+| 6A.4 | `RetryTtlMs`/`MaxConsumerAttempts`/`MaxTransientAttempts` em `MessagingHostingOptions`, **bindáveis da seção `Messaging`** do config (default 30s/5/50) | ✅ |
+
+*Gate PASSOU (docker, 2026-06-04):* poison injetado em `catalog.user-deleted` (TTL 2s/cap 2 via override) → observado **work → retry (t+2s) → error/parking (t+6s)**, estável (sem loop), `x-parked-reason` + `x-death` no header da mensagem parked, e **0 inbox rows** para o MessageId (re-drive reprocessaria). Log: "attempt 1/2; retrying" → "exhausted retry budget after 2 attempt(s) (transient=False); parking".
+
+**6B — Classificação transitório-vs-poison (interlock de segurança do 6A)** ✅ CONCLUÍDA
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 6B.1 | `TransientMessagingException` em **`Legi.SharedKernel`** (visível a Application=throw e Messaging=catch; SharedKernel já referenciado por ambos) | ✅ |
+| 6B.2 | Consumer host ramifica: `TransientMessagingException` → `MaxTransientAttempts` (50); genérico → `MaxConsumerAttempts` (5) → parking rápido. Decisão pura em `ConsumerRetryPolicy.Decide` (unit-testada) | ✅ |
+| 6B.3 | Throws de snapshot/book-ausente reescritos p/ `TransientMessagingException`: Social `FeedLookups` (UserProfile+BookSnapshot), Catalog `UserBookRated`/`UserBookRatingRemoved` (book-not-found) | ✅ |
+| 6B.4 | Park **não** escreve inbox (host faz publish→parking + ack, dispatcher nunca commita) — confirmado no gate (0 inbox rows). Regra "no-op success ainda escreve inbox" (§8.1.3) intacta | ✅ |
+
+*Gate:* 11 testes unitários `ConsumerRetryPolicy` (budgets transitório-vs-genérico + parse de `x-death`) + os testes de handler atualizados p/ `ThrowsAsync<TransientMessagingException>` (Social 4C, Catalog 5D) + o gate docker do 6A (poison genérico parka no cap baixo; `transient=False` no log confirma o branch). Budget transitório generoso coberto por unit (parka só em `MaxTransientAttempts`).
+**6A+6B saíram juntos** — interlock cumprido.
+
+**6C — Observabilidade (mínimo viável para operador solo)** ✅ CONCLUÍDA (runtime-verified)
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 6C.1 | Correlação por `MessageId`: consumer host abre log scope `MessageId:{}/MessageType:{}` (message-template, renderiza com `IncludeScopes`) cobrindo dispatch + handlers. Publisher já loga MessageId. **`CausationId` ADIADO** (ver nota abaixo) | ✅ (MessageId) / ⏳ (CausationId) |
+| 6C.2 | `MessagingMetrics` (Meter `Legi.Messaging`): counters `consumed`/`failed`/`parked`/`redelivered` (tagged por `event`), incrementados no consumer host. Outbox backlog via health check (mesma query; não duplicado como métrica) | ✅ |
+| 6C.3 | `AddOpenTelemetry().WithMetrics(AddMeter + AddConsoleExporter)` em `AddLegiMessaging`. Console exporter só — backend OTLP/Prometheus adiado (decisão: console + `/health`) | ✅ |
+| 6C.4 | `RabbitMqHealthCheck` (snapshot NÃO-bloqueante da conexão — nunca tenta conectar, p/ não pendurar `/health`) + `OutboxBacklogHealthCheck<TContext>` (Degraded acima de `OutboxBacklogThreshold`). `AddHealthChecks` em `AddLegiMessaging`; `MapHealthChecks("/health")` nas 4 APIs | ✅ |
+| 6C.5 | §7.4/§8.2 já refletem a superfície real (DLX/parking + métricas/health) | ✅ |
+
+*Gate PASSOU (docker, 2026-06-04):* `/health` Healthy/200 nas APIs; rabbitmq parado → **Unhealthy/503 em ~0.2s** (não-bloqueante); log scope renderiza `=> MessageId:… MessageType:…` na linha do handler; OTel console exporter emite `legi.messaging.consumed` tagged `event:UserRegisteredIntegrationEvent`.
+
+> **`CausationId` NÃO será implementado (decisão 2026-06-04).** Razão definitiva, descoberta ao auditar o grafo de eventos: **nenhum consumer (integration-event handler) publica evento downstream.** Todo `IEventBus.PublishAsync` parte de um `INotificationHandler<…DomainEvent>` (lado produtor, disparado no SaveChanges de um comando HTTP). O grafo é sempre de um salto — `comando HTTP → domain event → integration event → consumido (terminal)` — então nunca há "mensagem B emitida por processar mensagem A". `CausationId` (que existe justamente para encadear efeito→causa entre mensagens) seria **estruturalmente sempre null**: uma coluna morta + 4 migrations + plumbing ambiente para zero dado. Isso é infra especulativa → não construir. A correlação por `MessageId` (6C, log scope) é a superfície real de tracing. `CausationId` vira um add trivial (~15min: estampar o ambiente do dispatcher) **no dia em que** um consumer republicar (saga/fan-out) — não antes.
+
+**6D — Migrate-step, retenção outbox/inbox, reconciliação de drift** ✅ CONCLUÍDA (6D.4 adiado, ver nota)
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 6D.1 | Modo `--migrate` (migra e sai) + flag `RunMigrationsOnStartup` (default **true**) nos 4 Program.cs. Single-instance migra no startup como antes; multi-replica roda o step `--migrate` e seta a flag false → sem race. Verificado: `catalog-api --migrate` migra e sai 0 (não sobe o server) | ✅ |
+| 6D.2 | `RetentionCleaner` (core testável) + `RetentionCleanupWorker<TContext>` (hosted, intervalo `RetentionIntervalMinutes`): deleta outbox processado + inbox consumido com `ProcessedAt < now - RetentionDays` (default 7d). **Mantém poison** (`ProcessedAt == null`) automaticamente. Registrado no `AddLegiMessaging`. Gate de integração verde | ✅ |
+| 6D.3 | `BookRatingReconciler` (recompute-from-rows idempotente; `ReconcileAllAsync`/`ReconcileBookAsync`, no-op quando já correto) + CLI `catalog-api --reconcile-ratings`. Gate de integração: drift curado → rerun no-op. CLI verificado (sai 0, "N book(s) corrected") | ✅ |
+| 6D.4 | Comando de recompute de drift feed/snapshot (órfãos de like/comment; FeedItem stale) | ⏸️ **ADIADO (YAGNI)** |
+
+*Gate:* `--migrate`/`--reconcile-ratings` smoke (docker, saem 0 sem subir server) + integração (retenção mantém poison/recent e deleta old-processed; reconciler cura drift e é no-op no rerun). Suíte default verde e Docker-free.
+
+> **6D.4 adiado conscientemente (YAGNI).** O recompute de drift feed/snapshot endereça (a) órfãos like/comment de um race "teórico, aceito" (§ cleanup indireto do UserDeleted) e (b) staleness de FeedItem que o próprio design declara "negligenciável" (2.6.1). O conselho do advisor era explícito: reconciliação "gatilho manual... só agendar se drift for observado". A auditoria 8.1.4 acabou de provar que todo consumer é idempotente/convergente, então fontes de drift são mínimas e **nenhuma foi observada**. Construir essa ferramenta agora seria especulativo. O reconciler de rating (6D.3) foi feito porque a média é o número mais visível e tinha gap de cold-start real. Fica documentado como follow-up se/quando drift de feed aparecer.
+
+**6E — Auditoria de idempotência + gates faltantes + evolução de schema** ✅ CONCLUÍDA
+
+| Tarefa | Descrição | Status |
+|--------|-----------|--------|
+| 6E.1 | Matriz de auditoria dos 19 consumers × {só-inbox / convergente / transitório}, com justificativa por linha → **§8.1.4**. Conclusão: cobertura completa, nada depende de algo além de inbox e/ou convergência | ✅ |
+| 6E.2 | Gate replay/dedup p/ **feed do Social** (`tests/Legi.Social.Integration.Tests`): mesmo MessageId 2× → **exatamente 1 FeedItem** + 1 inbox row; MessageId distinto → 2º FeedItem (prova que sem chave natural a inbox é o único guard, §8.1.3) | ✅ |
+| 6E.3 | Gate replay/convergência p/ **cascata UserDeleted** (em `Legi.Library.Integration.Tests`): seed → UserDeleted 2× mesmo MessageId → dados purgados + 1 inbox row; MessageId distinto → converge (deleta 0, estado intacto) | ✅ |
+| 6E.4 | `JsonStringEnumConverter` em `IntegrationEventSerializer.Options` + 3 testes round-trip (Legi.Messaging.Tests). **Sem drain necessário:** nenhum contrato carrega enum hoje (strings na fronteira, §6.5), então não há mensagem int-encoded em voo. Ver §8.1.5 | ✅ |
+| 6E.5 | Hazard de rename/move de tipo (AQN) documentado em §8.1.5 + docstring do serializer | ✅ |
+
+*Por que só 2 gates novos (não um por handler):* a dedup vive no **dispatcher** compartilhado, não por-handler → provada uma vez por serviço (Library 4F.2, Catalog 5D.3; Identity/Social usam o mesmo dispatcher genérico). O que NÃO é propriedade do dispatcher é a *convergência* dos handlers de recompute/bulk → daí os 2 gates específicos (feed sem chave natural; cascata bulk fora da inbox).
+*Gate:* testes de integração (6E.2/6E.3 replay real) + round-trip unit (6E.4 enum) + revisão de doc (matriz). Sem gate docker.
+
+**Fora de escopo (cortes explícitos):** MassTransit/Wolverine (decisão 2.2); quorum queues; filas de retry exponenciais escalonadas; ordering por-agregado (§8.3 YAGNI); backend de exporter de tracing/dashboards (métricas wired, backend adiado); cron de reconciliação (gatilho manual até drift); leader election (migrator do compose basta); warnings de HttpClient BaseAddress (não-messaging); tuning de prefetch/QoS (`PrefetchCount=10` fica — mas notar que prefetch>1 + entrega não-ordenada de §8.3 = ordering por-agregado segue não-garantido, aceito).
+
+**Entregável:** Sistema resiliente a falhas transitórias, com poison desviado para parking (sem loop infinito), observável (correlação + métricas + `/health`), migrações sem race, e idempotência formalmente auditada.
 
 ---
 

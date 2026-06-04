@@ -3,6 +3,7 @@ using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
 using Legi.Contracts.Library;
+using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -68,7 +69,7 @@ public class UserBookRatedIntegrationEventHandlerTests
         _bookRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Book?)null);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _handler.Handle(
+        await Assert.ThrowsAsync<TransientMessagingException>(() => _handler.Handle(
             new UserBookRatedIntegrationEvent(Guid.NewGuid(), Guid.NewGuid(), 8, null),
             CancellationToken.None));
 

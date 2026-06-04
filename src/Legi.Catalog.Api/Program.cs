@@ -95,11 +95,27 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Apply EF Core migrations on startup so the schema is ready in any environment
-// (containers, fresh dev databases). Idempotent — no-ops when already current.
-using (var scope = app.Services.CreateScope())
+// Schema migration (Fase 6 6D.1). Single-instance dev migrates on startup by
+// default; for multi-replica, run the image with `--migrate` as a one-shot step
+// and set RunMigrationsOnStartup=false so replicas don't race.
+if (args.Contains("--migrate") || builder.Configuration.GetValue("RunMigrationsOnStartup", true))
 {
+    using var scope = app.Services.CreateScope();
     scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.Migrate();
+    if (args.Contains("--migrate"))
+        return;
+}
+
+// On-demand rating reconciliation (Fase 6 6D.3): recompute every book's average
+// from BookRating rows, then exit. Manual ops trigger / cold-start backfill.
+if (args.Contains("--reconcile-ratings"))
+{
+    using var scope = app.Services.CreateScope();
+    var reconciler = scope.ServiceProvider
+        .GetRequiredService<Legi.Catalog.Infrastructure.Reconciliation.BookRatingReconciler>();
+    var corrected = await reconciler.ReconcileAllAsync();
+    app.Logger.LogInformation("Rating reconciliation complete: {Corrected} book(s) corrected", corrected);
+    return;
 }
 
 // ===== Configure Middleware Pipeline =====
@@ -123,5 +139,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

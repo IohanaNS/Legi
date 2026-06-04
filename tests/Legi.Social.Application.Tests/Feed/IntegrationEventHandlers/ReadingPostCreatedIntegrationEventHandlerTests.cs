@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Legi.Contracts.Library;
+using Legi.SharedKernel;
 using Legi.Social.Application.Feed.IntegrationEventHandlers;
 using Legi.Social.Domain.Entities;
 using Legi.Social.Domain.Enums;
@@ -113,7 +114,7 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
         var evt = new ReadingPostCreatedIntegrationEvent(
             _postId, _userId, _bookId, "hi", 10, "Page", DateTime.UtcNow);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
 
         _content.Verify(r => r.StageAddOrUpdateAsync(It.IsAny<ContentSnapshot>(), It.IsAny<CancellationToken>()), Times.Never);

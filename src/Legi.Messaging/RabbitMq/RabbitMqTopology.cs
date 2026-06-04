@@ -47,6 +47,49 @@ public static class RabbitMqTopology
         return $"{serviceName.ToLowerInvariant()}.{eventName}";
     }
 
+    /// <summary>
+    /// Per-service <b>direct</b> exchange that carries a message both ways through
+    /// the retry cycle: work queue → (dead-letter) → retry queue, and retry queue
+    /// → (TTL expiry, dead-letter) → work queue. Routing keys are the queue names
+    /// themselves, so a fanout work exchange's retries never fan back out to other
+    /// services' queues. See Fase 6 (6A).
+    /// </summary>
+    public static string RetryExchangeNameFor(string serviceName)
+    {
+        RequireServiceName(serviceName);
+        return $"legi.retry.{serviceName.ToLowerInvariant()}";
+    }
+
+    /// <summary>
+    /// Per-service <b>direct</b> exchange for the parking lot (terminal error
+    /// queue). Messages that exhaust their retry budget are published here.
+    /// </summary>
+    public static string ParkingExchangeNameFor(string serviceName)
+    {
+        RequireServiceName(serviceName);
+        return $"legi.parking.{serviceName.ToLowerInvariant()}";
+    }
+
+    /// <summary>
+    /// Wait/retry queue for a (service, event) pair: holds the message for a TTL,
+    /// then dead-letters it back to the work queue. Name = work queue + ".retry".
+    /// </summary>
+    public static string RetryQueueNameFor(string serviceName, Type eventType)
+        => $"{QueueNameFor(serviceName, eventType)}.retry";
+
+    /// <summary>
+    /// Parking-lot (error) queue for a (service, event) pair — no consumer.
+    /// Name = work queue + ".error".
+    /// </summary>
+    public static string ErrorQueueNameFor(string serviceName, Type eventType)
+        => $"{QueueNameFor(serviceName, eventType)}.error";
+
+    private static void RequireServiceName(string serviceName)
+    {
+        if (string.IsNullOrWhiteSpace(serviceName))
+            throw new ArgumentException("Service name is required.", nameof(serviceName));
+    }
+
     private static string StripIntegrationEventSuffix(string name)
     {
         const string suffix = "IntegrationEvent";

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Legi.Contracts;
 
 namespace Legi.Messaging.Serialization;
@@ -21,6 +22,12 @@ public class IntegrationEventSerializer
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false,
+        // Encode any enum field as its name, not its ordinal int (Fase 6 6E.4).
+        // Contracts use strings at the boundary today (§6.5), so this is currently
+        // defensive — it keeps the wire format stable if a future contract ever
+        // carries an enum, instead of shipping fragile ints. (No int-encoded enum
+        // messages exist now, so no queue drain is needed to adopt it.)
+        Converters = { new JsonStringEnumConverter() },
     };
 
     /// <summary>

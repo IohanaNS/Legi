@@ -36,6 +36,13 @@ public class RabbitMqConnectionFactory : IAsyncDisposable
     }
 
     /// <summary>
+    /// Non-blocking snapshot of the current connection (null if never opened).
+    /// For health checks — never triggers a connect attempt, so it can't hang the
+    /// /health endpoint when the broker is down (Fase 6 6C).
+    /// </summary>
+    public IConnection? CurrentConnection => _connection;
+
+    /// <summary>
     /// Returns the shared connection, opening it on first call.
     /// </summary>
     public async Task<IConnection> GetConnectionAsync(CancellationToken cancellationToken = default)

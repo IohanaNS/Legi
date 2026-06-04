@@ -1,4 +1,6 @@
 using Legi.Contracts;
+using Legi.Messaging.Diagnostics;
+using Legi.Messaging.HealthChecks;
 using Legi.Messaging.Inbox;
 using Legi.Messaging.Outbox;
 using Legi.Messaging.RabbitMq;
@@ -7,6 +9,7 @@ using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
 
 namespace Legi.Messaging.DependencyInjection;
 
@@ -50,10 +53,12 @@ public static class MessagingExtensions
         services.Configure<OutboxOptions>(
             configuration.GetSection(OutboxOptions.SectionName));
 
-        services.Configure<MessagingHostingOptions>(opts =>
-        {
-            opts.ServiceName = serviceName.ToLowerInvariant();
-        });
+        // Bind retry/parking tunables (RetryTtlMs, MaxConsumerAttempts,
+        // MaxTransientAttempts) from the "Messaging" config section, then force
+        // ServiceName (never from config — it's the registration-time identity).
+        services.AddOptions<MessagingHostingOptions>()
+            .Bind(configuration.GetSection("Messaging"))
+            .Configure(opts => opts.ServiceName = serviceName.ToLowerInvariant());
 
         // Connection is process-wide and expensive; singleton lifetime.
         services.AddSingleton<RabbitMqConnectionFactory>();
@@ -69,6 +74,29 @@ public static class MessagingExtensions
 
         // Producer-side worker: polls the outbox and publishes to RabbitMQ.
         services.AddHostedService<OutboxDispatcherWorker<TContext>>();
+
+        // Retention: prunes processed outbox/inbox rows past the window (6D.2).
+        services.AddHostedService<RetentionCleanupWorker<TContext>>();
+
+        // --- Observability (Fase 6 6C) ---
+
+        // Process-wide consumer metrics; the meter is wired to OTel below.
+        services.AddSingleton<MessagingMetrics>();
+
+        // Collect the messaging meter. Console exporter only — a real OTLP/
+        // Prometheus backend is deferred (decision: console + /health is the
+        // operator surface for now). AddOpenTelemetry/WithMetrics are additive
+        // and safe to call once per service.
+        services.AddOpenTelemetry().WithMetrics(metrics => metrics
+            .AddMeter(MessagingMetrics.MeterName)
+            .AddConsoleExporter());
+
+        // Health: RabbitMQ connection (hard) + outbox backlog (degraded past
+        // threshold). Type-activated so deps resolve from DI without extra
+        // registrations; the outbox check runs in a scope for its DbContext.
+        services.AddHealthChecks()
+            .AddTypeActivatedCheck<RabbitMqHealthCheck>("rabbitmq")
+            .AddTypeActivatedCheck<OutboxBacklogHealthCheck<TContext>>("outbox-backlog");
 
         return services;
     }

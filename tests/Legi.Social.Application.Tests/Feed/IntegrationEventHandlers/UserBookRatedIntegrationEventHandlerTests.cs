@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Legi.Contracts.Library;
+using Legi.SharedKernel;
 using Legi.Social.Application.Feed.IntegrationEventHandlers;
 using Legi.Social.Domain.Entities;
 using Legi.Social.Domain.Enums;
@@ -63,7 +64,7 @@ public class UserBookRatedIntegrationEventHandlerTests
 
         var evt = new UserBookRatedIntegrationEvent(_bookId, _userId, Rating: 8, PreviousRating: null);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
         _feed.Verify(r => r.StageAddAsync(It.IsAny<FeedItem>(), It.IsAny<CancellationToken>()), Times.Never);
     }

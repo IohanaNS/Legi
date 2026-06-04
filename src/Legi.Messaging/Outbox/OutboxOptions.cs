@@ -32,4 +32,19 @@ public class OutboxOptions
     /// the last failure for manual diagnosis.
     /// </summary>
     public int MaxAttempts { get; set; } = 5;
+
+    /// <summary>
+    /// How long processed outbox rows and consumed inbox rows are kept before the
+    /// retention worker deletes them (Fase 6 6D.2). Poison outbox rows
+    /// (<c>ProcessedAt == null</c>, attempts exhausted) are <b>never</b> deleted —
+    /// they're kept for diagnosis. The inbox window must comfortably exceed the
+    /// max realistic redelivery delay so dedup still works for late redeliveries.
+    /// </summary>
+    public int RetentionDays { get; set; } = 7;
+
+    /// <summary>
+    /// How often the retention worker runs. Cleanup is cheap and not latency-
+    /// sensitive, so this is coarse.
+    /// </summary>
+    public int RetentionIntervalMinutes { get; set; } = 60;
 }
