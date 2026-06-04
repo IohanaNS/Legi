@@ -62,3 +62,7 @@ appsettings.*.local.json
 
 # Local scripts
 test-curls.sh
+
+# Claude Code — local only (keep .claude/agents/ tracked)
+.claude/settings.local.json
+.claude/agent-memory/
