@@ -24,13 +24,18 @@ public class SearchBooksQueryHandlerTests
 
         var books = new List<BookSearchResult>
         {
-            BookReadResultFactory.CreateSearchResult(),
-            BookReadResultFactory.CreateSearchResult(
-                id: Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                isbn: "9780321125217",
-                title: "Domain-Driven Design",
-                authors: [("Eric Evans", "eric-evans")],
-                tags: [("ddd", "ddd")])
+            BookSearchResultBuilder.Valid()
+                .WithAuthors([("Robert C. Martin", "robert-c-martin")])
+                .WithTags([("software-engineering", "software-engineering")])
+                .Build(),
+            BookSearchResultBuilder.Valid()
+                .WithId(Guid.Parse("33333333-3333-3333-3333-333333333333"))
+                .WithIsbn("9780321125217")
+                .WithTitle("Domain-Driven Design")
+                .WithAuthors([("Eric Evans", "eric-evans")])
+                .WithTags([("ddd", "ddd")])
+                .WithCoverUrl(null)
+                .Build()
         };
 
         const int totalCount = 25;
@@ -56,6 +61,14 @@ public class SearchBooksQueryHandlerTests
         var bookTitles = result.Books.Select(b => b.Title).ToList();
         Assert.Contains("Clean Code", bookTitles);
         Assert.Contains("Domain-Driven Design", bookTitles);
+
+        var domainDrivenDesign = result.Books.Single(b => b.Title == "Domain-Driven Design");
+        Assert.Equal("9780321125217", domainDrivenDesign.Isbn);
+        Assert.Equal("Eric Evans", domainDrivenDesign.Authors.Single().Name);
+        Assert.Equal("eric-evans", domainDrivenDesign.Authors.Single().Slug);
+        Assert.Equal("ddd", domainDrivenDesign.Tags.Single().Name);
+        Assert.Equal("ddd", domainDrivenDesign.Tags.Single().Slug);
+        Assert.Null(domainDrivenDesign.CoverUrl);
 
         Assert.Equal(2, result.Pagination.CurrentPage);
         Assert.Equal(10, result.Pagination.PageSize);

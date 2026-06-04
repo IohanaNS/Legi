@@ -46,12 +46,13 @@ public class BookTests
         var createdByUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
         // Act
-        var book = Book.Create(
-            IsbnFactory.Create(),
-            "Clean Architecture",
-            [AuthorFactory.Create("Robert C. Martin")],
-            createdByUserId
-        );
+        var book = BookBuilder.Valid()
+            .WithTitle("Clean Architecture")
+            .WithAuthors([AuthorFactory.Create("Robert C. Martin"), AuthorFactory.Create("Martin Fowler")])
+            .WithCreatedByUserId(createdByUserId)
+            .WithPageCount(432)
+            .WithCoverUrl("https://example.com/clean-architecture.jpg")
+            .Build();
 
         // Assert
         Assert.Single(book.DomainEvents);
@@ -61,8 +62,11 @@ public class BookTests
         Assert.Equal(book.Isbn.Value, domainEvent.Isbn);
         Assert.Equal("Clean Architecture", domainEvent.Title);
         Assert.Equal(createdByUserId, domainEvent.CreatedByUserId);
-        Assert.Single(domainEvent.Authors);
+        Assert.Equal("https://example.com/clean-architecture.jpg", domainEvent.CoverUrl);
+        Assert.Equal(432, domainEvent.PageCount);
+        Assert.Equal(2, domainEvent.Authors.Count);
         Assert.Equal("Robert C. Martin", domainEvent.Authors[0]);
+        Assert.Equal("Martin Fowler", domainEvent.Authors[1]);
     }
 
     [Theory]
@@ -231,6 +235,38 @@ public class BookTests
     }
 
     [Fact]
+    public void SetAuthors_ShouldThrowException_WhenAuthorsExceedLimit()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+        var tooManyAuthors = AuthorFactory.CreateMany(Book.MaxAuthors + 1);
+
+        // Act
+        var act = () => book.SetAuthors(tooManyAuthors);
+
+        // Assert
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal($"Book cannot have more than {Book.MaxAuthors} authors", exception.Message);
+    }
+
+    [Fact]
+    public void SetAuthors_ShouldIgnoreDuplicateAuthorsBySlug()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+
+        // Act
+        book.SetAuthors([
+            AuthorFactory.Create("Robert C. Martin"),
+            AuthorFactory.Create("Robert C Martin")
+        ]);
+
+        // Assert
+        Assert.Single(book.Authors);
+        Assert.Equal("Robert C. Martin", book.Authors.Single().Name);
+    }
+
+    [Fact]
     public void AddTag_ShouldIgnoreDuplicateTag_EvenWhenAtMaxLimit()
     {
         // Arrange
@@ -297,6 +333,24 @@ public class BookTests
     }
 
     [Fact]
+    public void RemoveTag_ShouldNotRaiseTagsUpdatedEvent_WhenTagDoesNotExist()
+    {
+        // Arrange
+        var existingTag = TagFactory.Create("architecture");
+        var book = BookBuilder.Valid()
+            .WithTags([existingTag])
+            .Build();
+        book.ClearDomainEvents();
+
+        // Act
+        book.RemoveTag(TagFactory.Create("missing-tag"));
+
+        // Assert
+        Assert.Single(book.Tags);
+        Assert.Empty(book.DomainEvents);
+    }
+
+    [Fact]
     public void ClearTags_ShouldRemoveAllTags_AndRaiseTagsUpdatedEvent()
     {
         // Arrange
@@ -335,6 +389,26 @@ public class BookTests
         Assert.Equal("https://example.com/original.jpg", book.CoverUrl);
     }
 
+    [Fact]
+    public void UpdateDetails_ShouldTrimProvidedFields()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+
+        // Act
+        book.UpdateDetails(
+            title: "  Refactoring  ",
+            synopsis: "  Improving existing code  ",
+            publisher: "  Addison-Wesley  ",
+            coverUrl: "  https://example.com/refactoring.jpg  ");
+
+        // Assert
+        Assert.Equal("Refactoring", book.Title);
+        Assert.Equal("Improving existing code", book.Synopsis);
+        Assert.Equal("Addison-Wesley", book.Publisher);
+        Assert.Equal("https://example.com/refactoring.jpg", book.CoverUrl);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -349,6 +423,61 @@ public class BookTests
         // Assert
         var exception = Assert.Throws<DomainException>(act);
         Assert.Equal("Title cannot be empty", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void UpdateDetails_ShouldThrowException_WhenPageCountIsNotPositive(int invalidPageCount)
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+
+        // Act
+        var act = () => book.UpdateDetails(pageCount: invalidPageCount);
+
+        // Assert
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Page count must be greater than zero", exception.Message);
+    }
+
+    [Fact]
+    public void UpdateDetails_ShouldNotRaiseBookUpdatedEvent()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+        book.ClearDomainEvents();
+
+        // Act
+        book.UpdateDetails(title: "Updated Title", pageCount: 300);
+
+        // Assert
+        Assert.Empty(book.DomainEvents);
+    }
+
+    [Fact]
+    public void RaiseUpdatedEvent_ShouldRaiseBookUpdatedEvent_WithSnapshotPayload()
+    {
+        // Arrange
+        var book = BookBuilder.Valid()
+            .WithTitle("Domain-Driven Design")
+            .WithAuthors([AuthorFactory.Create("Eric Evans")])
+            .WithPageCount(560)
+            .WithCoverUrl("https://example.com/ddd.jpg")
+            .Build();
+        book.ClearDomainEvents();
+
+        // Act
+        book.RaiseUpdatedEvent();
+
+        // Assert
+        var domainEvent = Assert.IsType<BookUpdatedDomainEvent>(book.DomainEvents.Single());
+        Assert.Equal(book.Id, domainEvent.BookId);
+        Assert.Equal(book.Isbn.Value, domainEvent.Isbn);
+        Assert.Equal("Domain-Driven Design", domainEvent.Title);
+        Assert.Equal(new[] { "Eric Evans" }, domainEvent.Authors);
+        Assert.Equal("https://example.com/ddd.jpg", domainEvent.CoverUrl);
+        Assert.Equal(560, domainEvent.PageCount);
     }
 
     [Fact]
@@ -385,6 +514,33 @@ public class BookTests
         // Assert
         var exception = Assert.Throws<DomainException>(act);
         Assert.Equal("Average rating must be between 0 and 5", exception.Message);
+    }
+
+    [Fact]
+    public void RecalculateRating_ShouldThrowException_WhenTotalRatingsIsNegative()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+
+        // Act
+        var act = () => book.RecalculateRating(4.5m, -1);
+
+        // Assert
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Total ratings cannot be negative", exception.Message);
+    }
+
+    [Fact]
+    public void UpdateReviewsCount_ShouldUpdateCount_WhenCountIsValid()
+    {
+        // Arrange
+        var book = BookBuilder.Valid().Build();
+
+        // Act
+        book.UpdateReviewsCount(12);
+
+        // Assert
+        Assert.Equal(12, book.ReviewsCount);
     }
 
     [Fact]

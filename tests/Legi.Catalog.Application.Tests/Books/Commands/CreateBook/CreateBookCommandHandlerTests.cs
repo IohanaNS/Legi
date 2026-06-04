@@ -96,6 +96,206 @@ public class CreateBookCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldPreferUserProvidedFields_WhenExternalDataExists()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle("User Title")
+            .WithAuthors(["User Author"])
+            .WithSynopsis("User synopsis")
+            .WithPageCount(321)
+            .WithPublisher("User Publisher")
+            .WithCoverUrl("https://example.com/user-cover.jpg")
+            .WithTags(["user-tag"])
+            .Build();
+
+        var externalData = ExternalBookDataBuilder.Valid()
+            .WithTitle("External Title")
+            .WithAuthors(["External Author"])
+            .WithSynopsis("External synopsis")
+            .WithPageCount(500)
+            .WithPublisher("External Publisher")
+            .WithCoverUrl("https://example.com/external-cover.jpg")
+            .Build();
+
+        Book? persistedBook = null;
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalData);
+
+        _bookRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
+            .Callback<Book, CancellationToken>((book, _) => persistedBook = book)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("User Title", result.Title);
+        Assert.Equal("User Author", result.Authors.Single().Name);
+        Assert.Equal("User synopsis", result.Synopsis);
+        Assert.Equal(321, result.PageCount);
+        Assert.Equal("User Publisher", result.Publisher);
+        Assert.Equal("https://example.com/user-cover.jpg", result.CoverUrl);
+        Assert.Equal("user-tag", result.Tags.Single().Slug);
+
+        Assert.NotNull(persistedBook);
+        Assert.Equal("User Title", persistedBook!.Title);
+        Assert.Equal("User Author", persistedBook.Authors.Single().Name);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldUseExternalData_WhenOptionalRequestFieldsAreMissing()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle("User Title")
+            .WithAuthors(["User Author"])
+            .WithoutOptionalMetadata()
+            .Build();
+
+        var externalData = ExternalBookDataBuilder.Valid()
+            .WithSynopsis("External synopsis")
+            .WithPageCount(500)
+            .WithPublisher("External Publisher")
+            .WithCoverUrl("https://example.com/external-cover.jpg")
+            .Build();
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalData);
+
+        _bookRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("User Title", result.Title);
+        Assert.Equal("User Author", result.Authors.Single().Name);
+        Assert.Equal("External synopsis", result.Synopsis);
+        Assert.Equal(500, result.PageCount);
+        Assert.Equal("External Publisher", result.Publisher);
+        Assert.Equal("https://example.com/external-cover.jpg", result.CoverUrl);
+        Assert.Empty(result.Tags);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldUseExternalTitleAndAuthors_WhenRequestMandatoryFieldsAreMissing()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle(" ")
+            .WithoutAuthors()
+            .WithoutOptionalMetadata()
+            .Build();
+
+        var externalData = ExternalBookDataBuilder.Valid()
+            .WithTitle("External Title")
+            .WithAuthors(["External Author"])
+            .Build();
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalData);
+
+        _bookRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("External Title", result.Title);
+        Assert.Equal("External Author", result.Authors.Single().Name);
+        Assert.Equal("External synopsis.", result.Synopsis);
+        Assert.Equal(500, result.PageCount);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowDomainException_WhenTitleMissingAfterMerge()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle(" ")
+            .WithAuthors(["User Author"])
+            .Build();
+
+        var externalData = ExternalBookDataBuilder.Valid()
+            .WithTitle(null)
+            .Build();
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalData);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<DomainException>(act);
+        Assert.Equal("Title is required when not available from external book sources.", exception.Message);
+
+        _bookRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowDomainException_WhenAuthorsMissingAfterMerge()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle("User Title")
+            .WithAuthors([])
+            .Build();
+
+        var externalData = ExternalBookDataBuilder.Valid()
+            .WithAuthors(null)
+            .Build();
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookDataProviderMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalData);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<DomainException>(act);
+        Assert.Equal("At least one author is required when not available from external book sources.", exception.Message);
+
+        _bookRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_ShouldThrowConflictException_WhenIsbnAlreadyExists()
     {
         // Arrange

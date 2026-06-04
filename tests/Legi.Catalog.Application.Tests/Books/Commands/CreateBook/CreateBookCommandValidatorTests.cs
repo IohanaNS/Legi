@@ -23,6 +23,38 @@ public class CreateBookCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_ShouldFail_WhenTitleIsEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTitle(string.Empty)
+            .Build();
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Title is required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenAuthorsAreNull()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithoutAuthors()
+            .Build();
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Authors are required");
+    }
+
+    [Fact]
     public void Validate_ShouldFail_WhenAuthorsAreEmpty()
     {
         // Arrange
@@ -98,6 +130,22 @@ public class CreateBookCommandValidatorTests
         // Assert
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, e => e.ErrorMessage == $"Book cannot have more than {Book.MaxTags} tags");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenTagNameIsEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTags(["software-engineering", string.Empty])
+            .Build();
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Tag name is required");
     }
 
     [Fact]
