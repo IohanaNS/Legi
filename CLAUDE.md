@@ -14,6 +14,7 @@ dotnet build
 dotnet build src/Legi.Identity.Api/Legi.Identity.Api.csproj
 dotnet build src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
 dotnet build src/Legi.Library.Api/Legi.Library.Api.csproj
+dotnet build src/Legi.Social.Api/Legi.Social.Api.csproj
 
 # Run the Identity API
 dotnet run --project src/Legi.Identity.Api/Legi.Identity.Api.csproj
@@ -24,8 +25,11 @@ dotnet run --project src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
 # Run the Library API
 dotnet run --project src/Legi.Library.Api/Legi.Library.Api.csproj
 
-# Start all services (databases + APIs + web frontend)
-docker-compose up -d
+# Run the Social API
+dotnet run --project src/Legi.Social.Api/Legi.Social.Api.csproj
+
+# Start all services (4 databases + RabbitMQ + 4 APIs + web frontend)
+docker compose up -d --build
 
 # Stop all services
 docker-compose down
@@ -40,7 +44,10 @@ cd web/legi-web && npm run dev
 ### Testing
 
 ```bash
-# Run all tests
+# Run all tests with the shared coverage settings (line 75% / branch 65%)
+dotnet test Legi.sln --settings tests/.runsettings
+
+# Run all tests (integration tests auto-skip when their DB env vars are unset)
 dotnet test
 
 # Run tests for a specific project
@@ -52,6 +59,18 @@ dotnet test --filter "FullyQualifiedName~ClassName"
 
 # Run tests with coverage
 dotnet test /p:CollectCoverage=true
+```
+
+#### Integration tests (skippable)
+
+The `*.Integration.Tests` projects use `Xunit.SkippableFact` and only run when pointed at a Postgres instance via env vars (otherwise they skip). Start the infra and export the connection strings:
+
+```bash
+docker compose up -d catalog-db library-db social-db rabbitmq
+export CATALOG_TEST_DB="Host=localhost;Port=5433;Database=legi_catalog_dev;Username=postgres;Password=postgres"
+export LIBRARY_TEST_DB="Host=localhost;Port=5434;Database=legi_library_dev;Username=postgres;Password=postgres"
+export SOCIAL_TEST_DB="Host=localhost;Port=5435;Database=legi_social_dev;Username=postgres;Password=postgres"
+dotnet test Legi.sln --settings tests/.runsettings
 ```
 
 ### Database Migrations
@@ -71,7 +90,14 @@ dotnet ef migrations remove --project src/Legi.Catalog.Infrastructure --startup-
 dotnet ef migrations add MigrationName --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
 dotnet ef database update --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
 dotnet ef migrations remove --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
+
+# Social service
+dotnet ef migrations add MigrationName --project src/Legi.Social.Infrastructure --startup-project src/Legi.Social.Api
+dotnet ef database update --project src/Legi.Social.Infrastructure --startup-project src/Legi.Social.Api
+dotnet ef migrations remove --project src/Legi.Social.Infrastructure --startup-project src/Legi.Social.Api
 ```
+
+> APIs run `Database.Migrate()` on startup (idempotent), so manual `database update` is only needed for local-without-Docker workflows.
 
 ## Architecture
 
@@ -81,6 +107,8 @@ This is a **Clean Architecture** solution with **Domain-Driven Design (DDD)** pr
 
 ```
 Legi.SharedKernel              (shared base classes + mediator)
+Legi.Contracts                 (integration event records shared across contexts)
+Legi.Messaging                 (outbox/inbox + RabbitMQ transport, shared by all services)
 ├── Legi.Identity.*            (Identity bounded context)
 │   ├── Domain
 │   ├── Application
@@ -92,21 +120,28 @@ Legi.SharedKernel              (shared base classes + mediator)
 │   ├── Infrastructure
 │   └── Api
 ├── Legi.Library.*             (Library bounded context)
-│   ├── Domain                 (✅ complete)
-│   ├── Application            (✅ complete)
-│   ├── Infrastructure         (✅ complete)
-│   └── Api                    (✅ complete)
+│   ├── Domain
+│   ├── Application
+│   ├── Infrastructure
+│   └── Api
 ├── Legi.Social.*              (Social bounded context)
-│   ├── Domain                 (✅ complete)
-│   ├── Application            (✅ complete)
-│   ├── Infrastructure         (✅ complete)
-│   └── Api                    (✅ complete)
+│   ├── Domain
+│   ├── Application
+│   ├── Infrastructure
+│   └── Api
 ├── web/legi-web/              (React frontend — Vite + Tailwind CSS v4)
 └── tests/
     ├── Legi.Identity.Domain.Tests
     ├── Legi.Identity.Application.Tests
     ├── Legi.Catalog.Domain.Tests
-    └── Legi.Catalog.Application.Tests
+    ├── Legi.Catalog.Application.Tests
+    ├── Legi.Library.Domain.Tests
+    ├── Legi.Library.Application.Tests
+    ├── Legi.Social.Application.Tests
+    ├── Legi.Messaging.Tests
+    ├── Legi.Catalog.Integration.Tests   (skippable — needs CATALOG_TEST_DB)
+    ├── Legi.Library.Integration.Tests   (skippable — needs LIBRARY_TEST_DB)
+    └── Legi.Social.Integration.Tests    (skippable — needs SOCIAL_TEST_DB)
 ```
 
 ### Layer Structure (per bounded context)
@@ -143,6 +178,31 @@ Shared abstractions with zero external dependencies:
 - `IDomainEvent`: Marker interface with `OccurredOn`
 - `DomainException`: Base domain exception
 - `Mediator/`: Full mediator implementation — `IMediator`, `Mediator`, `IRequest`, `IRequestHandler`, `IPipelineBehavior`, `RequestHandlerDelegate`, `Unit`
+
+### Legi.Contracts
+
+Integration event records shared between bounded contexts (the only cross-context coupling allowed). All implement `IIntegrationEvent`. Organized by source context:
+- Identity: `UserRegisteredIntegrationEvent`, `UserDeletedIntegrationEvent`
+- Catalog: `BookCreatedIntegrationEvent`, `BookUpdatedIntegrationEvent`
+- Library: `BookAddedToLibraryIntegrationEvent`, `ReadingStatusChangedIntegrationEvent`, `ReadingPostCreatedIntegrationEvent`, `ReadingPostDeletedIntegrationEvent`, `UserBookRatedIntegrationEvent`, `UserBookRatingRemovedIntegrationEvent`
+- Social: `ContentLikedIntegrationEvent`, `ContentUnlikedIntegrationEvent`, `ContentCommentedIntegrationEvent`, `CommentDeletedIntegrationEvent`
+- Diagnostics: `PingIntegrationEvent`
+
+### Legi.Messaging
+
+Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by every service's Infrastructure layer:
+- **Outbox**: `OutboxMessage` + `OutboxMessageConfiguration` (persisted in each service DB), `OutboxEventBus` (enqueues events in the same transaction as the domain change), `OutboxDispatcherWorker` (background publisher), `RetentionCleaner` + `RetentionCleanupWorker` (prunes dispatched rows), `OutboxOptions`
+- **Inbox**: `InboxMessage` + `InboxMessageConfiguration` (idempotent consumption — dedupes by message id), `IntegrationEventDispatcher` (routes a consumed event to its `IIntegrationEventHandler`s via the local mediator)
+- **RabbitMq**: `RabbitMqPublisher`/`IRabbitMqPublisher`, `RabbitMqTopology`, `RabbitMqConsumerHost`, `RabbitMqConnectionFactory`, `ConsumerRetryPolicy` (retry + parking/dead-letter), `RabbitMqSettings`, `MessagingHostingOptions`
+- **Serialization**: `IntegrationEventSerializer`
+- **HealthChecks**: `OutboxBacklogHealthCheck`, `RabbitMqHealthCheck`
+- **Diagnostics**: `MessagingMetrics` (observability counters)
+- **DependencyInjection**: `MessagingExtensions` (wires outbox/inbox/consumers), `ModelBuilderExtensions` (adds outbox/inbox tables to a `DbContext`)
+
+**Pattern**: services publish via the outbox (write-side, same transaction as the aggregate), and consume via RabbitMQ into the inbox (idempotent). Integration event handlers live in each service's Application layer under `*/IntegrationEventHandlers/`. Cross-context consumers currently wired:
+- Catalog ← `UserBookRated` (recompute book average rating)
+- Library ← `BookCreated`/`BookUpdated` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted` (post interaction counters)
+- Social ← `UserRegistered` (create `UserProfile`), `BookCreated`/`BookUpdated` (maintain `ContentSnapshot`), `BookAddedToLibrary` (feed fan-out)
 
 ### Identity Service
 
@@ -192,6 +252,7 @@ Shared abstractions with zero external dependencies:
 - Author Queries: `SearchAuthorsQuery` (autocomplete), `GetPopularAuthorsQuery`
 - Tag Queries: `SearchTagsQuery` (autocomplete), `GetPopularTagsQuery`
 - DTOs: `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `AuthorResult`, `TagResult`
+- Integration Event Handlers: `UserBookRatedIntegrationEventHandler` (idempotent recompute of book average rating via `IBookRatingRepository`)
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
 - Exceptions: `ConflictException`, `NotFoundException`
 
@@ -220,7 +281,8 @@ Shared abstractions with zero external dependencies:
 - Domain events (8 total): `BookAddedToLibraryDomainEvent`, `BookRemovedFromLibraryDomainEvent`, `ReadingStatusChangedDomainEvent`, `UserBookRatedDomainEvent`, `UserBookRatingRemovedDomainEvent`, `ReadingPostCreatedDomainEvent`, `ReadingPostDeletedDomainEvent`, `UserListDeletedDomainEvent`
 
 **Legi.Library.Application**
-- UserBook Commands: `AddBookToLibraryCommand` (⚠️ has temporary inline BookSnapshot creation — remove when RabbitMQ integration is implemented), `UpdateUserBookCommand`, `RemoveBookFromLibraryCommand`, `RateUserBookCommand`, `RemoveUserBookRatingCommand`
+- UserBook Commands: `AddBookToLibraryCommand` (requires an existing `BookSnapshot` — populated from Catalog `BookCreated`/`BookUpdated` integration events; throws `NotFoundException` if the book hasn't been projected yet), `UpdateUserBookCommand`, `RemoveBookFromLibraryCommand`, `RateUserBookCommand`, `RemoveUserBookRatingCommand`
+- Integration Event Handlers: `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeletedIntegrationEventHandler` (reading post interaction counters)
 - ReadingPost Commands: `CreateReadingPostCommand`, `UpdateReadingPostCommand`, `DeleteReadingPostCommand`
 - UserList Commands: `CreateUserListCommand`, `UpdateUserListCommand`, `DeleteUserListCommand`, `AddBookToListCommand`, `RemoveBookFromListCommand`
 - Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `GetUserBookPostsQuery`, `GetMyListsQuery`, `GetListDetailsQuery`, `GetListBooksQuery`, `SearchPublicListsQuery`
@@ -262,7 +324,8 @@ Shared abstractions with zero external dependencies:
 - Feed Queries: `GetFeedQuery`, `GetUserActivityQuery`
 - Profile Queries: `GetUserProfileQuery` (with IsFollowing contextual flag)
 - Content Queries: `GetContentContextQuery` (header for comments/likes pages)
-- Domain Event Handlers: `FollowCreated/RemovedDomainEventHandler` (UserProfile counters), `CommentCreated/DeletedDomainEventHandler` (stubs), `ContentLiked/UnlikedDomainEventHandler` (stubs)
+- Domain Event Handlers: `FollowCreated/RemovedDomainEventHandler` (UserProfile counters), `CommentCreated/DeletedDomainEventHandler`, `ContentLiked/UnlikedDomainEventHandler`
+- Integration Event Handlers: `UserRegisteredIntegrationEventHandler` (create `UserProfile`), `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `ContentSnapshot`), `BookAddedToLibraryIntegrationEventHandler` (feed fan-out)
 - Read Repository Interfaces: `IFollowReadRepository`, `ICommentReadRepository`, `ILikeReadRepository`, `IFeedItemReadRepository`
 - DTOs: `FollowUserDto`, `CommentDto`, `FeedItemDto`, `UserProfileDto`, `ContentContextDto`, `LikeUserDto`, `PaginatedList<T>`, response DTOs
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
@@ -294,6 +357,7 @@ Shared abstractions with zero external dependencies:
   - `/api/v1/identity/` → `identity-api:8080`
   - `/api/v1/catalog/` → `catalog-api:8080`
   - `/api/v1/library/` → `library-api:8080`
+  - `/api/v1/social/` → `social-api:8080`
 
 ## Adding New Features
 
@@ -398,15 +462,20 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 docker-compose up -d   # Starts all services
 ```
 
-| Service        | Container            | Port  | Description                     |
-|----------------|----------------------|-------|---------------------------------|
-| identity-db    | legi-identity-db     | 5432  | PostgreSQL — Identity service   |
-| catalog-db     | legi-catalog-db      | 5433  | PostgreSQL — Catalog service    |
-| library-db     | legi-library-db      | 5434  | PostgreSQL — Library service    |
-| identity-api   | legi-identity-api    | 5000  | Identity API                    |
-| catalog-api    | legi-catalog-api     | 5112  | Catalog API                     |
-| library-api    | legi-library-api     | 5200  | Library API                     |
-| web            | legi-web             | 3000  | React frontend (nginx)          |
+| Service        | Container            | Port          | Description                          |
+|----------------|----------------------|---------------|--------------------------------------|
+| identity-db    | legi-identity-db     | 5432          | PostgreSQL — Identity service        |
+| catalog-db     | legi-catalog-db      | 5433          | PostgreSQL — Catalog service         |
+| library-db     | legi-library-db      | 5434          | PostgreSQL — Library service         |
+| social-db      | legi-social-db       | 5435          | PostgreSQL — Social service          |
+| rabbitmq       | legi-rabbitmq        | 5672 / 15672  | RabbitMQ broker / Management UI      |
+| identity-api   | legi-identity-api    | 5000          | Identity API                         |
+| catalog-api    | legi-catalog-api     | 5112          | Catalog API                          |
+| library-api    | legi-library-api     | 5200          | Library API                          |
+| social-api     | legi-social-api      | 5300          | Social API                           |
+| web            | legi-web             | 3000          | React frontend (nginx)               |
+
+RabbitMQ Management UI: http://localhost:15672 (user `legi`, password `legi_dev`).
 
 ### Environment Variables (REQUIRED)
 
@@ -422,14 +491,18 @@ docker-compose up -d   # Starts all services
    openssl rand -base64 32
    ```
 
-3. Update `.env` with your values:
+3. Update `.env` with your values (note the connection-string keys differ per service):
    ```bash
    Jwt__Secret=YOUR_GENERATED_SECRET_HERE
    ConnectionStrings__IdentityDb=Host=localhost;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-   ConnectionStrings__CatalogDb=Host=localhost;Port=5433;Database=legi_catalog_dev;Username=postgres;Password=postgres
+   ConnectionStrings__CatalogDatabase=Host=localhost;Port=5433;Database=legi_catalog_dev;Username=postgres;Password=postgres
+   ConnectionStrings__LibraryDatabase=Host=localhost;Port=5434;Database=legi_library_dev;Username=postgres;Password=postgres
+   ConnectionStrings__SocialDatabase=Host=localhost;Port=5435;Database=legi_social_dev;Username=postgres;Password=postgres
    ```
 
 4. The `.env` file is gitignored and will never be committed.
+
+**Note**: `docker-compose.yml` injects each service's connection string and `RabbitMq__*` settings directly, so Docker mode only needs `Jwt__Secret` in `.env`. For **local** runs (`dotnet run`), each service's `appsettings.Development.json` already carries localhost defaults for both its database and RabbitMQ, so `Jwt__Secret` is the only strictly required `.env` value. The `ConnectionStrings__*` keys in `.env` mainly exist to override mismatched defaults (e.g. `appsettings.json` hardcodes Catalog on port 5432 instead of 5433). `.env`/`.env.example` now include `SocialDatabase` for consistency; RabbitMq local overrides are commented examples in `.env.example`.
 
 ### JWT Settings
 ```bash
@@ -455,4 +528,5 @@ Jwt__RefreshTokenExpirationDays=7
 - Use xUnit with coverlet for code coverage
 - Mock repositories and infrastructure services in Application tests
 - Test factories provide reusable test data builders
-- **Current test counts**: Identity Domain (42), Identity Application (45), Catalog Domain (52), Catalog Application (44) — Total: 183 tests
+- Integration tests (`*.Integration.Tests`) use `Xunit.SkippableFact` and require a Postgres connection via env vars (`CATALOG_TEST_DB`, `LIBRARY_TEST_DB`, `SOCIAL_TEST_DB`) — they skip otherwise
+- **Current unit test counts**: Identity Domain (35), Identity Application (38), Catalog Domain (66), Catalog Application (90), Library Domain (1), Library Application (23), Social Application (21), Messaging (14) — Total: 288 tests (plus the skippable integration suites)
