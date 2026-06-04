@@ -10,7 +10,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
 | **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
-| **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, páginas com mock data, sem integração API |
+| **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, Docker/Nginx, páginas com mock data |
 | **Social** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 
 ## Stack Tecnológica
@@ -21,7 +21,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | Frontend       | React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + i18next              |
 | Banco de Dados | PostgreSQL (db separado por serviço)                                     |
 | Mensageria     | RabbitMQ — outbox/inbox, at-least-once + idempotência (Fases 1–4)         |
-| API Gateway    | YARP (planejado)                                                         |
+| API Gateway    | Nginx no frontend Docker como proxy reverso para `/api/v1/*`             |
 | API Externa    | Open Library + Google Books API (integração ativa no Catalog/CreateBook) |
 | Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR)          |
 | Validação      | FluentValidation                                                         |
@@ -42,14 +42,19 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ Identity │ │ Catalog  │ │ Library  │ │  Social  │
      │ Service  │ │ Service  │ │ Service  │ │ Service  │
-     │    ✅    │ │    ✅    │ │    ✅    │ │    🚧    │
+     │    ✅    │ │    ✅    │ │    ✅    │ │    ✅    │
      └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
           │            │            │            │
           ▼            ▼            ▼            ▼
      ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
      │ identity │ │ catalog  │ │ library  │ │  social  │
-     │  db:5432 │ │  db:5433 │ │  db:5434 │ │    db    │
+     │  db:5432 │ │  db:5433 │ │  db:5434 │ │  db:5435 │
      └──────────┘ └──────────┘ └──────────┘ └──────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│                  RabbitMQ (5672, management 15672)               │
+│       Async integration via outbox/inbox + integration events     │
+└──────────────────────────────────────────────────────────────────┘
 
 Todos os serviços dependem de:
 ┌──────────────────────────────────────────────────────────────────┐
@@ -63,11 +68,19 @@ Todos os serviços dependem de:
 
 | Serviço | Responsabilidade | Tipo |
 |---------|------------------|------|
-| **Identity** | Autenticação, usuários, JWT | Suporte |
-| **Catalog** | Livros globais, tags, reviews | Core |
-| **Library** | Biblioteca pessoal, progresso, listas | Core |
-| **Web Frontend** | SPA React, proxy reverso nginx para APIs | Apresentação |
-| **Social** | Follows, feed, likes, comments, descoberta | Core |
+| **Identity** | Autenticação, refresh tokens, perfil básico e ciclo de vida do usuário | Suporte |
+| **Catalog** | Catálogo global de livros, autores, tags, snapshots e dados externos | Core |
+| **Library** | Biblioteca pessoal, wishlist, progresso de leitura, posts e listas | Core |
+| **Social** | Perfis sociais, follows, feed, likes, comments e projeções sociais | Core |
+| **Web Frontend** | SPA React e proxy reverso nginx para `/api/v1/*` | Apresentação |
+
+### Limites e integrações
+
+- Cada contexto backend possui seu próprio banco PostgreSQL e aplica migrations no startup.
+- `Legi.Contracts` define os integration events compartilhados entre contextos.
+- `Legi.Messaging` implementa outbox/inbox, RabbitMQ publisher/consumer e idempotência.
+- `SharedKernel` contém apenas abstrações transversais de domínio e mediator; regras de negócio permanecem em seus contextos.
+- O frontend não é fonte de regra de negócio: consome as APIs e roteia `/api/v1/{identity|catalog|library|social}` via Nginx.
 
 ### Estrutura de Camadas (por serviço)
 
@@ -106,7 +119,7 @@ Abstrações compartilhadas com zero dependências externas.
 - `Unit` — Tipo void para C#
 
 **Pagination:**
-- `CursorPaginatedList<T>` — Paginação cursor-based para feeds (Items, NextCursor, HasMore, PageSize). Sem TotalItems/TotalPages (intencionalmente — COUNT(*) é caro e inútil para infinite scroll)
+- `CursorPaginatedList<T>` — Tipo compartilhado disponível para paginação cursor-based futura (Items, NextCursor, HasMore, PageSize). Os feeds atuais do Social usam paginação offset com `PaginatedList<T>`.
 
 ---
 
@@ -154,7 +167,7 @@ RefreshToken (Entity)
 ### 1.2 Application
 
 **Auth Commands:** `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`
-**User Commands:** `UpdateProfileCommand`, `DeleteAccountCommand`
+**User Commands:** `DeleteAccountCommand`
 **User Queries:** `GetCurrentUserQuery`, `GetPublicProfileQuery`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`, `UnhandledExceptionBehavior`
 **Interfaces:** `IJwtTokenService`, `IPasswordHasher`
@@ -177,7 +190,6 @@ RefreshToken (Entity)
 | POST | `/api/v1/identity/auth/refresh` | Renovar token | - |
 | POST | `/api/v1/identity/auth/logout` | Logout | 🔒 |
 | GET | `/api/v1/identity/users/me` | Meu perfil | 🔒 |
-| PATCH | `/api/v1/identity/users/me` | Atualizar perfil | 🔒 |
 | DELETE | `/api/v1/identity/users/me` | Deletar conta | 🔒 |
 | GET | `/api/v1/identity/users/{userId}` | Perfil público | 🔓 |
 
@@ -995,7 +1007,7 @@ web/legi-web/src/
 ├── features/
 │   ├── catalog/             (ExplorePage, GenreFilter, SearchBar + mock data)
 │   ├── library/             (ProfilePage, ListsPage, WishlistPage + mock data)
-│   └── social/              (FeedPage, FeedPostCard, FeedSidebar + mock data)
+│   └── social/              (FeedPage, CurrentlyReading, FeedSidebar + mock data)
 ├── i18n/
 │   ├── index.ts             (configuração i18next)
 │   └── locales/
@@ -1018,7 +1030,7 @@ web/legi-web/src/
 | `/wishlist` | `WishlistPage` | Lista de desejos |
 | `/profile` | `ProfilePage` | Perfil do usuário |
 
-> **Nota:** Todas as páginas utilizam dados mock (`mockCatalogData.ts`, `mockProfileData.ts`, `mockFeedData.ts`). A integração com as APIs backend via Axios ainda não foi implementada.
+> **Nota:** O frontend está dockerizado e roteia `/api/v1/*` via Nginx, mas as páginas ainda utilizam dados mock (`mockCatalogData.ts`, `mockProfileData.ts`, `mockFeedData.ts`). A integração de telas com as APIs backend ainda não foi implementada.
 
 ### 4.4 Docker & Nginx
 
@@ -1144,7 +1156,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `ILikeRepository` — GetByIdAsync, GetByUserAndTargetAsync, AddAsync, DeleteAsync
 - `ICommentRepository` — GetByIdAsync, AddAsync, DeleteAsync
 - `IContentSnapshotRepository` — GetByTargetAsync, AddOrUpdateAsync, DeleteByTargetAsync
-- `IActivityRepository` — AddAsync, DeleteByReferenceAsync, DeleteByActorAsync
+- `IFeedItemRepository` — AddAsync, DeleteByReferenceAsync, DeleteByActorAsync, StageAddAsync, StageDeleteByReferenceAsync
 
 ### 5.2 Application ✅
 
@@ -1167,7 +1179,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `IFollowReadRepository` — GetFollowersAsync, GetFollowingAsync (com `ViewerUserId` opcional para `IsFollowedByViewer`)
 - `ICommentReadRepository` — GetByTargetAsync (paginado, com username/avatar via join com user_profiles)
 - `ILikeReadRepository` — GetByTargetAsync (paginado, com `ViewerUserId` opcional para `IsFollowedByViewer`)
-- `IFeedItemReadRepository` — GetFeedAsync (cursor-based: `before?, pageSize` → `CursorPaginatedList<FeedItemDto>`), GetUserActivityAsync (idem cursor-based)
+- `IFeedItemReadRepository` — GetFeedAsync e GetUserActivityAsync com paginação offset (`page`, `pageSize` → `PaginatedList<FeedItemDto>`)
 
 **DTOs:**
 - `FollowUserDto` (UserId, Username, AvatarUrl, Bio, IsFollowedByViewer)
@@ -1176,8 +1188,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `UserProfileDto` (UserId, Username, Bio, AvatarUrl, BannerUrl, FollowersCount, FollowingCount, IsFollowing, CreatedAt)
 - `ContentContextDto` (TargetType, TargetId, OwnerId, OwnerUsername, OwnerAvatarUrl, BookTitle, BookAuthor, BookCoverUrl, ContentPreview)
 - `LikeUserDto` (UserId, Username, AvatarUrl, IsFollowedByViewer)
-- `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious) — para queries offset
-- `CursorPaginatedList<T>` (SharedKernel) — para queries de feed (Items, NextCursor, HasMore, PageSize)
+- `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious) — usado pelas queries de feed e listas sociais com `page`/`pageSize`
 - Response DTOs: `FollowResponse`, `CreateCommentResponse`, `LikeResponse`, `UpdateProfileResponse`
 
 **Domain Event Handlers:**
@@ -1188,7 +1199,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - `ContentLikedDomainEventHandler` — traduz e publica `ContentLikedIntegrationEvent` (Fase 4D)
 - `ContentUnlikedDomainEventHandler` — traduz e publica `ContentUnlikedIntegrationEvent` (Fase 4D)
 
-**Integration Event Handlers (incoming):** `UserRegistered`/`UsernameChanged`/`UserDeleted` (Fase 3), `BookCreated`/`BookUpdated` (Fase 4A → `BookSnapshot`), e 5 handlers de eventos do Library → `FeedItem`/`ContentSnapshot` (Fase 4C).
+**Integration Event Handlers (incoming):** `UserRegistered`/`UserDeleted` (Fase 3), `BookCreated`/`BookUpdated` (Fase 4A → `BookSnapshot`), e 5 handlers de eventos do Library → `FeedItem`/`ContentSnapshot` (Fase 4C).
 
 **DI:** `DependencyInjection.AddSocialApplication()` — registra Mediator, handlers (reflection scan), notification handlers, behaviors e validators
 
@@ -1215,8 +1226,8 @@ Decisões detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md` seção 12.
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
-| GET | `/api/v1/social/feed` | Feed de atividades (cursor-based) | 🔒 |
-| GET | `/api/v1/social/users/{userId}/activity` | Atividades de um usuário (cursor-based) | 🔓 |
+| GET | `/api/v1/social/feed` | Feed de atividades paginado | 🔒 |
+| GET | `/api/v1/social/users/{userId}/activity` | Atividades de um usuário paginadas | 🔓 |
 
 **Post Interactions (implementados — `PostInteractionsController`):**
 
@@ -1242,15 +1253,11 @@ Decisões detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md` seção 12.
 |--------|----------|-----------|------|
 | DELETE | `/api/v1/social/comments/{commentId}` | Excluir comentário | 🔒 |
 
-**Discover (deferido — v2):**
-
-| Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
-| GET | `/api/v1/social/discover` | Descobrir livros (deferido) | 🔒 |
+**Fora do v1:** `GET /api/v1/social/discover` foi deferido para uma versão futura.
 
 **Query Params para feed (`GET /api/v1/social/feed` e `/users/{userId}/activity`):**
-- `before` - cursor datetime ISO (opcional, null = mais recentes)
-- `pageSize` - tamanho da página (default 20, max 50)
+- `page` - número da página (default 1)
+- `pageSize` - tamanho da página (default 20)
 
 **Query Params para listas paginadas (seguidores, comments, likes):**
 - `page` - número da página (default 1)
@@ -1260,103 +1267,23 @@ Decisões detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md` seção 12.
 
 **Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 400, DomainException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, UnhandledException → 500)
 
-### 5.4 Database Schema 📋
+### 5.4 Database Schema ✅
 
-Schema planejado (sujeito a mudanças durante implementação da Infrastructure):
+Schema implementado por `SocialDbContext` e migrations em `src/Legi.Social.Infrastructure/Migrations`.
 
 ```sql
--- Enum types
-CREATE TYPE interactable_type AS ENUM ('post', 'review', 'list');
-CREATE TYPE activity_type AS ENUM ('progress_posted', 'book_finished', 'book_started', 'book_rated', 'review_created', 'list_created');
+-- Tabelas próprias do Social
+user_profiles(user_id PK, username, bio, avatar_url, banner_url, followers_count, following_count, created_at, updated_at)
+follows(id PK, follower_id, following_id, created_at, UNIQUE(follower_id, following_id))
+likes(id PK, user_id, target_type, target_id, created_at, UNIQUE(user_id, target_type, target_id))
+comments(id PK, user_id, target_type, target_id, content, created_at)
+content_snapshots(target_type, target_id, owner_id, owner_username, owner_avatar_url, book_title, book_author, book_cover_url, content_preview, created_at, updated_at, PK(target_type, target_id))
+feed_items(id PK, actor_id, actor_username, actor_avatar_url, activity_type, target_type, reference_id, book_title, book_author, book_cover_url, data JSONB, created_at)
+book_snapshots(book_id PK, title, author_display, cover_url, page_count, updated_at)
 
--- Tabela: user_profiles
-CREATE TABLE user_profiles (
-    user_id UUID PRIMARY KEY,
-    username VARCHAR(30) NOT NULL,
-    bio VARCHAR(500),
-    avatar_url VARCHAR(500),
-    banner_url VARCHAR(500),
-    followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
-    following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Tabela: follows
-CREATE TABLE follows (
-    id UUID PRIMARY KEY,
-    follower_id UUID NOT NULL,
-    following_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (follower_id, following_id),
-    CHECK (follower_id != following_id)
-);
-
-CREATE INDEX ix_follows_follower_id ON follows(follower_id);
-CREATE INDEX ix_follows_following_id ON follows(following_id);
-
--- Tabela: likes (polimórfica)
-CREATE TABLE likes (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    target_type interactable_type NOT NULL,
-    target_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, target_type, target_id)
-);
-
-CREATE INDEX ix_likes_target ON likes(target_type, target_id);
-CREATE INDEX ix_likes_user_id ON likes(user_id);
-
--- Tabela: comments (polimórfica, imutável)
-CREATE TABLE comments (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    target_type interactable_type NOT NULL,
-    target_id UUID NOT NULL,
-    content VARCHAR(500) NOT NULL CHECK (LENGTH(content) >= 1),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX ix_comments_target ON comments(target_type, target_id);
-CREATE INDEX ix_comments_target_created ON comments(target_type, target_id, created_at DESC);
-CREATE INDEX ix_comments_user_id ON comments(user_id);
-
--- Tabela: content_snapshots (projeção enriquecida de outros contextos)
-CREATE TABLE content_snapshots (
-    target_type interactable_type NOT NULL,
-    target_id UUID NOT NULL,
-    owner_id UUID NOT NULL,
-    owner_username VARCHAR(30) NOT NULL,
-    owner_avatar_url VARCHAR(500),
-    book_title VARCHAR(500),
-    book_author VARCHAR(500),
-    book_cover_url VARCHAR(500),
-    content_preview VARCHAR(200),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (target_type, target_id)
-);
-
--- Tabela: activities (read model desnormalizado para feed — fan-out on read)
-CREATE TABLE activities (
-    id UUID PRIMARY KEY,
-    actor_id UUID NOT NULL,
-    actor_username VARCHAR(30) NOT NULL,
-    actor_avatar_url VARCHAR(500),
-    activity_type activity_type NOT NULL,
-    target_type interactable_type,
-    reference_id UUID NOT NULL,
-    book_title VARCHAR(500),
-    book_author VARCHAR(500),
-    book_cover_url VARCHAR(500),
-    content JSONB,
-    created_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE INDEX ix_activities_actor_id ON activities(actor_id);
-CREATE INDEX ix_activities_created_at ON activities(created_at DESC);
-CREATE INDEX ix_activities_reference_id ON activities(reference_id);
+-- Tabelas compartilhadas de mensageria
+inbox_messages(id PK, type, processed_at)
+outbox_messages(id PK, type, payload JSONB, occurred_at, processed_at, attempts, next_retry_at, error)
 ```
 
 ---
@@ -1367,14 +1294,14 @@ Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-lea
 
 ### 6.1 Fluxos implementados
 
-**Identity → Social** (Fase 3): `UserRegistered` (cria `UserProfile`), `UsernameChanged` (atualiza `UserProfile`).
+**Identity → Social** (Fase 3): `UserRegistered` cria `UserProfile`.
 **Identity → Catalog + Library + Social** (Fase 3): `UserDeleted` — cada serviço purga seus próprios dados (Catalog: `created_by` → "Usuário Removido"; Library: user_books/lists; Social: follows/likes/comments/feed).
 **Catalog → Library + Social** (Fases 2 / 4A): `BookCreated` / `BookUpdated` — cada serviço mantém seu `BookSnapshot` local como fonte de lookup de display data em write-time (decisão 2.6.1).
 **Library → Social** (Fases 4B / 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` — Social projeta `FeedItem` / `ContentSnapshot` (feed fan-out on read).
 **Social → Library** (Fases 4D / 4E): `ContentLiked` / `ContentUnliked` / `ContentCommented` / `CommentDeleted` — Library ajusta `LikesCount` / `CommentsCount` no `ReadingProgress` (apenas `Post`; idempotência inbox-only, decisão 8.1.1).
-**Library → Catalog** (Fase 5 — pendente): `UserBookRated` / `UserBookRatingRemoved` → recálculo de `average_rating` no `Book`.
+**Library → Catalog** (Fase 5 — pendente): `UserBookRated` / remoção de rating → recálculo de `average_rating` no `Book`.
 
-**Total: 15 integration events.** Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
+**Total atual: 14 arquivos de integration event em `Legi.Contracts`** (inclui `PingIntegrationEvent` diagnóstico). Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
 
 ### 6.2 Fora de escopo do v1
 
@@ -1511,19 +1438,19 @@ web/legi-web/                  (React SPA)
 
 | Serviço | Endpoints | Status |
 |---------|-----------|--------|
-| Identity | 8 | ✅ Implementado |
-| Catalog | 15 (books: 5, authors: 4, tags: 2, reviews: 4) | ✅ 9/15 implementado |
-| Library | 19 | ✅ Implementado (Domain, Application, Infrastructure, Api) |
-| Web Frontend | 6 rotas | 🚧 Em desenvolvimento (mock data, sem integração API) |
-| Social | 15 (14 v1 + discover deferido) | ✅ Implementado (Domain ✅, Application ✅, Infrastructure ✅, Api ✅) |
-| **Total** | **57 endpoints API + 6 rotas frontend** | |
+| Identity | 7 | ✅ Implementado |
+| Catalog | 9 | ✅ Implementado (books: 5, authors: 2, tags: 2) |
+| Library | 19 | ✅ Implementado |
+| Social | 16 | ✅ Implementado |
+| Web Frontend | 6 rotas | 🚧 Em desenvolvimento (mock data, Docker/Nginx pronto) |
+| **Total** | **51 endpoints API + 6 rotas frontend** | |
 
 ## 9. Resumo de Tabelas
 
 | Serviço | Tabelas | Status |
 |---------|---------|--------|
-| Identity | 2 (users, refresh_tokens) | ✅ Migrado |
-| Catalog | 6 (books, authors, book_authors, tags, book_tags, book_reviews) | ✅ 5/6 migrado (book_reviews planejado) |
-| Library | 5 (book_snapshots, user_books, reading_posts, user_lists, user_list_items) | ✅ Migrado |
-| Social | 5 (follows, likes, comments, feed_items, user_tag_preferences) | 📋 Planejado |
-| **Total** | **18** | |
+| Identity | 2 domínio + inbox/outbox | ✅ Migrado |
+| Catalog | 5 domínio + inbox/outbox | ✅ Migrado (`book_reviews` planejado) |
+| Library | 5 domínio + inbox/outbox | ✅ Migrado |
+| Social | 7 domínio/read-model + inbox/outbox | ✅ Migrado |
+| **Total** | **19 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |

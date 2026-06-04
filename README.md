@@ -1,230 +1,189 @@
 # Legi
 
-Sistema de gerenciamento pessoal de leitura com recursos sociais, construido com .NET 10, Clean Architecture e Domain-Driven Design.
+Sistema de gerenciamento pessoal de leitura com recursos sociais, construido com .NET 10, Clean Architecture, Domain-Driven Design, mensageria com RabbitMQ e frontend React/Vite.
 
 ## Requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) e Docker Compose
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (apenas para desenvolvimento local)
-- [EF Core CLI](https://learn.microsoft.com/en-us/ef/core/cli/dotnet) (`dotnet tool install --global dotnet-ef`) (apenas para migrations)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) para desenvolvimento local
+- [EF Core CLI](https://learn.microsoft.com/en-us/ef/core/cli/dotnet) para criar/remover migrations: `dotnet tool install --global dotnet-ef`
+- Yarn para rodar o frontend localmente em `web/legi-web`
 
 ## Como subir a aplicacao
 
-### Opcao 1: Docker (recomendado)
+### Opcao 1: Docker completo
 
-Sobe todos os servicos (3 APIs + 3 bancos PostgreSQL) com um unico comando.
+Sobe as 4 APIs, 4 bancos PostgreSQL, RabbitMQ e o frontend.
 
 #### 1. Configure as variaveis de ambiente
 
 ```bash
 cp .env.example .env
-```
-
-Gere um secret para o JWT e cole no `.env`:
-
-```bash
 openssl rand -base64 32
 ```
 
-Edite o `.env`:
-
-```env
-Jwt__Secret=SEU_SECRET_GERADO_AQUI
-```
-
-> Os demais valores do `.env` ja vem com defaults adequados para desenvolvimento.
+Cole o valor gerado em `Jwt__Secret` no `.env`. Os demais defaults sao adequados para desenvolvimento.
 
 #### 2. Suba tudo
 
 ```bash
-docker compose up -d
-```
-
-Isso builda as 3 APIs e inicia todos os containers. Na primeira vez pode demorar alguns minutos.
-
-#### 3. Verifique se esta rodando
-
-```bash
+docker compose up -d --build
 docker compose ps
 ```
 
-Todos os 6 containers devem estar `running` (ou `healthy` para os bancos):
+As APIs aplicam migrations EF Core automaticamente no startup, de forma idempotente.
 
 | Container | Servico | Porta |
 |-----------|---------|-------|
-| legi-identity-db | PostgreSQL (Identity) | 5432 |
-| legi-catalog-db | PostgreSQL (Catalog) | 5433 |
-| legi-library-db | PostgreSQL (Library) | 5434 |
+| legi-web | Frontend + proxy Nginx | 3000 |
 | legi-identity-api | Identity API | 5000 |
 | legi-catalog-api | Catalog API | 5112 |
 | legi-library-api | Library API | 5200 |
+| legi-social-api | Social API | 5300 |
+| legi-identity-db | PostgreSQL Identity | 5432 |
+| legi-catalog-db | PostgreSQL Catalog | 5433 |
+| legi-library-db | PostgreSQL Library | 5434 |
+| legi-social-db | PostgreSQL Social | 5435 |
+| legi-rabbitmq | RabbitMQ / Management UI | 5672 / 15672 |
 
-#### 4. Aplique as migrations
-
-As migrations criam as tabelas nos bancos. Execute uma vez (ou sempre que houver novas migrations):
-
-```bash
-# Identity
-dotnet ef database update --project src/Legi.Identity.Infrastructure --startup-project src/Legi.Identity.Api
-
-# Catalog
-dotnet ef database update --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
-
-# Library
-dotnet ef database update --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
-```
-
-> **Nota**: As migrations rodam localmente e se conectam aos bancos via `localhost`. Certifique-se de que o `.env` tem as connection strings corretas (os defaults funcionam com o docker-compose).
-
-#### 5. Acesse as APIs
+#### 3. Acesse os servicos
 
 | Servico | Swagger | Base URL |
 |---------|---------|----------|
+| Web | http://localhost:3000 | Nginx proxy para `/api/v1/*` |
 | Identity | http://localhost:5000/swagger | `http://localhost:5000/api/v1/identity` |
 | Catalog | http://localhost:5112/swagger | `http://localhost:5112/api/v1/catalog` |
 | Library | http://localhost:5200/swagger | `http://localhost:5200/api/v1/library` |
+| Social | http://localhost:5300/swagger | `http://localhost:5300/api/v1/social` |
+| RabbitMQ UI | http://localhost:15672 | usuario `legi`, senha `legi_dev` |
 
-#### 6. Teste rapido
-
-Registre um usuario:
+#### 4. Teste rapido
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/identity/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "teste@email.com", "username": "teste", "password": "Senha123!", "displayName": "Teste"}'
+  -d '{"email": "teste@email.com", "username": "teste", "password": "Senha123!"}'
 ```
 
 #### Parando e reiniciando
 
 ```bash
-# Parar tudo (preserva dados)
 docker compose down
-
-# Parar e apagar volumes (apaga todos os dados dos bancos)
 docker compose down -v
-
-# Rebuild apos mudancas no codigo
 docker compose up -d --build
 ```
 
----
-
 ### Opcao 2: Desenvolvimento local
 
-Para rodar as APIs diretamente na maquina (necessario .NET 10 SDK).
-
-#### 1. Suba apenas os bancos
+Suba apenas a infraestrutura:
 
 ```bash
-docker compose up -d identity-db catalog-db library-db
+docker compose up -d identity-db catalog-db library-db social-db rabbitmq
 ```
 
-#### 2. Configure o `.env`
+Configure o `.env` e compile:
 
 ```bash
 cp .env.example .env
-# Edite o Jwt__Secret conforme descrito acima
-```
-
-#### 3. Aplique as migrations
-
-```bash
-dotnet ef database update --project src/Legi.Identity.Infrastructure --startup-project src/Legi.Identity.Api
-dotnet ef database update --project src/Legi.Catalog.Infrastructure --startup-project src/Legi.Catalog.Api
-dotnet ef database update --project src/Legi.Library.Infrastructure --startup-project src/Legi.Library.Api
-```
-
-#### 4. Build e rode
-
-```bash
 dotnet build
 ```
 
 Rode cada API em um terminal separado:
 
 ```bash
-# Terminal 1
 dotnet run --project src/Legi.Identity.Api/Legi.Identity.Api.csproj
-
-# Terminal 2
 dotnet run --project src/Legi.Catalog.Api/Legi.Catalog.Api.csproj
-
-# Terminal 3
 dotnet run --project src/Legi.Library.Api/Legi.Library.Api.csproj
+dotnet run --project src/Legi.Social.Api/Legi.Social.Api.csproj
 ```
 
-#### 5. Rode os testes
+Rode o frontend:
 
 ```bash
-dotnet test
+cd web/legi-web
+yarn
+yarn dev
 ```
 
-## Estrutura do Projeto
+## Build e testes
 
+```bash
+dotnet build
+dotnet test Legi.sln --settings tests/.runsettings
 ```
+
+Os testes usam xUnit e coverlet. As metas em `tests/.runsettings` sao 75% de cobertura de linha e 65% de branch.
+
+Frontend:
+
+```bash
+cd web/legi-web
+yarn lint
+yarn build
+```
+
+## Estrutura do projeto
+
+```text
 Legi/
 ├── src/
-│   ├── Legi.SharedKernel/           # Base classes, custom Mediator
+│   ├── Legi.SharedKernel/           # Base entities, ValueObject, mediator customizado
+│   ├── Legi.Contracts/              # Integration events compartilhados
+│   ├── Legi.Messaging/              # Outbox, inbox e RabbitMQ
 │   ├── Legi.Identity.*/             # Autenticacao, usuarios, JWT
 │   ├── Legi.Catalog.*/              # Catalogo global de livros
-│   └── Legi.Library.*/              # Biblioteca pessoal, listas, posts
-├── tests/
-│   ├── Legi.Identity.Domain.Tests/
-│   ├── Legi.Identity.Application.Tests/
-│   ├── Legi.Catalog.Domain.Tests/
-│   └── Legi.Catalog.Application.Tests/
-├── Docs/                            # Documentacao de arquitetura
+│   ├── Legi.Library.*/              # Biblioteca pessoal, listas, posts de leitura
+│   └── Legi.Social.*/               # Perfis sociais, follows, feed, likes, comentarios
+├── tests/                           # Testes unitarios e integracao por contexto
+├── web/legi-web/                    # Frontend React 19 + Vite + Nginx proxy
+├── Docs/                            # Arquitetura e decisoes
 └── docker-compose.yml
 ```
 
-Cada servico segue a mesma estrutura em camadas:
+Cada contexto backend segue as camadas:
 
-```
-Domain          → Entidades, Value Objects, interfaces de repositorio
-Application     → Commands, Queries, Validators, DTOs
-Infrastructure  → EF Core, Repositorios, Servicos externos
-Api             → Controllers, Middleware, Program.cs
+```text
+Domain          -> Entidades, Value Objects, eventos, interfaces de repositorio
+Application     -> Commands, Queries, Validators, DTOs, event handlers
+Infrastructure  -> EF Core, migrations, repositorios, servicos externos
+Api             -> Controllers, Middleware, Program.cs
 ```
 
-## Criando Novas Migrations
+## Migrations
+
+As APIs executam `Database.Migrate()` no startup. Para criar ou remover migrations manualmente:
 
 ```bash
-# Criar migration
 dotnet ef migrations add NomeDaMigration \
   --project src/Legi.<Servico>.Infrastructure \
   --startup-project src/Legi.<Servico>.Api
 
-# Aplicar
-dotnet ef database update \
-  --project src/Legi.<Servico>.Infrastructure \
-  --startup-project src/Legi.<Servico>.Api
-
-# Reverter (remove a ultima migration nao aplicada)
 dotnet ef migrations remove \
   --project src/Legi.<Servico>.Infrastructure \
   --startup-project src/Legi.<Servico>.Api
 ```
 
-Substitua `<Servico>` por `Identity`, `Catalog` ou `Library`.
+Substitua `<Servico>` por `Identity`, `Catalog`, `Library` ou `Social`.
 
 ## API Endpoints
 
 ### Identity (`/api/v1/identity`)
+
 | Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
 | POST | `/auth/register` | Registrar usuario |
-| POST | `/auth/login` | Login |
-| POST | `/auth/refresh` | Renovar token |
-| POST | `/auth/logout` | Logout |
-| GET | `/users/me` | Meu perfil |
-| PATCH | `/users/me` | Atualizar perfil |
+| POST | `/auth/login` | Login por email ou username |
+| POST | `/auth/refresh` | Renovar access token |
+| POST | `/auth/logout` | Invalidar refresh token |
+| GET | `/users/me` | Perfil autenticado |
 | DELETE | `/users/me` | Deletar conta |
-| GET | `/users/{userId}` | Perfil publico |
+| GET | `/users/{userId}` | Perfil publico basico |
 
 ### Catalog (`/api/v1/catalog`)
+
 | Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
-| GET | `/books` | Buscar livros |
+| GET | `/books` | Buscar livros com filtros e paginacao |
 | GET | `/books/{bookId}` | Detalhes do livro |
 | POST | `/books` | Cadastrar livro |
 | PUT | `/books/{bookId}` | Atualizar livro |
@@ -235,30 +194,55 @@ Substitua `<Servico>` por `Identity`, `Catalog` ou `Library`.
 | GET | `/tags/popular` | Tags populares |
 
 ### Library (`/api/v1/library`)
+
 | Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
 | GET | `/` | Minha biblioteca |
 | POST | `/` | Adicionar livro |
-| PATCH | `/{userBookId}` | Atualizar status/progresso |
+| PATCH | `/{userBookId}` | Atualizar status, wishlist ou progresso |
 | DELETE | `/{userBookId}` | Remover livro |
-| PUT | `/{userBookId}/rating` | Dar rating |
+| PUT | `/{userBookId}/rating` | Dar ou atualizar rating |
 | DELETE | `/{userBookId}/rating` | Remover rating |
-| GET | `/{userBookId}/posts` | Posts do livro |
-| POST | `/{userBookId}/posts` | Criar post |
-| PUT | `/posts/{postId}` | Editar post |
-| DELETE | `/posts/{postId}` | Excluir post |
+| GET | `/{userBookId}/posts` | Posts de leitura do livro |
+| POST | `/{userBookId}/posts` | Criar post de leitura |
+| PUT | `/posts/{postId}` | Editar post de leitura |
+| DELETE | `/posts/{postId}` | Excluir post de leitura |
 | GET | `/lists` | Minhas listas |
 | POST | `/lists` | Criar lista |
+| GET | `/lists/search` | Buscar listas publicas |
 | GET | `/lists/{listId}` | Detalhes da lista |
 | PATCH | `/lists/{listId}` | Atualizar lista |
 | DELETE | `/lists/{listId}` | Excluir lista |
 | GET | `/lists/{listId}/books` | Livros da lista |
 | POST | `/lists/{listId}/books` | Adicionar livro a lista |
 | DELETE | `/lists/{listId}/books/{userBookId}` | Remover livro da lista |
-| GET | `/lists/search` | Buscar listas publicas |
+
+### Social (`/api/v1/social`)
+
+| Metodo | Endpoint | Descricao |
+|--------|----------|-----------|
+| POST | `/follows` | Seguir usuario |
+| DELETE | `/follows/{userId}` | Deixar de seguir usuario |
+| GET | `/users/{userId}` | Perfil social publico |
+| GET | `/users/{userId}/followers` | Seguidores |
+| GET | `/users/{userId}/following` | Usuarios seguidos |
+| GET | `/feed` | Feed autenticado |
+| GET | `/users/{userId}/activity` | Atividade publica do usuario |
+| POST | `/posts/{postId}/likes` | Curtir post |
+| DELETE | `/posts/{postId}/likes` | Remover curtida de post |
+| GET | `/posts/{postId}/comments` | Comentarios de post |
+| POST | `/posts/{postId}/comments` | Comentar em post |
+| POST | `/lists/{listId}/likes` | Curtir lista |
+| DELETE | `/lists/{listId}/likes` | Remover curtida de lista |
+| GET | `/lists/{listId}/comments` | Comentarios de lista |
+| POST | `/lists/{listId}/comments` | Comentar em lista |
+| DELETE | `/comments/{commentId}` | Excluir comentario |
 
 ## Documentacao
 
 - [Arquitetura detalhada](Docs/ARCHITECTURE.md)
+- [Decisoes de arquitetura - Messaging](Docs/MESSAGING-ARCHITECTURE-decisions.md)
+- [Decisoes de arquitetura - Social](Docs/SOCIAL-ARCHITECTURE-decisions.md)
 - [Decisoes de arquitetura - Library](Docs/LIBRARY-ARCHITECTURE-decisions.md)
-- [Decisoes de arquitetura - Catalog APIs externas](Docs/CATALOG-ARCHITECTURE-external-apis.md)
+- [Catalog APIs externas](Docs/CATALOG-ARCHITECTURE-external-apis.md)
+- [Guia de testes](tests/TESTING_GUIDELINES.md)
