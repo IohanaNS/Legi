@@ -2,8 +2,8 @@
 import { CurrentlyReading } from "./CurrentlyReading";
 import { FeedPostCard } from "./FeedPostCard";
 import { FeedSidebar } from "./FeedSidebar";
+import { useAuth } from "../../auth/AuthContext";
 import {
-  currentUser,
   currentlyReading,
   feedPosts,
   suggestedUsers,
@@ -13,6 +13,7 @@ import {
 
 export default function FeedPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   return (
     <div className="flex gap-6">
@@ -20,7 +21,7 @@ export default function FeedPage() {
       <div className="flex-1 space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">
-            {t("feed.greeting", { name: currentUser.name })}
+            {t("feed.greeting", { username: user?.username ?? "" })}
           </h1>
           <p className="text-stone-500 mt-1">{t("feed.subtitle")}</p>
         </div>

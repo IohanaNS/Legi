@@ -1,5 +1,8 @@
-﻿import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import Layout from "./Layout";
+import { RequireAuth } from "../features/auth/RequireAuth";
+import LoginPage from "../features/auth/components/LoginPage";
+import RegisterPage from "../features/auth/components/RegisterPage";
 import FeedPage from "../features/social/components/FeedPage";
 import ExplorePage from "../features/catalog/components/ExplorePage";
 import ListsPage from "../features/library/components/ListsPage";
@@ -7,9 +10,15 @@ import WishlistPage from "../features/library/components/WishlistPage";
 import ProfilePage from "../features/library/components/ProfilePage";
 
 export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   {
     path: "/",
-    element: <Layout />,
+    element: (
+      <RequireAuth>
+        <Layout />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/feed" replace /> },
       { path: "feed", element: <FeedPage /> },

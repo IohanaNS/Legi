@@ -15,7 +15,7 @@
     },
     "feed": {
         "title": "Feed",
-        "greeting": "Hi, {{name}} 👋",
+        "greeting": "Hi, {{username}} 👋",
         "subtitle": "See what your friends are reading",
         "readingNow": "Reading now",
         "progress": "Progress",
@@ -91,5 +91,20 @@
             "abandoned": "Abandoned",
             "paused": "Paused"
         }
+    },
+    "auth": {
+        "loginTitle": "Sign in",
+        "registerTitle": "Create account",
+        "emailOrUsername": "Email or username",
+        "email": "Email",
+        "username": "Username",
+        "password": "Password",
+        "signIn": "Sign in",
+        "signUp": "Sign up",
+        "noAccount": "Don't have an account?",
+        "haveAccount": "Already have an account?",
+        "invalidCredentials": "Invalid email/username or password.",
+        "userExists": "That email or username is already taken.",
+        "genericError": "Something went wrong. Please try again."
     }
 }

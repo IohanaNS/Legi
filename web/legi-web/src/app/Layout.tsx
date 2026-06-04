@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut
 } from "lucide-react";
+import { useAuth } from "../features/auth/AuthContext";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -21,6 +22,7 @@ const navItems = [
 
 export default function Layout() {
   const { t, i18n } = useTranslation();
+  const { user, logout } = useAuth();
 
   const toggleLanguage = () => {
     const newLang = i18n.language === "pt-BR" ? "en" : "pt-BR";
@@ -77,14 +79,18 @@ export default function Layout() {
         {/* Usuário no rodapé */}
         <div className="border-t border-stone-200 p-3">
           <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 bg-stone-300 rounded-full" />
+            <div className="w-8 h-8 bg-stone-300 rounded-full flex items-center justify-center text-xs font-semibold text-stone-600 uppercase">
+              {user?.username?.charAt(0) ?? "?"}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-800 truncate">Ana Silva</p>
-              <p className="text-xs text-stone-500 truncate">@anasilva</p>
+              <p className="text-sm font-medium text-stone-800 truncate">@{user?.username ?? ""}</p>
             </div>
             <Settings size={16} className="text-stone-400" />
           </div>
-          <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700">
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700"
+          >
             <LogOut size={14} />
             {t("common.logout")}
           </button>

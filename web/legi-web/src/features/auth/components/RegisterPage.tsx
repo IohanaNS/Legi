@@ -1,0 +1,70 @@
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { isAxiosError } from "axios";
+import { useAuth } from "../AuthContext";
+import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
+
+export default function RegisterPage() {
+  const { t } = useTranslation();
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => register({ email, username, password }),
+    onSuccess: () => navigate("/feed", { replace: true }),
+  });
+
+  const errorMessage = mutation.isError
+    ? isAxiosError(mutation.error) && mutation.error.response?.status === 409
+      ? t("auth.userExists")
+      : t("auth.genericError")
+    : null;
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-stone-50">
+      <Card className="w-full max-w-sm p-6 space-y-4">
+        <h1 className="text-xl font-semibold text-stone-800">{t("auth.registerTitle")}</h1>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
+          <input
+            type="email"
+            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            placeholder={t("auth.email")}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <input
+            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            placeholder={t("auth.username")}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+          />
+          <input
+            type="password"
+            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            placeholder={t("auth.password")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+          {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+          <Button type="submit" disabled={mutation.isPending} className="w-full">
+            {t("auth.signUp")}
+          </Button>
+        </form>
+        <p className="text-sm text-center text-stone-600">
+          {t("auth.haveAccount")}{" "}
+          <Link to="/login" className="text-green-700">{t("auth.signIn")}</Link>
+        </p>
+      </Card>
+    </div>
+  );
+}

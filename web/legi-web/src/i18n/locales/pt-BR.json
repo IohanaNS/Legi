@@ -14,68 +14,68 @@
         "profile": "Perfil"
     },
     "feed": {
-        "title": "Feed",
-        "greeting": "Hi, {{name}} 👋",
-        "subtitle": "See what your friends are reading",
-        "readingNow": "Reading now",
-        "progress": "Progress",
-        "pagesOf": "{{current}} of {{total}} pages",
-        "updateProgress": "Update progress",
-        "updatedProgress": "updated progress on",
-        "finished": "finished",
-        "startedReading": "started reading",
-        "suggestionsForYou": "Suggestions for you",
-        "booksRead": "{{count}} books read",
-        "trendingThisWeek": "Trending this week",
-        "yourGenres": "Your genres"
+        "title": "Mural",
+        "greeting": "Olá, {{username}} 👋",
+        "subtitle": "Veja o que seus amigos estão lendo",
+        "readingNow": "Lendo agora",
+        "progress": "Progresso",
+        "pagesOf": "{{current}} de {{total}} páginas",
+        "updateProgress": "Atualizar progresso",
+        "updatedProgress": "atualizou o progresso em",
+        "finished": "terminou",
+        "startedReading": "começou a ler",
+        "suggestionsForYou": "Sugestões para você",
+        "booksRead": "{{count}} livros lidos",
+        "trendingThisWeek": "Em alta esta semana",
+        "yourGenres": "Seus gêneros"
     },
     "explore": {
-        "title": "Explore",
-        "subtitle": "Discover your next favorite book",
-        "searchPlaceholder": "Search by title, author or genre...",
-        "recommendedForYou": "Recommended for you",
-        "filterByGenre": "Filter by genre",
-        "booksFound": "{{count}} books found",
+        "title": "Explorar",
+        "subtitle": "Descubra seu próximo livro favorito",
+        "searchPlaceholder": "Buscar por título, autor ou gênero...",
+        "recommendedForYou": "Recomendados para você",
+        "filterByGenre": "Filtrar por gênero",
+        "booksFound": "{{count}} livros encontrados",
         "sortBy": {
-            "bestRated": "Best rated",
-            "mostRecent": "Most recent",
-            "mostPopular": "Most popular"
+            "bestRated": "Melhor avaliados",
+            "mostRecent": "Mais recentes",
+            "mostPopular": "Mais populares"
         }
     },
     "genres": {
-        "fantasy": "Fantasy",
+        "fantasy": "Fantasia",
         "romance": "Romance",
-        "thriller": "Thriller",
-        "mystery": "Mystery",
-        "scifi": "Science Fiction",
-        "classic": "Classic",
-        "horror": "Horror",
-        "selfHelp": "Self-help",
-        "history": "History",
-        "nonFiction": "Non-Fiction",
-        "magicalRealism": "Magical Realism",
-        "historicalFiction": "Historical Fiction"
+        "thriller": "Suspense",
+        "mystery": "Mistério",
+        "scifi": "Ficção Científica",
+        "classic": "Clássico",
+        "horror": "Terror",
+        "selfHelp": "Autoajuda",
+        "history": "História",
+        "nonFiction": "Não-ficção",
+        "magicalRealism": "Realismo Mágico",
+        "historicalFiction": "Ficção Histórica"
     },
     "lists": {
-        "title": "My Lists",
-        "subtitle": "{{count}} lists created",
-        "newList": "New list",
-        "public": "Public",
-        "private": "Private",
-        "booksCount": "{{count}} books"
+        "title": "Minhas Listas",
+        "subtitle": "{{count}} listas criadas",
+        "newList": "Nova lista",
+        "public": "Pública",
+        "private": "Privada",
+        "booksCount": "{{count}} livros"
     },
     "wishlist": {
-        "title": "Wishlist",
-        "subtitle": "{{count}} books in reading queue"
+        "title": "Lista de Desejos",
+        "subtitle": "{{count}} livros na fila de leitura"
     },
     "profile": {
-        "title": "Profile",
-        "subtitle": "Your reading profile",
-        "editProfile": "Edit profile",
+        "title": "Perfil",
+        "subtitle": "Seu perfil de leitura",
+        "editProfile": "Editar perfil",
         "stats": {
-            "read": "Read",
-            "followers": "Followers",
-            "following": "Following"
+            "read": "Lidos",
+            "followers": "Seguidores",
+            "following": "Seguindo"
         },
         "tabs": {
             "reading": "Lendo",
@@ -91,5 +91,20 @@
             "abandoned": "Abandonado",
             "paused": "Pausado"
         }
+    },
+    "auth": {
+        "loginTitle": "Entrar",
+        "registerTitle": "Criar conta",
+        "emailOrUsername": "E-mail ou usuário",
+        "email": "E-mail",
+        "username": "Usuário",
+        "password": "Senha",
+        "signIn": "Entrar",
+        "signUp": "Cadastrar",
+        "noAccount": "Não tem uma conta?",
+        "haveAccount": "Já tem uma conta?",
+        "invalidCredentials": "E-mail/usuário ou senha inválidos.",
+        "userExists": "Este e-mail ou usuário já está em uso.",
+        "genericError": "Algo deu errado. Tente novamente."
     }
 }
