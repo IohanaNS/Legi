@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — **Fases 1–4 ✅ CONCLUÍDAS e runtime-verified** (incl. o gate de replay/dedup §8.1.1: mesmo `MessageId` entregue 2× move o contador 1× só). Próxima: Fase 5 (Library → Catalog, ratings).
+**Status de Implementação:** 🚧 Em andamento — **Fases 1–5 ✅ CONCLUÍDAS e runtime-verified** (incl. os gates de replay/dedup §8.1.1: mesmo `MessageId` entregue 2× move contador/rating 1× só, provado em Library E Catalog contra Postgres real). Próxima: Fase 6 (hardening).
 
 ---
 
@@ -1472,7 +1472,7 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 **Entregável:** ✅ Sistema social completo. Feed funcional com dados de livro corretos. Contadores de like/comment atualizados via eventos, idempotentes sob redelivery. Stubs removidos.
 
-### Fase 5 — Library → Catalog (ratings)
+### Fase 5 — Library → Catalog (ratings) ✅ CONCLUÍDA (runtime-verified)
 
 **Objetivo:** `Book.AverageRating` + `RatingsCount` mantidos automaticamente via eventos. `UserBookRatedIntegrationEvent` já é publicado desde a Fase 4 (Social consome para o FeedItem `BookRated`); a Fase 5 adiciona o **segundo consumer** (Catalog) no mesmo exchange fanout, mais o publisher de `UserBookRatingRemoved` que ficou adiado da 4B.
 
@@ -1507,24 +1507,24 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 | 5B.4 | Migration `AddBookRatings` (só cria `book_ratings`, PK composta `(book_id, user_id)`; sem drift) | ✅ |
 | 5B.5 | Testes: `FromHalfStarRatings` — 0 rows→(0,0); `[7,9]`→(4.0, 2); single 10→5.0 / 1→0.5; `[7,8,8]`→~3.833 (round 2dp = 3.83). (4 testes; Catalog.Domain 62→66) | ✅ |
 
-**5C — Consumers no Catalog + DI**
+**5C — Consumers no Catalog + DI** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 5C.1 | `UserBookRatedIntegrationEventHandler` (Catalog): upsert `BookRating(BookId,UserId,Rating)` → recompute `AVG`/`COUNT` → `book.RecalculateRating(avg5, count)`. **Staging, sem `SaveChangesAsync`** (dispatcher commita + inbox row, §8.1) | ⏳ |
-| 5C.2 | `UserBookRatingRemovedIntegrationEventHandler` (Catalog): delete `BookRating` por `(BookId,UserId)` (no-op se ausente) → recompute → `RecalculateRating`. Staging. | ⏳ |
-| 5C.3 | `Book` não encontrado → **nack-com-requeue transitório** (decisão 2 acima, §8.3); warning com `BookId` | ⏳ |
-| 5C.4 | Registrar os 2 consumers na DI do Catalog (`AddIntegrationEventConsumer<…, CatalogDbContext>()`; `AddLegiMessaging<CatalogDbContext>` já existe). Confirmar que o consumer existente de `UserBookRated` no Social **não regride** (2 queues independentes no mesmo fanout) | ⏳ |
-| 5C.5 | XML-doc da regra de idempotência em cada handler: "upsert/delete convergente; recompute lê as rows atuais; inbox é defesa-em-profundidade, não o único guard; staging via change-tracker" | ⏳ |
+| 5C.1 | `UserBookRatedIntegrationEventHandler` (Catalog): `GetByIdAsync` (Book tracked) → `StageRatingAsync` (upsert + recompute in-memory) → `book.RecalculateRating(avg5, count)`. **Staging, sem `SaveChangesAsync`** (dispatcher commita Book + BookRating + inbox, §8.1) | ✅ |
+| 5C.2 | `UserBookRatingRemovedIntegrationEventHandler` (Catalog): `StageRatingRemovalAsync` (delete por `(BookId,UserId)`, no-op se ausente; último rating → recompute (0,0)) → `RecalculateRating`. Staging. | ✅ |
+| 5C.3 | `Book` não encontrado → `throw InvalidOperationException` → **nack-com-requeue transitório** (decisão 2, §8.3); warning com `BookId` | ✅ |
+| 5C.4 | 2 consumers registrados na DI do Catalog (`using Legi.Contracts.Library`). Social `UserBookRated` **não regride** — queue independente no mesmo fanout, sem mudança no Social | ✅ |
+| 5C.5 | XML-doc da regra de idempotência em cada handler (inverso do §8.1.1): "upsert/delete convergente; recompute das rows; inbox é defesa-em-profundidade, não o único guard; staging via change-tracker; nunca ExecuteUpdate/SaveChanges". Watch-out resolvido: `BookRatingRecalculatedDomainEvent` **não tem handler** no Catalog → dispatch pre-save é no-op. | ✅ |
 
-**5D — Testes + gate de runtime**
+**5D — Testes + gate de runtime** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 5D.1 | Testes de handler (Catalog.Application.Tests): primeiro rating → média/count setados; re-rate → média muda, count igual; remoção → recompute, count −1; remover último → média 0 count 0; book não encontrado → throw (transitório) | ⏳ |
-| 5D.2 | **Runtime e2e (docker):** criar book → user avalia no Library → `AverageRating`/`RatingsCount` atualizam no Catalog → re-rate → média move, count estável → remove rating → recompute, count −1. Verificar que o Social **ainda** recebe o FeedItem `BookRated` do mesmo `UserBookRated` (não regredir 4C) | ⏳ |
-| 5D.3 | **Gate de idempotência (§8.1.1-style — o que importa):** dirigir o `IntegrationEventDispatcher<CatalogDbContext>` real contra o Postgres do compose (clone de `tests/Legi.Library.Integration.Tests/InboxReplayDedupTests`). Mesmo `MessageId` 2× → média/count movem **exatamente 1×** + 1 inbox row; `MessageId` distinto move de novo. **Bônus Opção B:** mesmo sem a inbox (dup que escapa), o upsert/recompute converge para o mesmo valor. `[SkippableFact]` + `Skip.If` em `CATALOG_TEST_DB` (suíte default segue verde/sem Docker) | ⏳ |
-| 5D.4 | Reconciliar docs: marcar Fase 5 ✅; atualizar `ARCHITECTURE.md` §6 com o fluxo Library→Catalog rating | ⏳ |
+| 5D.1 | Testes de handler (Catalog.Application.Tests, +6 → 90): handler aplica o agregado recomputado no Book tracked + passa args corretos ao repo + throw em book-não-encontrado (rated e removed). A sequência re-rate/remove/remove-last (que depende da recompute do repo) é coberta no teste de integração com DB real (5D.3). | ✅ |
+| 5D.2 | **Runtime e2e (docker):** rate 4.0★ → Catalog `AverageRating` 4.00 / count 1; re-rate 5.0★ → 5.00 / count **estável** 1; remove → 0.00 / 0. Social **ainda** mostra FeedItem `BookRated` (atividade de A; não regrediu 4C). Sem exceções de rating / redelivery preso. | ✅ |
+| 5D.3 | **Gate de idempotência (§8.1.1-style):** `tests/Legi.Catalog.Integration.Tests/RatingRecomputeIntegrationTests` dirige o `IntegrationEventDispatcher<CatalogDbContext>` real contra o Postgres do compose. (a) mesmo `MessageId` 2× → recompute **1×** + 1 inbox row; `MessageId` distinto (outro user) move de novo. (b) sequência rate→re-rate→remove→remove-last. (c) **convergência Opção B:** dup com `MessageId` distinto (mesmo rating, escapando a inbox) converge ao mesmo valor. `[SkippableFact]` em `CATALOG_TEST_DB`. **3 testes verdes contra Postgres real.** | ✅ |
+| 5D.4 | Docs reconciliados: Fase 5 ✅; `ARCHITECTURE.md` §6 fluxo Library→Catalog marcado implementado. | ✅ |
 
 **Fora de escopo:** `ReviewsCount`/eventos de review (fluxo separado); backfill de ratings pré-Fase-5 (gap de cold-start aceito → job de reconciliação é Fase 6); dropar `PreviousRating` de `UserBookRated` (Social precisa); dead-letter/attempt-counting nas queues (Fase 6).
 

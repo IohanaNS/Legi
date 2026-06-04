@@ -6,6 +6,7 @@ using Legi.Catalog.Infrastructure.ExternalServices.OpenLibrary;
 using Legi.Catalog.Infrastructure.Persistence;
 using Legi.Catalog.Infrastructure.Persistence.Repositories;
 using Legi.Contracts.Identity;
+using Legi.Contracts.Library;
 using Legi.Messaging.DependencyInjection;
 using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,11 @@ public static class DependencyInjection
 
         services.AddLegiMessaging<CatalogDbContext>("catalog", configuration);
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, CatalogDbContext>();
+
+        // Library → Catalog rating recompute (Phase 5). UserBookRated is a second,
+        // independent queue on the existing fanout exchange (Social consumes it too).
+        services.AddIntegrationEventConsumer<UserBookRatedIntegrationEvent, CatalogDbContext>();
+        services.AddIntegrationEventConsumer<UserBookRatingRemovedIntegrationEvent, CatalogDbContext>();
 
         // Repositories
         services.AddScoped<IBookRepository, BookRepository>();

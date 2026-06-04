@@ -1288,7 +1288,7 @@ outbox_messages(id PK, type, payload JSONB, occurred_at, processed_at, attempts,
 
 ---
 
-## 6. Comunicação Entre Serviços ✅ IMPLEMENTADO (Fases 1–4)
+## 6. Comunicação Entre Serviços ✅ IMPLEMENTADO (Fases 1–5)
 
 Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-least-once + idempotência via inbox). **Fonte de verdade dos contratos, tópicos/filas, idempotência e ordering:** `Docs/MESSAGING-ARCHITECTURE-decisions.md`. Esta seção é apenas o panorama — não duplicar o catálogo aqui (foi essa duplicação que gerou o drift anterior).
 
@@ -1299,9 +1299,9 @@ Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-lea
 **Catalog → Library + Social** (Fases 2 / 4A): `BookCreated` / `BookUpdated` — cada serviço mantém seu `BookSnapshot` local como fonte de lookup de display data em write-time (decisão 2.6.1).
 **Library → Social** (Fases 4B / 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` — Social projeta `FeedItem` / `ContentSnapshot` (feed fan-out on read).
 **Social → Library** (Fases 4D / 4E): `ContentLiked` / `ContentUnliked` / `ContentCommented` / `CommentDeleted` — Library ajusta `LikesCount` / `CommentsCount` no `ReadingProgress` (apenas `Post`; idempotência inbox-only, decisão 8.1.1).
-**Library → Catalog** (Fase 5 — pendente): `UserBookRated` / remoção de rating → recálculo de `average_rating` no `Book`.
+**Library → Catalog** (Fase 5): `UserBookRated` / `UserBookRatingRemoved` → Catalog mantém uma projeção `BookRating` por-usuário e recalcula `average_rating`/`ratings_count` no `Book` (recompute-from-rows, convergente; `UserBookRated` é um segundo consumer no fanout que o Social já usa).
 
-**Total atual: 14 arquivos de integration event em `Legi.Contracts`** (inclui `PingIntegrationEvent` diagnóstico). Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
+**Total atual: 15 arquivos de integration event em `Legi.Contracts`** (inclui `PingIntegrationEvent` diagnóstico). Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
 
 ### 6.2 Fora de escopo do v1
 
