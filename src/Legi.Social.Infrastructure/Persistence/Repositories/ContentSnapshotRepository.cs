@@ -52,4 +52,37 @@ public class ContentSnapshotRepository(SocialDbContext context) : IContentSnapsh
             await context.SaveChangesAsync(cancellationToken);
         }
     }
+
+    public async Task StageAddOrUpdateAsync(
+        ContentSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        var existing = await context.ContentSnapshots
+            .FirstOrDefaultAsync(
+                cs => cs.TargetType == snapshot.TargetType && cs.TargetId == snapshot.TargetId,
+                cancellationToken);
+
+        if (existing is null)
+        {
+            await context.ContentSnapshots.AddAsync(snapshot, cancellationToken);
+        }
+        else
+        {
+            existing.UpdateOwner(snapshot.OwnerUsername, snapshot.OwnerAvatarUrl);
+        }
+    }
+
+    public async Task StageDeleteByTargetAsync(
+        InteractableType targetType, Guid targetId,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshot = await context.ContentSnapshots
+            .FirstOrDefaultAsync(
+                cs => cs.TargetType == targetType && cs.TargetId == targetId,
+                cancellationToken);
+
+        if (snapshot is not null)
+        {
+            context.ContentSnapshots.Remove(snapshot);
+        }
+    }
 }

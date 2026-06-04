@@ -197,6 +197,39 @@ services:
         networks:
             - legi-network
 
+    # Social API
+    social-api:
+        build:
+            context: .
+            dockerfile: src/Legi.Social.Api/Dockerfile
+        container_name: legi-social-api
+        ports:
+            - "5300:8080"
+        environment:
+            ASPNETCORE_ENVIRONMENT: Development
+            ConnectionStrings__SocialDatabase: Host=social-db;Port=5432;Database=legi_social_dev;Username=postgres;Password=postgres
+            ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
+            Jwt__Secret: ${Jwt__Secret}
+            Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
+            Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
+            Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
+            Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            RabbitMq__Host: rabbitmq
+            RabbitMq__Port: 5672
+            RabbitMq__VirtualHost: /
+            RabbitMq__Username: legi
+            RabbitMq__Password: legi_dev
+            RabbitMq__ClientProvidedName: legi-social
+        depends_on:
+            social-db:
+                condition: service_healthy
+            identity-db:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        networks:
+            - legi-network
+
     # Web Frontend
     web:
         build:
@@ -209,6 +242,7 @@ services:
             - identity-api
             - catalog-api
             - library-api
+            - social-api
         networks:
             - legi-network
 

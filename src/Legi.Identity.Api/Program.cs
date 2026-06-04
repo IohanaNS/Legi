@@ -4,7 +4,9 @@ using DotNetEnv;
 using Legi.Identity.Api.Middleware;
 using Legi.Identity.Application;
 using Legi.Identity.Infrastructure;
+using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -97,6 +99,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Apply EF Core migrations on startup so the schema is ready in any environment
+// (containers, fresh dev databases). Idempotent — no-ops when already current.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.Migrate();
+}
 
 // Middleware pipeline
 app.UseMiddleware<ExceptionHandlingMiddleware>();

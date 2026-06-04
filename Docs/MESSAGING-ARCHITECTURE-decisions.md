@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A ✅ código (gate runtime pendente); Fase 4B (publishers do Library) iniciando
+**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A ✅ e 4B ✅ (código; gate runtime pendente); Fase 4C (Social consome eventos do Library — feed) iniciando
 
 ---
 
@@ -1099,6 +1099,14 @@ Os handlers de `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDelete
 
 Quando o Social processa `ReadingPostDeleted` e purga os `Like`s/`Comment`s daquele conteúdo, ele **não** deve publicar `ContentUnliked`/`CommentDeleted` de volta para o Library. O post já foi deletado no Library — seus contadores foram embora junto. Re-emitir decrementaria um contador que não existe mais. O bypass de domain events das bulk operations (acima) entrega esse comportamento de graça (o `ExecuteDeleteAsync` nos `Like`s/`Comment`s não levanta `ContentUnlikedDomainEvent`), mas o handler deve comentar a intenção para que ninguém "conserte" isso no futuro. *(Listas estão fora do feed na Fase 4, ver 6.5 — quando reativadas, a mesma regra vale para `UserListDeleted`.)*
 
+#### 8.1.3 Handlers de criação de `FeedItem` no Social (Fase 4C) — idempotência também depende da inbox
+
+`FeedItem.Create(...)` gera um `Guid` novo a cada chamada e não há chave natural para deduplicar (não é um upsert por `(TargetType, TargetId)` como o `ContentSnapshot`). Logo, uma redelivery do mesmo integration event criaria um **FeedItem duplicado** se não fosse a inbox. Mesma regra de 8.1.1: os handlers de criação **stage** o trabalho (sem `SaveChangesAsync`) para que a inbox row commite atomicamente com o insert do FeedItem; a redelivery bate na inbox e é pulada.
+
+`ContentSnapshot` é upsert por `(TargetType, TargetId)`, então é naturalmente idempotente — mas ainda assim segue o staging para atomicidade com a inbox. O handler de deleção (4C.4) é naturalmente idempotente (deletar o que não existe é no-op), também via staging.
+
+**No-op ainda precisa ackar.** O handler de `ReadingStatusChanged` só cria FeedItem quando `NewStatus == "Finished"`; nos demais casos é no-op. A infra de consumer **deve** commitar a inbox row mesmo quando o handler não muda nenhuma entidade — caso contrário a mensagem nunca é marcada como processada e entra em loop de redelivery. Verificar que o caminho no-op persiste a inbox row (item de housekeeping herdado da Fase 3: "inbox dedup silent-on-skip").
+
 ### 8.2 Retry Policy
 
 **Producer side (outbox dispatcher):**
@@ -1135,9 +1143,9 @@ Quando o handler do consumer falha, a mensagem é `nack`-ed *com* requeue. Rabbi
 
 **Se no futuro for necessário ordering por aggregate:** opções são (a) particionar por `UserId` no payload e usar consumer single-instance por partição, (b) usar headers do AMQP para priorização. Não implementar agora — YAGNI.
 
-**Caso concreto introduzido na Fase 4 — `BookSnapshot` ausente quando um evento Library → Social chega.** Os handlers do Social que criam `FeedItem`/`ContentSnapshot` (ReadingPostCreated, BookAddedToLibrary, etc.) consultam o `BookSnapshot` local para resolver título/autor/cover (ver 2.6.1). Como não há ordering cross-event, um usuário que adiciona um livro novo e imediatamente posta progresso pode fazer com que `ReadingPostCreated` chegue **antes** do `BookCreated` (Catalog → Social) ter criado o `BookSnapshot`.
+**Caso concreto introduzido na Fase 4 — snapshot local ausente quando um evento Library → Social chega.** Os handlers do Social que criam `FeedItem`/`ContentSnapshot` fazem **dois lookups locais**: `UserProfile` (por `UserId`, para `ActorUsername`/`ActorAvatarUrl`) e `BookSnapshot` (por `BookId`, para título/autor/cover, ver 2.6.1). Como não há ordering cross-event, qualquer um dos dois pode ainda não existir: `UserProfile` é criado por `UserRegistered` (Identity → Social) e `BookSnapshot` por `BookCreated` (Catalog → Social); ambos podem chegar depois do evento do Library.
 
-**Regra:** snapshot ausente é tratado como **condição transitória**. O handler lança, a mensagem é `nack`-ed *com* requeue, e o RabbitMQ reentrega. Quando o `BookCreated` correspondente chegar e criar o snapshot, a reentrega seguinte tem sucesso. Isto é coerente com a filosofia de "redelivery loop loud e visível" da decisão 8.2 — e deve emitir um log de warning identificando o `BookId` ausente, para que um loop genuíno (BookCreated que nunca chega) seja diagnosticável. Em monorepo com Catalog saudável, é uma janela de subsegundos.
+**Regra:** **qualquer** snapshot ausente (UserProfile ou BookSnapshot) é tratado como **condição transitória**. O handler lança, a mensagem é `nack`-ed *com* requeue, e o RabbitMQ reentrega. Quando o evento que cria o snapshot faltante chegar, a reentrega seguinte tem sucesso. Coerente com a filosofia de "redelivery loop loud e visível" (8.2) — emitir log de warning identificando qual snapshot (`UserId` ou `BookId`) faltava, para diagnosticar loop genuíno. Em monorepo saudável, janela de subsegundos.
 
 ---
 
@@ -1369,13 +1377,19 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 *Status 4A:* ✅ código completo (171 testes verdes). ⏳ gate de runtime 4A.5 (docker) pendente antes de fechar. **Bônus:** 4A fechou um gap da Fase 2 — o pipeline `BookUpdated` (publisher no Catalog + consumer no Library + consumer no Social) não existia e foi construído aqui (ver nota na Fase 2).
 
-**4B — Publishers do Library (outgoing)**
+**4B — Publishers do Library (outgoing)** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4B.1 | Adicionar contratos faltantes em `Legi.Contracts/Library/` | ⏳ |
-| 4B.2 | **5** domain event handlers traduzindo domain → integration via `IEventBus`: `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` | ⏳ |
-| 4B.3 | **Teste:** cada ação no Library grava uma outbox row | ⏳ |
+| 4B.1 | Adicionar contratos faltantes em `Legi.Contracts/Library/` | ✅ |
+| 4B.2 | **5** domain event handlers traduzindo domain → integration via `IEventBus` | ✅ |
+| 4B.3 | **Teste:** translator publica 1 integration event por ação (9 testes; outbox-write/atomicidade real fica para o gate de runtime) | ✅ |
+
+*Notas de implementação 4B:*
+- Nome real da entidade de post é `ReadingProgress` (tabela `reading_posts`); o domain event de criação é `ReadingProgressCreatedDomainEvent`, mas o contrato cross-context é `ReadingPostCreatedIntegrationEvent` (split interno/externo documentado no handler). Não afeta 4C — Social só vê o contrato. Débito de naming (alinhar `ReadingPost`/`ReadingProgress`) adiado para pós-Fase-4.
+- **Bug pré-existente corrigido:** `UserBookRatedDomainEvent` tinha o parâmetro/propriedade `userBookId`, mas `UserBook.Rate(...)` passava `UserId` nesse slot. Renomeado para `userId` (valor em runtime já era UserId; só o nome estava mentindo). Nenhum consumer precisa de UserBookId aqui.
+- `ReadingPostDeletedIntegrationEvent` ficou `(PostId, UserId)` — `BookId` dropado (purge é por PostId; YAGNI).
+- `BookAddedToLibraryIntegrationEvent` usa `OccurredOn` do domain event como `AddedAt`.
 
 *Escopo (dois cortes YAGNI conscientes):*
 - **`UserBookRatingRemoved` adiado para a Fase 5.** Único consumidor é o Catalog (Fase 5). Publicá-lo agora gera outbox rows para zero queues vinculadas — inofensivo, mas inútil. `UserBookRated` *é* construído agora (Social precisa para o FeedItem `BookRated`); Fase 5 só adiciona o consumer do Catalog no mesmo exchange fanout.
@@ -1391,14 +1405,15 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4C.1 | `BookAddedToLibraryIntegrationEventHandler` → `FeedItem` (BookStarted) se não wishlist; sem ContentSnapshot (não interagível) | ⏳ |
-| 4C.2 | `ReadingStatusChangedIntegrationEventHandler` → `FeedItem` (BookFinished) se `NewStatus == "Finished"` | ⏳ |
-| 4C.3 | `ReadingPostCreatedIntegrationEventHandler` → `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted) | ⏳ |
-| 4C.4 | `ReadingPostDeletedIntegrationEventHandler` → purga `ContentSnapshot` + `Like`s + `Comment`s + `FeedItem` (sem re-emitir; ver 8.1.2) | ⏳ |
-| 4C.5 | `UserBookRatedIntegrationEventHandler` → `FeedItem` (BookRated) | ⏳ |
-| 4C.6 | Todos os handlers resolvem book data via `BookSnapshot` (decisão 2.6.1); snapshot ausente → nack transitório (decisão 8.3) | ⏳ |
-| 4C.7 | Registrar os **5** consumers na DI do Social | ⏳ |
-| 4C.8 | **Teste:** ações no Library populam o feed com os dados de livro corretos | ⏳ |
+| 4C.1 | `BookAddedToLibraryIntegrationEventHandler` → `FeedItem` (BookStarted) se não wishlist; sem ContentSnapshot (não interagível); `TargetType=null`, `ReferenceId=BookId` | ⏳ |
+| 4C.2 | `ReadingStatusChangedIntegrationEventHandler` → `FeedItem` (BookFinished) **só se** `NewStatus == "Finished"`; senão no-op (mas ver 4C.8 — no-op ainda precisa ackar) | ⏳ |
+| 4C.3 | `ReadingPostCreatedIntegrationEventHandler` → `ContentSnapshot` (Post) + `FeedItem` (ProgressPosted); `TargetType=Post`, `ReferenceId=PostId`; `Data` JSON = progresso/conteúdo; `ContentPreview` = ~200 chars | ⏳ |
+| 4C.4 | `ReadingPostDeletedIntegrationEventHandler` → purga `ContentSnapshot` + `Like`s + `Comment`s + `FeedItem` por PostId (sem re-emitir; ver 8.1.2). Sem lookups. | ⏳ |
+| 4C.5 | `UserBookRatedIntegrationEventHandler` → `FeedItem` (BookRated); `TargetType=null`, `ReferenceId=BookId`, `Data` JSON = `{ rating }` | ⏳ |
+| 4C.6 | **Dois lookups locais por handler de criação:** `UserProfile` (por `UserId` do evento → `ActorUsername`/`ActorAvatarUrl`) **e** `BookSnapshot` (por `BookId` → título/autor/cover, decisão 2.6.1). **Qualquer um** ausente → nack transitório (decisão 8.3 — vale para ambos os snapshots). | ⏳ |
+| 4C.7 | Handlers usam **staging** (sem `SaveChangesAsync`); idempotência depende da inbox (FeedItem tem Guid novo a cada vez, sem chave natural — ver 8.1.3). Adicionar métodos `Stage*` aos repos de `FeedItem`/`ContentSnapshot` se os existentes commitam (espelhar `BookSnapshotRepository.StageAddOrUpdateAsync` da 4A). | ⏳ |
+| 4C.8 | Registrar os **5** consumers na DI do Social. **Verificar:** handler no-op (ex: status ≠ Finished) ainda resulta em inbox row commitada → mensagem ackada, sem loop de redelivery (item de housekeeping da Fase 3). | ⏳ |
+| 4C.9 | **Teste:** ações no Library populam o feed com dados de ator e livro corretos; replay → sem FeedItem duplicado (inbox dedup) | ⏳ |
 
 *Listas:* sem handlers de `UserListCreated`/`UserListDeleted` (ver 6.5). `ActivityType.ListCreated` e suporte a `ContentSnapshot(List)` ficam definidos-mas-ociosos até reativação futura.
 

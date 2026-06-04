@@ -1,4 +1,5 @@
 using Legi.Social.Domain.Entities;
+using Legi.Social.Domain.Enums;
 using Legi.Social.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,5 +23,19 @@ public class CommentRepository(SocialDbContext context) : ICommentRepository
     {
         context.Comments.Remove(comment);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task StageDeleteByTargetAsync(
+        InteractableType targetType, Guid targetId,
+        CancellationToken cancellationToken = default)
+    {
+        var comments = await context.Comments
+            .Where(c => c.TargetType == targetType && c.TargetId == targetId)
+            .ToListAsync(cancellationToken);
+
+        if (comments.Count > 0)
+        {
+            context.Comments.RemoveRange(comments);
+        }
     }
 }

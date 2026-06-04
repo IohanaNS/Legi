@@ -39,4 +39,22 @@ public class FeedItemRepository(SocialDbContext context) : IFeedItemRepository
             await context.SaveChangesAsync(cancellationToken);
         }
     }
+
+    public Task StageAddAsync(FeedItem feedItem, CancellationToken cancellationToken = default)
+    {
+        return context.FeedItems.AddAsync(feedItem, cancellationToken).AsTask();
+    }
+
+    public async Task StageDeleteByReferenceAsync(
+        Guid referenceId, CancellationToken cancellationToken = default)
+    {
+        var items = await context.FeedItems
+            .Where(fi => fi.ReferenceId == referenceId)
+            .ToListAsync(cancellationToken);
+
+        if (items.Count > 0)
+        {
+            context.FeedItems.RemoveRange(items);
+        }
+    }
 }

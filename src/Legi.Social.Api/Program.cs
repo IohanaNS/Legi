@@ -3,8 +3,10 @@ using DotNetEnv;
 using Legi.Social.Api.Middleware;
 using Legi.Social.Application;
 using Legi.Social.Infrastructure;
+using Legi.Social.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -88,6 +90,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Apply EF Core migrations on startup so the schema is ready in any environment
+// (containers, fresh dev databases). Idempotent — no-ops when already current.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<SocialDbContext>().Database.Migrate();
+}
 
 // Exception handling (first in pipeline)
 app.UseMiddleware<ExceptionHandlingMiddleware>();

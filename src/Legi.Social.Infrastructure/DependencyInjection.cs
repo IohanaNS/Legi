@@ -1,5 +1,6 @@
 using Legi.Contracts.Catalog;
 using Legi.Contracts.Identity;
+using Legi.Contracts.Library;
 using Legi.Messaging.DependencyInjection;
 using Legi.Social.Application.Common.Interfaces;
 using Legi.Social.Domain.Repositories;
@@ -36,6 +37,14 @@ public static class DependencyInjection
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<BookUpdatedIntegrationEvent, SocialDbContext>();
+
+        // Library → Social feed projection (Phase 4C). Handlers are auto-registered
+        // by the Application reflection scan; each consumer host owns one queue.
+        services.AddIntegrationEventConsumer<BookAddedToLibraryIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<ReadingStatusChangedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<ReadingPostCreatedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<ReadingPostDeletedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<UserBookRatedIntegrationEvent, SocialDbContext>();
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();

@@ -3,7 +3,9 @@ using DotNetEnv;
 using Legi.Catalog.Api.Middleware;
 using Legi.Catalog.Application;
 using Legi.Catalog.Infrastructure;
+using Legi.Catalog.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -92,6 +94,13 @@ builder.Services.AddSwaggerGen(options =>
 // ===== Build App =====
 
 var app = builder.Build();
+
+// Apply EF Core migrations on startup so the schema is ready in any environment
+// (containers, fresh dev databases). Idempotent — no-ops when already current.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.Migrate();
+}
 
 // ===== Configure Middleware Pipeline =====
 

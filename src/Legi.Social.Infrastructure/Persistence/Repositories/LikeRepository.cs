@@ -34,4 +34,18 @@ public class LikeRepository(SocialDbContext context) : ILikeRepository
         context.Likes.Remove(like);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task StageDeleteByTargetAsync(
+        InteractableType targetType, Guid targetId,
+        CancellationToken cancellationToken = default)
+    {
+        var likes = await context.Likes
+            .Where(l => l.TargetType == targetType && l.TargetId == targetId)
+            .ToListAsync(cancellationToken);
+
+        if (likes.Count > 0)
+        {
+            context.Likes.RemoveRange(likes);
+        }
+    }
 }
