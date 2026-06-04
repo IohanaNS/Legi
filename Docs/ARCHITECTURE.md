@@ -20,7 +20,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | Backend        | .NET 10, ASP.NET Core                                                    |
 | Frontend       | React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + i18next              |
 | Banco de Dados | PostgreSQL (db separado por serviço)                                     |
-| Mensageria     | RabbitMQ (planejado)                                                     |
+| Mensageria     | RabbitMQ — outbox/inbox, at-least-once + idempotência (Fases 1–4)         |
 | API Gateway    | YARP (planejado)                                                         |
 | API Externa    | Open Library + Google Books API (integração ativa no Catalog/CreateBook) |
 | Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR)          |
@@ -188,15 +188,15 @@ RefreshToken (Entity)
 ```sql
 -- Tabela: users
 CREATE TABLE users (
-                       id UUID PRIMARY KEY,
-                       email VARCHAR(255) NOT NULL UNIQUE,
-                       username VARCHAR(30) NOT NULL UNIQUE,
-                       password_hash VARCHAR(255) NOT NULL,
-                       name VARCHAR(100) NOT NULL,
-                       bio VARCHAR(500),
-                       avatar_url VARCHAR(500),
-                       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(30) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    bio VARCHAR(500),
+    avatar_url VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX ix_users_email ON users(email);
@@ -205,12 +205,12 @@ CREATE INDEX ix_users_created_at ON users(created_at DESC);
 
 -- Tabela: refresh_tokens
 CREATE TABLE refresh_tokens (
-                                id UUID PRIMARY KEY,
-                                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                                token_hash VARCHAR(255) NOT NULL UNIQUE,
-                                expires_at TIMESTAMPTZ NOT NULL,
-                                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                                revoked_at TIMESTAMPTZ
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at TIMESTAMPTZ
 );
 
 CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens(user_id);
@@ -418,12 +418,12 @@ O repositório `BookRepository` sincroniza:
 **Formato de Request (Create Book):**
 ```json
 {
-    "isbn": "9780451524935",
-    "title": "1984",
-    "authors": ["George Orwell"],
-    "tags": ["dystopia", "classic"],
-    "synopsis": "...",
-    "pageCount": 328
+  "isbn": "9780451524935",
+  "title": "1984",
+  "authors": ["George Orwell"],
+  "tags": ["dystopia", "classic"],
+  "synopsis": "...",
+  "pageCount": 328
 }
 ```
 
@@ -432,33 +432,33 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 **Formato de Request (Update Book):**
 ```json
 {
-    "title": "1984 (Edição Revisada)",
-    "authors": ["George Orwell"],
-    "tags": ["dystopia", "classic"],
-    "synopsis": "...",
-    "pageCount": 336
+  "title": "1984 (Edição Revisada)",
+  "authors": ["George Orwell"],
+  "tags": ["dystopia", "classic"],
+  "synopsis": "...",
+  "pageCount": 336
 }
 ```
 
 **Formato de Response (Book Details / Update):**
 ```json
 {
-    "bookId": "...",
-    "isbn": "9780451524935",
-    "title": "1984 (Edição Revisada)",
-    "authors": [
-        { "name": "George Orwell", "slug": "george-orwell" }
-    ],
-    "synopsis": "...",
-    "pageCount": 336,
-    "publisher": "Companhia Editora",
-    "coverUrl": "https://...",
-    "tags": [
-        { "name": "dystopia", "slug": "dystopia" }
-    ],
-    "averageRating": 4.5,
-    "ratingsCount": 1250,
-    "updatedAt": "2026-02-09T22:00:00Z"
+  "bookId": "...",
+  "isbn": "9780451524935",
+  "title": "1984 (Edição Revisada)",
+  "authors": [
+    { "name": "George Orwell", "slug": "george-orwell" }
+  ],
+  "synopsis": "...",
+  "pageCount": 336,
+  "publisher": "Companhia Editora",
+  "coverUrl": "https://...",
+  "tags": [
+    { "name": "dystopia", "slug": "dystopia" }
+  ],
+  "averageRating": 4.5,
+  "ratingsCount": 1250,
+  "updatedAt": "2026-02-09T22:00:00Z"
 }
 ```
 
@@ -471,19 +471,19 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 ```sql
 -- Tabela: books ✅
 CREATE TABLE books (
-                       id UUID PRIMARY KEY,
-                       isbn VARCHAR(13) NOT NULL UNIQUE,
-                       title VARCHAR(500) NOT NULL,
-                       synopsis TEXT,
-                       page_count INT CHECK (page_count > 0),
-                       publisher VARCHAR(255),
-                       cover_url VARCHAR(500),
-                       average_rating DECIMAL(3,2) NOT NULL DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
-                       ratings_count INT NOT NULL DEFAULT 0,
-                       reviews_count INT NOT NULL DEFAULT 0,
-                       created_by_user_id UUID NOT NULL,
-                       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id UUID PRIMARY KEY,
+    isbn VARCHAR(13) NOT NULL UNIQUE,
+    title VARCHAR(500) NOT NULL,
+    synopsis TEXT,
+    page_count INT CHECK (page_count > 0),
+    publisher VARCHAR(255),
+    cover_url VARCHAR(500),
+    average_rating DECIMAL(3,2) NOT NULL DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
+    ratings_count INT NOT NULL DEFAULT 0,
+    reviews_count INT NOT NULL DEFAULT 0,
+    created_by_user_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_books_isbn ON books(isbn);
@@ -493,11 +493,11 @@ CREATE INDEX ix_books_created_by_user_id ON books(created_by_user_id);
 
 -- Tabela: authors ✅ (global registry para search/autocomplete)
 CREATE TABLE authors (
-                         id SERIAL PRIMARY KEY,
-                         name VARCHAR(255) NOT NULL,
-                         slug VARCHAR(255) NOT NULL UNIQUE,
-                         books_count INT NOT NULL DEFAULT 0,
-                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    books_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_authors_slug ON authors(slug);
@@ -506,11 +506,11 @@ CREATE INDEX ix_authors_books_count ON authors(books_count DESC);
 
 -- Tabela: book_authors ✅ (N:N entre books e authors)
 CREATE TABLE book_authors (
-                              book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-                              author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
-                              "order" INT NOT NULL DEFAULT 0,
-                              added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                              PRIMARY KEY (book_id, author_id)
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
+    "order" INT NOT NULL DEFAULT 0,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (book_id, author_id)
 );
 
 CREATE INDEX ix_book_authors_author_id ON book_authors(author_id);
@@ -518,11 +518,11 @@ CREATE INDEX ix_book_authors_book_order ON book_authors(book_id, "order");
 
 -- Tabela: tags ✅ (global registry para search/autocomplete)
 CREATE TABLE tags (
-                      id SERIAL PRIMARY KEY,
-                      name VARCHAR(50) NOT NULL,
-                      slug VARCHAR(50) NOT NULL UNIQUE,
-                      usage_count INT NOT NULL DEFAULT 0,
-                      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    usage_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_tags_slug ON tags(slug);
@@ -531,24 +531,24 @@ CREATE INDEX ix_tags_usage_count ON tags(usage_count DESC);
 
 -- Tabela: book_tags ✅ (N:N entre books e tags)
 CREATE TABLE book_tags (
-                           book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-                           tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-                           added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                           PRIMARY KEY (book_id, tag_id)
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (book_id, tag_id)
 );
 
 CREATE INDEX ix_book_tags_tag_id ON book_tags(tag_id);
 
 -- Tabela: book_reviews 📋 PLANEJADO
 CREATE TABLE book_reviews (
-                              id UUID PRIMARY KEY,
-                              book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-                              user_id UUID NOT NULL,
-                              content TEXT NOT NULL CHECK (LENGTH(content) >= 10 AND LENGTH(content) <= 5000),
-                              rating SMALLINT CHECK (rating >= 0 AND rating <= 5),
-                              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                              UNIQUE (user_id, book_id)
+    id UUID PRIMARY KEY,
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
+    content TEXT NOT NULL CHECK (LENGTH(content) >= 10 AND LENGTH(content) <= 5000),
+    rating SMALLINT CHECK (rating >= 0 AND rating <= 5),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, book_id)
 );
 
 CREATE INDEX ix_book_reviews_book_id ON book_reviews(book_id);
@@ -656,15 +656,17 @@ BookSnapshot (Read Model — não é aggregate) ✅
 └── UpdatedAt: DateTime
 ```
 
-> **⚠️ TODO: Remover workaround de criação inline do BookSnapshot**
+> **⚠️ TODO (agora DESBLOQUEADO — pronto para remover): workaround de criação inline do BookSnapshot**
 >
-> Atualmente, o `AddBookToLibraryCommand` aceita campos opcionais (`BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount`) e cria o `BookSnapshot` inline quando ele não existe no banco do Library. Isso é um **workaround temporário** porque a integração via eventos (RabbitMQ) entre Catalog e Library ainda não foi implementada.
+> Atualmente, o `AddBookToLibraryCommand` aceita campos opcionais (`BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount`) e cria o `BookSnapshot` inline quando ele não existe no banco do Library. Era um **workaround temporário** enquanto a integração Catalog → Library via eventos não existia.
 >
-> **Quando o RabbitMQ estiver implementado:**
-> 1. O Catalog publicará eventos `BookCreated`/`BookUpdated`
-> 2. O Library consumirá esses eventos e criará/atualizará o `BookSnapshot` automaticamente
-> 3. Remover os campos `BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount` do `AddBookToLibraryCommand` e `AddBookToLibraryRequest`
-> 4. Restaurar o handler original que apenas faz `throw NotFoundException` quando o snapshot não existe
+> **A pré-condição foi satisfeita (Fase 2 + 4A):** o pipeline `BookCreated`/`BookUpdated` está implementado e verificado em runtime — o Library já mantém o `BookSnapshot` automaticamente. Este workaround pode (e deve) ser removido como item de housekeeping:
+> 1. ✅ Catalog publica `BookCreated`/`BookUpdated`
+> 2. ✅ Library consome e cria/atualiza o `BookSnapshot` automaticamente
+> 3. ⏳ Remover os campos `BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount` de `AddBookToLibraryCommand` e `AddBookToLibraryRequest`
+> 4. ⏳ Restaurar o handler original que apenas faz `throw NotFoundException` quando o snapshot não existe (ou trata como condição transitória, se houver corrida add-livro-novo)
+>
+> *Nota:* ao remover, considerar a corrida em que um livro recém-criado no Catalog ainda não propagou o `BookSnapshot` para o Library quando o usuário tenta adicioná-lo — mesmo padrão transitório das decisões 8.3. Avaliar no momento da remoção.
 >
 > **Arquivos afetados:**
 > - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommand.cs`
@@ -1181,15 +1183,14 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 **Domain Event Handlers:**
 - `FollowCreatedDomainEventHandler` — incrementa FollowersCount/FollowingCount no UserProfile
 - `FollowRemovedDomainEventHandler` — decrementa contadores no UserProfile
-- `CommentCreatedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
-- `CommentDeletedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
-- `ContentLikedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
-- `ContentUnlikedDomainEventHandler` — stub (logging), aguardando RabbitMQ para integration event
+- `CommentCreatedDomainEventHandler` — traduz e publica `ContentCommentedIntegrationEvent` (Fase 4D)
+- `CommentDeletedDomainEventHandler` — traduz e publica `CommentDeletedIntegrationEvent` (Fase 4D)
+- `ContentLikedDomainEventHandler` — traduz e publica `ContentLikedIntegrationEvent` (Fase 4D)
+- `ContentUnlikedDomainEventHandler` — traduz e publica `ContentUnlikedIntegrationEvent` (Fase 4D)
+
+**Integration Event Handlers (incoming):** `UserRegistered`/`UsernameChanged`/`UserDeleted` (Fase 3), `BookCreated`/`BookUpdated` (Fase 4A → `BookSnapshot`), e 5 handlers de eventos do Library → `FeedItem`/`ContentSnapshot` (Fase 4C).
 
 **DI:** `DependencyInjection.AddSocialApplication()` — registra Mediator, handlers (reflection scan), notification handlers, behaviors e validators
-
-**Pendente (aguardando Infrastructure):**
-- Integration event publishing (aguardando RabbitMQ)
 
 ### 5.3 API Endpoints ✅
 
@@ -1360,95 +1361,25 @@ CREATE INDEX ix_activities_reference_id ON activities(reference_id);
 
 ---
 
-## 6. Comunicação Entre Serviços 📋 PLANEJADO
+## 6. Comunicação Entre Serviços ✅ IMPLEMENTADO (Fases 1–4)
 
-### 6.1 Eventos de Integração
+Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-least-once + idempotência via inbox). **Fonte de verdade dos contratos, tópicos/filas, idempotência e ordering:** `Docs/MESSAGING-ARCHITECTURE-decisions.md`. Esta seção é apenas o panorama — não duplicar o catálogo aqui (foi essa duplicação que gerou o drift anterior).
 
-```
-┌──────────┐                    ┌──────────┐
-│ Identity │───UserDeleted────▶│ Catalog  │ (atualiza created_by para "Usuário Removido")
-│          │───UserDeleted────▶│ Library  │ (deleta user_books, user_lists)
-│          │───UserDeleted────▶│ Social   │ (deleta follows, likes, comments, feed)
-└──────────┘                    └──────────┘
+### 6.1 Fluxos implementados
 
-┌──────────┐                    ┌──────────┐
-│ Catalog  │───BookCreated────▶│ Library  │ (cria book_snapshot)
-│          │───BookUpdated────▶│ Library  │ (atualiza book_snapshot)
-│          │───ReviewCreated──▶│ Social   │ (adiciona ao feed)
-└──────────┘                    └──────────┘
+**Identity → Social** (Fase 3): `UserRegistered` (cria `UserProfile`), `UsernameChanged` (atualiza `UserProfile`).
+**Identity → Catalog + Library + Social** (Fase 3): `UserDeleted` — cada serviço purga seus próprios dados (Catalog: `created_by` → "Usuário Removido"; Library: user_books/lists; Social: follows/likes/comments/feed).
+**Catalog → Library + Social** (Fases 2 / 4A): `BookCreated` / `BookUpdated` — cada serviço mantém seu `BookSnapshot` local como fonte de lookup de display data em write-time (decisão 2.6.1).
+**Library → Social** (Fases 4B / 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` — Social projeta `FeedItem` / `ContentSnapshot` (feed fan-out on read).
+**Social → Library** (Fases 4D / 4E): `ContentLiked` / `ContentUnliked` / `ContentCommented` / `CommentDeleted` — Library ajusta `LikesCount` / `CommentsCount` no `ReadingProgress` (apenas `Post`; idempotência inbox-only, decisão 8.1.1).
+**Library → Catalog** (Fase 5 — pendente): `UserBookRated` / `UserBookRatingRemoved` → recálculo de `average_rating` no `Book`.
 
-┌──────────┐                    ┌──────────┐
-│ Library  │───PostCreated────▶│ Social   │ (adiciona ao feed)
-│          │───BookRated──────▶│ Catalog  │ (recalcula average_rating)
-│          │───BookRated──────▶│ Social   │ (adiciona ao feed, atualiza preferências)
-│          │───BookAdded──────▶│ Social   │ (adiciona ao feed)
-└──────────┘                    └──────────┘
+**Total: 15 integration events.** Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
 
-┌──────────┐                    ┌──────────┐
-│ Social   │───PostLiked──────▶│ Library  │ (incrementa likes_count)
-│          │───PostCommented──▶│ Library  │ (incrementa comments_count)
-│          │───ListLiked──────▶│ Library  │ (incrementa likes_count)
-│          │───ListCommented──▶│ Library  │ (incrementa comments_count)
-└──────────┘                    └──────────┘
-```
+### 6.2 Fora de escopo do v1
 
-### 6.2 Contratos de Eventos
-
-```csharp
-// Identity → Todos
-record UserDeletedIntegrationEvent(Guid UserId, DateTime DeletedAt);
-
-// Catalog → Library
-record BookCreatedIntegrationEvent(
-    Guid BookId,
-    string Title,
-    List<string> Authors,  // Nomes dos autores
-    string AuthorDisplay,  // "Autor 1, Autor 2"
-    string? CoverUrl,
-    int? PageCount
-);
-
-record BookUpdatedIntegrationEvent(
-    Guid BookId,
-    string Title,
-    List<string> Authors,
-    string AuthorDisplay,
-    string? CoverUrl,
-    int? PageCount
-);
-
-// Library → Catalog
-record UserBookRatedIntegrationEvent(
-    Guid BookId,
-    Guid UserId,
-    int Rating,           // valor primitivo 1-10 (meias-estrelas), não o VO
-    int? PreviousRating   // valor primitivo 1-10
-);
-
-// Library → Social
-record ReadingPostCreatedIntegrationEvent(
-    Guid PostId,
-    Guid UserId,
-    Guid BookId,
-    string? Content,
-    int? Progress,
-    DateTime CreatedAt
-);
-
-// Social → Library
-record ContentLikedIntegrationEvent(
-    string TargetType, // "post" | "list"
-    Guid TargetId,
-    Guid UserId
-);
-
-record ContentCommentedIntegrationEvent(
-    string TargetType,
-    Guid TargetId,
-    Guid CommentId,
-    Guid UserId
-);
-```
+- **Pipeline de Review** — `InteractableType.Review` e `ActivityType.ReviewCreated` existem nos enums, mas não há fluxo de review implementado (sem evento, sem snapshot, sem feed item).
+- **Listas interagíveis** — listas foram dropadas do feed e são não-curtíveis/não-comentáveis (ver §5, decisão Fase 4 Opção A). `UserListCreated`/`UserListDeleted` não existem como integration events.
 
 ---
 
