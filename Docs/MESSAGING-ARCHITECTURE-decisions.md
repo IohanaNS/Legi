@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A/4B/4C ✅ (runtime-verified) e 4D ✅; Fase 4E (Library consome interações — fecha o loop) iniciando
+**Status de Implementação:** 🚧 Em andamento — **Fases 1–4 ✅ CONCLUÍDAS e runtime-verified** (incl. o gate de replay/dedup §8.1.1: mesmo `MessageId` entregue 2× move o contador 1× só). Próxima: Fase 5 (Library → Catalog, ratings).
 
 ---
 
@@ -23,13 +23,13 @@ Sem mensageria, essas dependências criam acoplamento temporal (se o Catalog est
 
 Comunicação assíncrona via **integration events** publicados em um message broker (RabbitMQ). O produtor publica "algo aconteceu" e retorna imediatamente. Os consumidores processam no seu próprio tempo. Se um consumidor está fora, a mensagem fica na fila até ele voltar.
 
-### 1.3 Workarounds Atuais (pré-mensageria)
+### 1.3 Workarounds Atuais (pré-mensageria) — ✅ todos removidos
 
-| Workaround | Serviço | Descrição | Remoção |
-|------------|---------|-----------|---------|
-| BookSnapshot inline | Library | `AddBookToLibraryCommand` aceita campos opcionais e cria `BookSnapshot` inline quando não existe | Fase 2 |
-| Stub domain event handlers | Social | `CommentCreatedDomainEventHandler`, `ContentLikedDomainEventHandler`, etc. — logging only, aguardando RabbitMQ | Fase 4 |
-| ContentSnapshot/FeedItem inline | Social | Handlers de commands criam snapshots e feed items inline | Fase 4 |
+| Workaround | Serviço | Descrição | Status |
+|------------|---------|-----------|--------|
+| BookSnapshot inline | Library | `AddBookToLibraryCommand` criava `BookSnapshot` inline quando ausente | ✅ Removido (Fase 2/4A) — o handler agora **lê** o snapshot populado por `BookCreated`/`BookUpdated`; lança 404 se ainda não chegou |
+| Stub domain event handlers | Social | `CommentCreatedDomainEventHandler`, `ContentLikedDomainEventHandler`, etc. — logging only | ✅ Removido (Fase 4D) — convertidos em tradutores reais publicando via `IEventBus` |
+| ContentSnapshot/FeedItem inline | Social | Command handlers criavam snapshots e feed items inline | ✅ Removido (Fase 4C) — `FeedItem`/`ContentSnapshot` agora criados pelos integration event handlers; sem criação inline nos command handlers |
 
 ---
 
@@ -1368,19 +1368,19 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 **Sub-fases:**
 
-**4A — `BookSnapshot` no Social (pré-requisito)**
+**4A — `BookSnapshot` no Social (pré-requisito)** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4A.1 | Entity `BookSnapshot` no Social.Domain (análogo ao de Library) + EF configuration + migration | ⏳ |
-| 4A.2 | Repository com `StageAddOrUpdateAsync` (upsert idempotente, mesmo padrão do Library) | ⏳ |
-| 4A.3 | `BookCreatedIntegrationEventHandler` (cria snapshot) + `BookUpdatedIntegrationEventHandler` (upsert) na Application | ⏳ |
-| 4A.4 | Registrar consumers `BookCreated` + `BookUpdated` na DI do Social | ⏳ |
-| 4A.5 | **Teste:** criar livro no Catalog → `BookSnapshot` aparece no Social | ⏳ |
+| 4A.1 | Entity `BookSnapshot` no Social.Domain (análogo ao de Library) + EF configuration + migration | ✅ |
+| 4A.2 | Repository com `StageAddOrUpdateAsync` (upsert idempotente, mesmo padrão do Library) | ✅ |
+| 4A.3 | `BookCreatedIntegrationEventHandler` (cria snapshot) + `BookUpdatedIntegrationEventHandler` (upsert) na Application | ✅ |
+| 4A.4 | Registrar consumers `BookCreated` + `BookUpdated` na DI do Social | ✅ |
+| 4A.5 | **Teste:** criar livro no Catalog → `BookSnapshot` aparece no Social | ✅ (no e2e da 4C/4F) |
 
 *Por que primeiro:* desbloqueia 4C (handlers não resolvem display data sem ele). Espelha a Fase 2 mecanicamente — baixo risco, bom aquecimento.
 
-*Status 4A:* ✅ código completo (171 testes verdes). ⏳ gate de runtime 4A.5 (docker) pendente antes de fechar. **Bônus:** 4A fechou um gap da Fase 2 — o pipeline `BookUpdated` (publisher no Catalog + consumer no Library + consumer no Social) não existia e foi construído aqui (ver nota na Fase 2).
+*Status 4A:* ✅ código completo + **runtime-verified** (o e2e da 4C/4F confirmou o `BookSnapshot` aparecendo no Social a partir do `BookCreated`). **Bônus:** 4A fechou um gap da Fase 2 — o pipeline `BookUpdated` (publisher no Catalog + consumer no Library + consumer no Social) não existia e foi construído aqui (ver nota na Fase 2).
 
 **4B — Publishers do Library (outgoing)** ✅ CONCLUÍDA
 
@@ -1434,29 +1434,39 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 | 4D.2 | Contratos em `Legi.Contracts/Social/` (TargetType+TargetId; UserId/CommentId só traceability); `CommentCreated` → `ContentCommentedIntegrationEvent` | ✅ |
 | 4D.3 | 5 testes de tradutor (PublishAsync 1×, shape correto, VerifyNoOtherCalls) | ✅ |
 
-**4E — Library consome interações (incoming) — fecha o loop**
+**4E — Library consome interações (incoming) — fecha o loop** ✅ CONCLUÍDA
 
 > **Decisão (Fase 4, Opção A): listas são NÃO-interagíveis no v1.** Curtir/comentar exige um `ContentSnapshot` do alvo (o command handler lança `NotFound` sem ele). O snapshot de lista só era criado pelo handler de `UserListCreated`, que foi dropado (ver 6.5). Logo, nenhuma lista pode ser curtida/comentada, e `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"` na prática. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos e colunas mantidos, prontos para reativação); o sort de `SearchPublicAsync` deixa de usar `LikesCount` (que seria sempre 0) e passa a ordenar por `BooksCount`/`CreatedAt`. Reativar = Opção B (handler snapshot-only para `UserListCreated`, sem FeedItem) — fora de escopo agora.
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4E.1 | 4 handlers (`ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted`) ajustando `LikesCount`/`CommentsCount` **só para `Post` → `ReadingProgress`** via caminho change-tracker (carrega tracked, muta, dispatcher commita; **nunca** `ExecuteUpdate`/`SaveChanges` — decisão 8.1.1) | ⏳ |
-| 4E.2 | `TargetType` ≠ `"Post"` (List/Review) → log warning + no-op (acka; não pode ocorrer legitimamente). Aggregate não encontrado (post deletado) → no-op **terminal** (ack, **não** requeue — conteúdo sumiu é estado permanente, diferente do snapshot ausente da 4C) | ⏳ |
-| 4E.3 | Corrigir `UserListReadRepository.SearchPublicAsync`: remover `LikesCount` do `OrderBy` (sempre 0) → ordenar por `BooksCount desc, CreatedAt desc`. Manter `LikesCount` no DTO (0, inofensivo). | ⏳ |
-| 4E.4 | Registrar os 4 consumers na DI do Library (`AddLegiMessaging<LibraryDbContext>` já existe) | ⏳ |
-| 4E.5 | **Teste:** like no Social → `LikesCount` incrementa no `ReadingProgress`; decrement com floor em 0; `TargetType=List` no-op; post inexistente no-op; sem `SaveChanges`/`ExecuteUpdate` nos handlers. Idempotência (replay) no 4F. | ⏳ |
+| 4E.1 | 4 handlers (`ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted`) ajustando `LikesCount`/`CommentsCount` **só para `Post` → `ReadingProgress`** via caminho change-tracker (carrega tracked, muta, dispatcher commita; **nunca** `ExecuteUpdate`/`SaveChanges` — decisão 8.1.1). Guard comum em `InteractionTargetResolver` | ✅ |
+| 4E.2 | `TargetType` ≠ `"Post"` (List/Review) → log warning + no-op (acka; não pode ocorrer legitimamente). Aggregate não encontrado (post deletado) → no-op **terminal** (ack, **não** requeue — conteúdo sumiu é estado permanente, diferente do snapshot ausente da 4C) | ✅ |
+| 4E.3 | Corrigir `UserListReadRepository.SearchPublicAsync`: remover `LikesCount` do `OrderBy` (sempre 0) → ordenar por `BooksCount desc, CreatedAt desc`. Manter `LikesCount` no DTO (0, inofensivo). | ✅ |
+| 4E.4 | Registrar os 4 consumers na DI do Library (`AddLegiMessaging<LibraryDbContext>` já existe) | ✅ |
+| 4E.5 | **Teste:** like no Social → `LikesCount` incrementa no `ReadingProgress`; decrement com floor em 0; `TargetType=List` no-op; post inexistente no-op; sem `SaveChanges`/`ExecuteUpdate` nos handlers (12 testes). Idempotência (replay) no 4F. | ✅ |
 
-**4F — End-to-end + reconciliação de docs**
+*Status 4E:* ✅ código completo (12 testes unitários: contador ±1, floor em 0, no-op de List, no-op terminal de post inexistente). `GetByIdAsync` confirmado como load **tracked** (sem `AsNoTracking`). Gate de idempotência inbox-only validado no 4F.2.
+
+**4F — End-to-end + reconciliação de docs** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4F.1 | Teste e2e: usuário A posta progresso → seguidor B vê no feed → B curte → contador ↑ no Library → B comenta → contador ↑ → A deleta o post → Social purga feed/snapshot/likes/comments | ⏳ |
-| 4F.2 | Teste de dedup (replay de cada evento, verificar inbox skip) | ⏳ |
-| 4F.3 | Atualizar `ARCHITECTURE.md` §6; marcar Fase 4 ✅ | ⏳ |
+| 4F.1 | Teste e2e: usuário A posta progresso → seguidor B vê no feed → B curte → contador ↑ no Library → B comenta → contador ↑ → A deleta o post → Social purga feed/snapshot/likes/comments | ✅ |
+| 4F.2 | Teste de dedup (replay de cada evento, verificar inbox skip) | ✅ |
+| 4F.3 | Atualizar `ARCHITECTURE.md` §6; marcar Fase 4 ✅ | ✅ |
+
+**Gate de runtime 4F PASSOU (docker, RabbitMQ + Postgres reais):**
+
+*4F.1 — loop completo.* Feed de B mostrou as 4 atividades de A (ProgressPosted/BookRated/BookFinished/BookStarted) com username/título/autor/cover corretos, `Data` correto, newest-first. Contadores via endpoint do Library: like → `LikesCount` 1, comment → `CommentsCount` 1, unlike → `LikesCount` 0 (floor segura). **Sem drift:** contagens em tempo real do feed do Social == contadores desnormalizados do Library (0 likes / 1 comment). Delete do post → Social purgou feed item + ContentSnapshot + comments. **§8.1.2 provado consultando as tabelas direto:** outbox do Social emitiu 0× `CommentDeleted` (só 1× cada de Liked/Unliked/Commented); inbox do Library consumiu 0× `CommentDeleted`. Nenhuma exceção / redelivery preso.
+
+*4F.2 — gate §8.1.1 (o que de fato importa).* Mecanismo: teste de integração (`tests/Legi.Library.Integration.Tests/InboxReplayDedupTests`) dirigindo o `IntegrationEventDispatcher<LibraryDbContext>` real contra o Postgres do compose (bypassa só o transporte RabbitMQ). Mesmo `MessageId` 2× → `LikesCount` moveu **exatamente 1×** + **exatamente 1 inbox row**; um `MessageId` **distinto** com o mesmo evento moveu de novo (→ 2) — provando que o guard é a inbox row, **não** sorte/timing. Mesmo padrão para `ContentCommented` → dedup é **event-agnostic** (vive no dispatcher). Testes são `[SkippableFact]` + `Skip.If` em `LIBRARY_TEST_DB` (pacote `Xunit.SkippableFact`; xUnit 2.9.3 não tem `Assert.Skip`), então a suíte default segue verde e sem Docker.
+
+*Infra/housekeeping:* `social-api` adicionado ao docker-compose (Dockerfile + rota nginx `/api/v1/social/`); `Database.Migrate()` idempotente no startup das 4 APIs (ver item de hardening Fase 6 sobre race com múltiplas instâncias). Stub `UnitTest1.cs` removido de Library.Application.Tests.
 
 **Edge case a confirmar (decisão de produto, não bloqueante):** transição `Wishlist → Reading` não produz FeedItem hoje (apenas `BookAdded`-não-wishlist → `BookStarted`, e `→ Finished` → `BookFinished` estão mapeados). Se um item "começou a ler" for desejado nessa transição, é uma adição pequena ao handler de `ReadingStatusChanged` (4C.2).
 
-**Entregável:** Sistema social completo. Feed funcional com dados de livro corretos. Contadores de like/comment atualizados via eventos. Stubs removidos.
+**Entregável:** ✅ Sistema social completo. Feed funcional com dados de livro corretos. Contadores de like/comment atualizados via eventos, idempotentes sob redelivery. Stubs removidos.
 
 ### Fase 5 — Library → Catalog (ratings)
 
@@ -1589,13 +1599,13 @@ src/
 
 ---
 
-## 13. Atualização do ARCHITECTURE.md
+## 13. Atualização do ARCHITECTURE.md ✅ RECONCILIADO (Fase 4F)
 
-Após a implementação, o ARCHITECTURE.md seção 6 deve ser atualizado para:
+`ARCHITECTURE.md §6` foi reconciliado e agora é o panorama dos fluxos; **este doc é a fonte de verdade** dos contratos/idempotência/ordering (§6 aponta para cá, em vez de duplicar — foi a duplicação que causou o drift anterior). Estado atual:
 
-1. Refletir os 17 integration events (não apenas 6)
-2. Adicionar seção sobre outbox pattern
-3. Adicionar `Legi.Contracts` e `Legi.Messaging` na estrutura de projetos (seção 7.1)
-4. Atualizar o diagrama de bounded contexts para incluir RabbitMQ
-5. Adicionar RabbitMQ ao docker-compose documentation
+1. ✅ Integration events: **14 arquivos** em `Legi.Contracts` (Identity 2, Catalog 2, Library 5, Social 4, + `PingIntegrationEvent` diagnóstico; `IIntegrationEvent.cs` é o marker, não conta). *(O "17" de uma versão antiga incluía os `UserListCreated/Deleted` e `UsernameChanged` que foram dropados/não construídos.)*
+2. ✅ Outbox/inbox descrito (§6 aponta para as decisões 2.5 / 8.1 daqui).
+3. ✅ `Legi.Contracts` e `Legi.Messaging` presentes (ver §11 aqui).
+4. ⏳ Diagrama de bounded contexts com RabbitMQ — opcional, não bloqueante.
+5. ✅ RabbitMQ no docker-compose (+ `social-api` adicionado na Fase 4F).
 6. Marcar "Mensageria: RabbitMQ" como ✅ Implementado na stack tecnológica
