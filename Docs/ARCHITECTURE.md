@@ -1288,7 +1288,7 @@ outbox_messages(id PK, type, payload JSONB, occurred_at, processed_at, attempts,
 
 ---
 
-## 6. Comunicação Entre Serviços ✅ IMPLEMENTADO (Fases 1–5)
+## 6. Comunicação Entre Serviços ✅ IMPLEMENTADO (Fases 1–6)
 
 Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-least-once + idempotência via inbox). **Fonte de verdade dos contratos, tópicos/filas, idempotência e ordering:** `Docs/MESSAGING-ARCHITECTURE-decisions.md`. Esta seção é apenas o panorama — não duplicar o catálogo aqui (foi essa duplicação que gerou o drift anterior).
 
@@ -1307,6 +1307,15 @@ Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-lea
 
 - **Pipeline de Review** — `InteractableType.Review` e `ActivityType.ReviewCreated` existem nos enums, mas não há fluxo de review implementado (sem evento, sem snapshot, sem feed item).
 - **Listas interagíveis** — listas foram dropadas do feed e são não-curtíveis/não-comentáveis (ver §5, decisão Fase 4 Opção A). `UserListCreated`/`UserListDeleted` não existem como integration events.
+
+### 6.3 Resiliência, observabilidade e operação (Fase 6 — hardening)
+
+Panorama; detalhes (topologia, opções, gates) em `MESSAGING-ARCHITECTURE-decisions.md` §8 e Fase 6.
+
+- **Retry/parking no consumer:** cada work queue tem DLX → fila de retry (TTL fixo) → reentrega; ao esgotar o budget de tentativas a mensagem vai p/ uma **error/parking queue** (terminal, sem consumer) — sem mais loop infinito de redelivery. Falhas classificadas: `TransientMessagingException` (pré-condição que se resolve, ex. snapshot ainda não chegou) recebe budget generoso; exceções genéricas parkam rápido. Producer/outbox já tinha retry com backoff + marcação poison.
+- **Observabilidade:** `/health` em cada API (conexão RabbitMQ + backlog do outbox → Degraded acima do threshold); métricas OTel (`Legi.Messaging`: consumed/failed/parked/redelivered, console exporter); correlação por `MessageId` no log scope do consumer.
+- **Operação:** migração de schema via modo `--migrate` (sai após migrar) + flag `RunMigrationsOnStartup` (default true em single-instance; false + step `--migrate` em multi-replica p/ evitar race); retenção que poda outbox processado / inbox consumido (mantém poison); comando `--reconcile-ratings` (Catalog) recomputa médias a partir das rows `BookRating` (backfill/drift, idempotente).
+- **Não construído (YAGNI consciente):** recompute de drift feed/snapshot (nenhum drift observado; auditoria §8.1.4 provou consumers convergentes) e `CausationId` (seria sempre null — nenhum consumer republica; grafo de eventos é de um salto).
 
 ---
 
@@ -1445,12 +1454,14 @@ web/legi-web/                  (React SPA)
 | Web Frontend | 6 rotas | 🚧 Em desenvolvimento (mock data, Docker/Nginx pronto) |
 | **Total** | **51 endpoints API + 6 rotas frontend** | |
 
+*Além dos endpoints de domínio acima, cada API expõe `/swagger` e `/health` (health check de RabbitMQ + backlog do outbox, Fase 6 — ver §6.3).*
+
 ## 9. Resumo de Tabelas
 
 | Serviço | Tabelas | Status |
 |---------|---------|--------|
 | Identity | 2 domínio + inbox/outbox | ✅ Migrado |
-| Catalog | 5 domínio + inbox/outbox | ✅ Migrado (`book_reviews` planejado) |
+| Catalog | 6 domínio + inbox/outbox | ✅ Migrado (inclui `book_ratings` — projeção por-usuário, Fase 5; `book_reviews` planejado) |
 | Library | 5 domínio + inbox/outbox | ✅ Migrado |
 | Social | 7 domínio/read-model + inbox/outbox | ✅ Migrado |
-| **Total** | **19 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |
+| **Total** | **20 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |
