@@ -188,15 +188,15 @@ RefreshToken (Entity)
 ```sql
 -- Tabela: users
 CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    username VARCHAR(30) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    bio VARCHAR(500),
-    avatar_url VARCHAR(500),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                       id UUID PRIMARY KEY,
+                       email VARCHAR(255) NOT NULL UNIQUE,
+                       username VARCHAR(30) NOT NULL UNIQUE,
+                       password_hash VARCHAR(255) NOT NULL,
+                       name VARCHAR(100) NOT NULL,
+                       bio VARCHAR(500),
+                       avatar_url VARCHAR(500),
+                       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX ix_users_email ON users(email);
@@ -205,12 +205,12 @@ CREATE INDEX ix_users_created_at ON users(created_at DESC);
 
 -- Tabela: refresh_tokens
 CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash VARCHAR(255) NOT NULL UNIQUE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    revoked_at TIMESTAMPTZ
+                                id UUID PRIMARY KEY,
+                                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                token_hash VARCHAR(255) NOT NULL UNIQUE,
+                                expires_at TIMESTAMPTZ NOT NULL,
+                                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                                revoked_at TIMESTAMPTZ
 );
 
 CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens(user_id);
@@ -313,10 +313,10 @@ BookTagEntity (junction)
 A separação entre Value Objects no domínio e Entities na persistência permite:
 - **Domínio limpo**: `Author` e `Tag` são Value Objects imutáveis, sem identidade própria
 - **Persistência otimizada**: `AuthorEntity` e `TagEntity` têm ID para:
-  - Evitar duplicação (normalização)
-  - Busca rápida (autocomplete)
-  - Contadores desnormalizados (popularidade)
-  - Páginas de autor/tag com todos os livros
+    - Evitar duplicação (normalização)
+    - Busca rápida (autocomplete)
+    - Contadores desnormalizados (popularidade)
+    - Páginas de autor/tag com todos os livros
 
 O repositório `BookRepository` sincroniza:
 - Ao salvar: cria/atualiza entidades de autor/tag, mantém contadores
@@ -354,14 +354,14 @@ O repositório `BookRepository` sincroniza:
 - Regra de merge: dados enviados pelo usuário têm prioridade; APIs externas preenchem campos faltantes.
 - Falhas de provedores externos não interrompem o fluxo (logging + fallback); só falha quando título/autores continuam ausentes após merge.
 - Componentes de infraestrutura:
-  - `BookDataProvider` (orquestrador da cadeia de provedores)
-  - `IExternalBookClient` (contrato interno para clientes externos com prioridade)
-  - `OpenLibraryClient` + `OpenLibraryMapper` + `OpenLibrarySettings`
-  - `GoogleBooksClient` + `GoogleBooksMapper` + `GoogleBooksSettings`
+    - `BookDataProvider` (orquestrador da cadeia de provedores)
+    - `IExternalBookClient` (contrato interno para clientes externos com prioridade)
+    - `OpenLibraryClient` + `OpenLibraryMapper` + `OpenLibrarySettings`
+    - `GoogleBooksClient` + `GoogleBooksMapper` + `GoogleBooksSettings`
 - Registro de DI: `AddExternalBookServices(configuration)` em `Legi.Catalog.Infrastructure`.
 - Configuração em `appsettings*.json`:
-  - `ExternalServices:OpenLibrary` (`Enabled`, `TimeoutSeconds`)
-  - `ExternalServices:GoogleBooks` (`Enabled`, `TimeoutSeconds`, `ApiKey`)
+    - `ExternalServices:OpenLibrary` (`Enabled`, `TimeoutSeconds`)
+    - `ExternalServices:GoogleBooks` (`Enabled`, `TimeoutSeconds`, `ApiKey`)
 - Referência de decisão técnica detalhada: `Docs/CATALOG-ARCHITECTURE-external-apis.md`.
 
 ### 2.3 API Endpoints
@@ -418,12 +418,12 @@ O repositório `BookRepository` sincroniza:
 **Formato de Request (Create Book):**
 ```json
 {
-  "isbn": "9780451524935",
-  "title": "1984",
-  "authors": ["George Orwell"],
-  "tags": ["dystopia", "classic"],
-  "synopsis": "...",
-  "pageCount": 328
+    "isbn": "9780451524935",
+    "title": "1984",
+    "authors": ["George Orwell"],
+    "tags": ["dystopia", "classic"],
+    "synopsis": "...",
+    "pageCount": 328
 }
 ```
 
@@ -432,33 +432,33 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 **Formato de Request (Update Book):**
 ```json
 {
-  "title": "1984 (Edição Revisada)",
-  "authors": ["George Orwell"],
-  "tags": ["dystopia", "classic"],
-  "synopsis": "...",
-  "pageCount": 336
+    "title": "1984 (Edição Revisada)",
+    "authors": ["George Orwell"],
+    "tags": ["dystopia", "classic"],
+    "synopsis": "...",
+    "pageCount": 336
 }
 ```
 
 **Formato de Response (Book Details / Update):**
 ```json
 {
-  "bookId": "...",
-  "isbn": "9780451524935",
-  "title": "1984 (Edição Revisada)",
-  "authors": [
-    { "name": "George Orwell", "slug": "george-orwell" }
-  ],
-  "synopsis": "...",
-  "pageCount": 336,
-  "publisher": "Companhia Editora",
-  "coverUrl": "https://...",
-  "tags": [
-    { "name": "dystopia", "slug": "dystopia" }
-  ],
-  "averageRating": 4.5,
-  "ratingsCount": 1250,
-  "updatedAt": "2026-02-09T22:00:00Z"
+    "bookId": "...",
+    "isbn": "9780451524935",
+    "title": "1984 (Edição Revisada)",
+    "authors": [
+        { "name": "George Orwell", "slug": "george-orwell" }
+    ],
+    "synopsis": "...",
+    "pageCount": 336,
+    "publisher": "Companhia Editora",
+    "coverUrl": "https://...",
+    "tags": [
+        { "name": "dystopia", "slug": "dystopia" }
+    ],
+    "averageRating": 4.5,
+    "ratingsCount": 1250,
+    "updatedAt": "2026-02-09T22:00:00Z"
 }
 ```
 
@@ -471,19 +471,19 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 ```sql
 -- Tabela: books ✅
 CREATE TABLE books (
-    id UUID PRIMARY KEY,
-    isbn VARCHAR(13) NOT NULL UNIQUE,
-    title VARCHAR(500) NOT NULL,
-    synopsis TEXT,
-    page_count INT CHECK (page_count > 0),
-    publisher VARCHAR(255),
-    cover_url VARCHAR(500),
-    average_rating DECIMAL(3,2) NOT NULL DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
-    ratings_count INT NOT NULL DEFAULT 0,
-    reviews_count INT NOT NULL DEFAULT 0,
-    created_by_user_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                       id UUID PRIMARY KEY,
+                       isbn VARCHAR(13) NOT NULL UNIQUE,
+                       title VARCHAR(500) NOT NULL,
+                       synopsis TEXT,
+                       page_count INT CHECK (page_count > 0),
+                       publisher VARCHAR(255),
+                       cover_url VARCHAR(500),
+                       average_rating DECIMAL(3,2) NOT NULL DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
+                       ratings_count INT NOT NULL DEFAULT 0,
+                       reviews_count INT NOT NULL DEFAULT 0,
+                       created_by_user_id UUID NOT NULL,
+                       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_books_isbn ON books(isbn);
@@ -493,11 +493,11 @@ CREATE INDEX ix_books_created_by_user_id ON books(created_by_user_id);
 
 -- Tabela: authors ✅ (global registry para search/autocomplete)
 CREATE TABLE authors (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    books_count INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                         id SERIAL PRIMARY KEY,
+                         name VARCHAR(255) NOT NULL,
+                         slug VARCHAR(255) NOT NULL UNIQUE,
+                         books_count INT NOT NULL DEFAULT 0,
+                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_authors_slug ON authors(slug);
@@ -506,11 +506,11 @@ CREATE INDEX ix_authors_books_count ON authors(books_count DESC);
 
 -- Tabela: book_authors ✅ (N:N entre books e authors)
 CREATE TABLE book_authors (
-    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
-    "order" INT NOT NULL DEFAULT 0,
-    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (book_id, author_id)
+                              book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+                              author_id INT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
+                              "order" INT NOT NULL DEFAULT 0,
+                              added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                              PRIMARY KEY (book_id, author_id)
 );
 
 CREATE INDEX ix_book_authors_author_id ON book_authors(author_id);
@@ -518,11 +518,11 @@ CREATE INDEX ix_book_authors_book_order ON book_authors(book_id, "order");
 
 -- Tabela: tags ✅ (global registry para search/autocomplete)
 CREATE TABLE tags (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    slug VARCHAR(50) NOT NULL UNIQUE,
-    usage_count INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                      id SERIAL PRIMARY KEY,
+                      name VARCHAR(50) NOT NULL,
+                      slug VARCHAR(50) NOT NULL UNIQUE,
+                      usage_count INT NOT NULL DEFAULT 0,
+                      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX ix_tags_slug ON tags(slug);
@@ -531,24 +531,24 @@ CREATE INDEX ix_tags_usage_count ON tags(usage_count DESC);
 
 -- Tabela: book_tags ✅ (N:N entre books e tags)
 CREATE TABLE book_tags (
-    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (book_id, tag_id)
+                           book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+                           tag_id INT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+                           added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                           PRIMARY KEY (book_id, tag_id)
 );
 
 CREATE INDEX ix_book_tags_tag_id ON book_tags(tag_id);
 
 -- Tabela: book_reviews 📋 PLANEJADO
 CREATE TABLE book_reviews (
-    id UUID PRIMARY KEY,
-    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL,
-    content TEXT NOT NULL CHECK (LENGTH(content) >= 10 AND LENGTH(content) <= 5000),
-    rating SMALLINT CHECK (rating >= 0 AND rating <= 5),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, book_id)
+                              id UUID PRIMARY KEY,
+                              book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+                              user_id UUID NOT NULL,
+                              content TEXT NOT NULL CHECK (LENGTH(content) >= 10 AND LENGTH(content) <= 5000),
+                              rating SMALLINT CHECK (rating >= 0 AND rating <= 5),
+                              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                              UNIQUE (user_id, book_id)
 );
 
 CREATE INDEX ix_book_reviews_book_id ON book_reviews(book_id);
@@ -655,6 +655,21 @@ BookSnapshot (Read Model — não é aggregate) ✅
 ├── PageCount: int?
 └── UpdatedAt: DateTime
 ```
+
+> **⚠️ TODO: Remover workaround de criação inline do BookSnapshot**
+>
+> Atualmente, o `AddBookToLibraryCommand` aceita campos opcionais (`BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount`) e cria o `BookSnapshot` inline quando ele não existe no banco do Library. Isso é um **workaround temporário** porque a integração via eventos (RabbitMQ) entre Catalog e Library ainda não foi implementada.
+>
+> **Quando o RabbitMQ estiver implementado:**
+> 1. O Catalog publicará eventos `BookCreated`/`BookUpdated`
+> 2. O Library consumirá esses eventos e criará/atualizará o `BookSnapshot` automaticamente
+> 3. Remover os campos `BookTitle`, `BookAuthorDisplay`, `BookCoverUrl`, `BookPageCount` do `AddBookToLibraryCommand` e `AddBookToLibraryRequest`
+> 4. Restaurar o handler original que apenas faz `throw NotFoundException` quando o snapshot não existe
+>
+> **Arquivos afetados:**
+> - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommand.cs`
+> - `src/Legi.Library.Application/UserBooks/Commands/AddBookToLibrary/AddBookToLibraryCommandHandler.cs`
+> - `src/Legi.Library.Api/Controllers/UserBooksController.cs` (request DTO)
 
 **Decisão: ReadingProgress como Aggregate Root.** Registros de progresso são independentes entre si — não existe invariante cross-registro. Evita carregar centenas de registros na memória ao adicionar um novo. Coordenação de progresso (registro com progresso → atualiza UserBook.CurrentProgress) feita na mesma transação pelo command handler.
 
@@ -793,7 +808,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 |-------------|-----------|---------|
 | `UserBookReadRepository` | `IUserBookReadRepository` | GetByUserIdAsync — filtros opcionais (status, wishlist, search em título/autor), join com BookSnapshots, `AsNoTracking`, paginação, ordena por UpdatedAt DESC |
 | `ReadingPostReadRepository` | `IReadingPostReadRepository` | GetByUserBookIdAsync — filtra por UserBookId, ordena por ReadingDate DESC + CreatedAt DESC, `AsNoTracking`, paginação |
-| `UserListReadRepository` | `IUserListReadRepository` | GetByUserIdAsync (listas do usuário, ordena por UpdatedAt DESC), GetDetailByIdAsync, GetListBooksAsync (multi-join com shadow FK + UserBooks + BookSnapshots, ordena por Order), SearchPublicAsync (busca em nome/descrição, ordena por LikesCount DESC + BooksCount DESC) |
+| `UserListReadRepository` | `IUserListReadRepository` | GetByUserIdAsync (listas do usuário, ordena por UpdatedAt DESC), GetDetailByIdAsync, GetListBooksAsync (multi-join com shadow FK + UserBooks + BookSnapshots, ordena por Order), SearchPublicAsync (busca em nome/descrição, ordena por BooksCount DESC + CreatedAt DESC — ver Opção A: likes de lista dormentes no v1) |
 
 **DI:** `DependencyInjection.AddLibraryInfrastructure(IServiceCollection, IConfiguration)` — registra DbContext, todos os write repositories e read repositories como scoped
 
@@ -1009,10 +1024,10 @@ web/legi-web/src/
 - **Porta:** 3000
 - **SPA:** `try_files $uri $uri/ /index.html`
 - **Reverse Proxy:** Nginx encaminha chamadas API para os serviços backend:
-  - `/api/v1/identity/` → `identity-api:8080`
-  - `/api/v1/catalog/` → `catalog-api:8080`
-  - `/api/v1/library/` → `library-api:8080`
-  - `/api/v1/social/` → `social-api:8080`
+    - `/api/v1/identity/` → `identity-api:8080`
+    - `/api/v1/catalog/` → `catalog-api:8080`
+    - `/api/v1/library/` → `library-api:8080`
+    - `/api/v1/social/` → `social-api:8080`
 
 ---
 
@@ -1106,6 +1121,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - Contadores de seguidores/seguindo nunca negativos (protegido no aggregate)
 - UserProfile criado via integration event no registro do Identity
 - Like e Comment usam `TargetType + TargetId` polimórfico — modelo unificado para Post, Review e List
+- **Listas são não-interagíveis no v1 (decisão Fase 4, Opção A — ver MESSAGING-ARCHITECTURE-decisions.md §6.5 e bloco 4E):** curtir/comentar exige um `ContentSnapshot` do alvo, e o snapshot de lista só seria criado pelo handler de `UserListCreated`, dropado por YAGNI (criar lista vazia não é fato social relevante). Sem snapshot, nenhuma lista pode ser curtida/comentada. Na prática `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"`. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos/colunas mantidos, prontos para reativação) e `SearchPublicAsync` ordena por `BooksCount`/`CreatedAt` (não por likes, que seriam sempre 0). Reativar = handler snapshot-only para `UserListCreated` (cria `ContentSnapshot(List)` sem `FeedItem`) — Opção B, fora do escopo do v1. Review segue o mesmo princípio até existir seu pipeline.
 - Feed: fan-out on read (query com join em follows), não fan-out on write
 - LikesCount/CommentsCount no feed são query em tempo real (mesmo banco), não desnormalizados na Activity
 

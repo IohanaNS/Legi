@@ -2,7 +2,7 @@
 
 Documento com as decisões de design para integração assíncrona entre bounded contexts via RabbitMQ, utilizando uma implementação própria do padrão Outbox.
 
-**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A/4B/4C ✅ (runtime-verified e2e — o feed está real); Fase 4D (Social publica interações + remoção de stubs) iniciando
+**Status de Implementação:** 🚧 Em andamento — Fases 1–3 ✅; Fase 4A/4B/4C ✅ (runtime-verified) e 4D ✅; Fase 4E (Library consome interações — fecha o loop) iniciando
 
 ---
 
@@ -760,6 +760,11 @@ public record ReadingPostDeletedIntegrationEvent(
 // UserListCreatedDomainEvent em UserList.Create() + translator + consumer.
 // Social já tem ActivityType.ListCreated e suporte a ContentSnapshot(List)
 // definidos, então a reativação é barata.
+//
+// CONSEQUÊNCIA (ver bloco 4E, decisão Opção A): sem o handler de
+// UserListCreated, nenhum ContentSnapshot(List) é criado → listas são
+// NÃO-interagíveis no v1 (curtir/comentar exige snapshot). Reativar lista
+// como interagível-mas-fora-do-feed = handler snapshot-only (Opção B).
 // ─────────────────────────────────────────────────────────────────────────
 ```
 
@@ -1421,21 +1426,25 @@ Cleanup indireto (likes/comments/feed-items SOBRE o conteúdo do usuário) não 
 
 *Listas:* sem handlers de `UserListCreated`/`UserListDeleted` (ver 6.5). `ActivityType.ListCreated` e suporte a `ContentSnapshot(List)` ficam definidos-mas-ociosos até reativação futura.
 
-**4D — Social publica interações (outgoing) + remoção de stubs**
+**4D — Social publica interações (outgoing) + retira stubs** ✅ CONCLUÍDA
 
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4D.1 | Substituir os 4 stubs (`ContentLiked`, `ContentUnliked`, `ContentCommented`, `CommentDeleted` domain event handlers) por tradutores que publicam via `IEventBus` | ⏳ |
-| 4D.2 | Remover os stubs antigos da Application do Social (tarefa 4.5 original) | ⏳ |
-| 4D.3 | **Teste:** like/comment no Social grava outbox row | ⏳ |
+| 4D.1 | 4 stubs convertidos em tradutores (classes mantidas como subscrições) publicando via `IEventBus`; `TargetType.ToString()` na fronteira; sem `SaveChangesAsync` | ✅ |
+| 4D.2 | Contratos em `Legi.Contracts/Social/` (TargetType+TargetId; UserId/CommentId só traceability); `CommentCreated` → `ContentCommentedIntegrationEvent` | ✅ |
+| 4D.3 | 5 testes de tradutor (PublishAsync 1×, shape correto, VerifyNoOtherCalls) | ✅ |
 
 **4E — Library consome interações (incoming) — fecha o loop**
 
+> **Decisão (Fase 4, Opção A): listas são NÃO-interagíveis no v1.** Curtir/comentar exige um `ContentSnapshot` do alvo (o command handler lança `NotFound` sem ele). O snapshot de lista só era criado pelo handler de `UserListCreated`, que foi dropado (ver 6.5). Logo, nenhuma lista pode ser curtida/comentada, e `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"` na prática. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos e colunas mantidos, prontos para reativação); o sort de `SearchPublicAsync` deixa de usar `LikesCount` (que seria sempre 0) e passa a ordenar por `BooksCount`/`CreatedAt`. Reativar = Opção B (handler snapshot-only para `UserListCreated`, sem FeedItem) — fora de escopo agora.
+
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| 4E.1 | 4 handlers ajustando `LikesCount`/`CommentsCount` em `ReadingPost`/`UserList` via caminho change-tracker (decisão 8.1.1) | ⏳ |
-| 4E.2 | Registrar os 4 consumers na DI do Library | ⏳ |
-| 4E.3 | **Teste:** like no Social → `LikesCount` incrementa no Library; idempotência via replay | ⏳ |
+| 4E.1 | 4 handlers (`ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted`) ajustando `LikesCount`/`CommentsCount` **só para `Post` → `ReadingProgress`** via caminho change-tracker (carrega tracked, muta, dispatcher commita; **nunca** `ExecuteUpdate`/`SaveChanges` — decisão 8.1.1) | ⏳ |
+| 4E.2 | `TargetType` ≠ `"Post"` (List/Review) → log warning + no-op (acka; não pode ocorrer legitimamente). Aggregate não encontrado (post deletado) → no-op **terminal** (ack, **não** requeue — conteúdo sumiu é estado permanente, diferente do snapshot ausente da 4C) | ⏳ |
+| 4E.3 | Corrigir `UserListReadRepository.SearchPublicAsync`: remover `LikesCount` do `OrderBy` (sempre 0) → ordenar por `BooksCount desc, CreatedAt desc`. Manter `LikesCount` no DTO (0, inofensivo). | ⏳ |
+| 4E.4 | Registrar os 4 consumers na DI do Library (`AddLegiMessaging<LibraryDbContext>` já existe) | ⏳ |
+| 4E.5 | **Teste:** like no Social → `LikesCount` incrementa no `ReadingProgress`; decrement com floor em 0; `TargetType=List` no-op; post inexistente no-op; sem `SaveChanges`/`ExecuteUpdate` nos handlers. Idempotência (replay) no 4F. | ⏳ |
 
 **4F — End-to-end + reconciliação de docs**
 

@@ -1,5 +1,6 @@
 ﻿using Legi.Contracts.Catalog;
 using Legi.Contracts.Identity;
+using Legi.Contracts.Social;
 using Legi.Library.Application.Common.Interfaces;
 using Legi.Library.Domain.Repositories;
 using Legi.Library.Infrastructure.Persistence;
@@ -33,6 +34,13 @@ public static class DependencyInjection
         services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, LibraryDbContext>();
         services.AddIntegrationEventConsumer<BookUpdatedIntegrationEvent, LibraryDbContext>();
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, LibraryDbContext>();
+
+        // Social → Library interaction counters (Phase 4E). Handlers auto-registered
+        // by the Application reflection scan; each consumer host owns one queue.
+        services.AddIntegrationEventConsumer<ContentLikedIntegrationEvent, LibraryDbContext>();
+        services.AddIntegrationEventConsumer<ContentUnlikedIntegrationEvent, LibraryDbContext>();
+        services.AddIntegrationEventConsumer<ContentCommentedIntegrationEvent, LibraryDbContext>();
+        services.AddIntegrationEventConsumer<CommentDeletedIntegrationEvent, LibraryDbContext>();
 
         // Write repositories (Domain interfaces)
         services.AddScoped<IUserBookRepository, UserBookRepository>();

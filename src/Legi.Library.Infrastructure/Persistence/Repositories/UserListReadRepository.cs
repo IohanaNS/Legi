@@ -110,8 +110,10 @@ public class UserListReadRepository(LibraryDbContext context) : IUserListReadRep
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(ul => ul.LikesCount)
-            .ThenByDescending(ul => ul.BooksCount)
+            // Lists are non-interactable in v1 (Option A), so LikesCount is always 0
+            // and can't order "popular". Rank by size, then recency.
+            .OrderByDescending(ul => ul.BooksCount)
+            .ThenByDescending(ul => ul.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Select(ul => new UserListSummaryDto(
