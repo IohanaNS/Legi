@@ -65,6 +65,24 @@ curl -X POST http://localhost:5000/api/v1/identity/auth/register \
   -d '{"email": "teste@email.com", "username": "teste", "password": "Senha123!"}'
 ```
 
+#### 5. Seed de dados mock
+
+Cria usuarios de desenvolvimento e livros no Catalog de forma idempotente:
+
+```bash
+docker compose build identity-api catalog-api
+docker compose run --rm identity-api --seed-dev-data
+docker compose run --rm catalog-api --seed-dev-data
+```
+
+Usuarios criados com senha `Password123!`:
+
+| Username | Email |
+|----------|-------|
+| `alice_reader` | `alice.reader@example.com` |
+| `bruno_books` | `bruno.books@example.com` |
+| `carla_shelf` | `carla.shelf@example.com` |
+
 #### Parando e reiniciando
 
 ```bash

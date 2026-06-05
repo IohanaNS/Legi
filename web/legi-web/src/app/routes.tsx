@@ -4,6 +4,7 @@ import { RequireAuth } from "../features/auth/RequireAuth";
 import LoginPage from "../features/auth/components/LoginPage";
 import RegisterPage from "../features/auth/components/RegisterPage";
 import FeedPage from "../features/social/components/FeedPage";
+import UserProfilePage from "../features/social/components/UserProfilePage";
 import ExplorePage from "../features/catalog/components/ExplorePage";
 import ListsPage from "../features/library/components/ListsPage";
 import WishlistPage from "../features/library/components/WishlistPage";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "lists", element: <ListsPage /> },
       { path: "wishlist", element: <WishlistPage /> },
       { path: "profile", element: <ProfilePage /> },
+      { path: "users/:userId", element: <UserProfilePage /> },
     ],
   },
 ]);

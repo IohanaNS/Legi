@@ -1,7 +1,57 @@
 import { http } from "../../services/http";
-import type { UserProfileDto } from "./types";
+import type {
+  CommentDto,
+  CreateCommentResponse,
+  FeedItemDto,
+  FollowUserDto,
+  SocialPaginatedList,
+  UserProfileDto,
+} from "./types";
+
+type Resource = "posts" | "lists";
 
 export const socialApi = {
   getUserProfile: (userId: string) =>
     http.get<UserProfileDto>(`/social/users/${userId}`).then((r) => r.data),
+
+  getFeed: (page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FeedItemDto>>("/social/feed", { params: { page, pageSize } })
+      .then((r) => r.data),
+
+  getUserActivity: (userId: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FeedItemDto>>(`/social/users/${userId}/activity`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
+
+  like: (resource: Resource, id: string) => http.post(`/social/${resource}/${id}/likes`),
+  unlike: (resource: Resource, id: string) => http.delete(`/social/${resource}/${id}/likes`),
+
+  getComments: (resource: Resource, id: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<CommentDto>>(`/social/${resource}/${id}/comments`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
+  addComment: (resource: Resource, id: string, content: string) =>
+    http
+      .post<CreateCommentResponse>(`/social/${resource}/${id}/comments`, { content })
+      .then((r) => r.data),
+
+  follow: (followingId: string) => http.post("/social/follows", { followingId }),
+  unfollow: (userId: string) => http.delete(`/social/follows/${userId}`),
+  getFollowers: (userId: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FollowUserDto>>(`/social/users/${userId}/followers`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
+  getFollowing: (userId: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FollowUserDto>>(`/social/users/${userId}/following`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
 };
