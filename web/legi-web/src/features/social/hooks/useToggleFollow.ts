@@ -37,6 +37,7 @@ export function useToggleFollow() {
     },
     onSettled: (_d, _e, { userId }) => {
       qc.invalidateQueries({ queryKey: socialKeys.profile(userId) });
+      qc.invalidateQueries({ queryKey: socialKeys.userSearches() });
     },
   });
 }

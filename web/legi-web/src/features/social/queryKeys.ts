@@ -1,6 +1,9 @@
 export const socialKeys = {
   all: ["social"] as const,
   profile: (userId: string) => [...socialKeys.all, "profile", userId] as const,
+  userSearches: () => [...socialKeys.all, "userSearch"] as const,
+  userSearch: (usernamePrefix: string, limit: number) =>
+    [...socialKeys.userSearches(), usernamePrefix, limit] as const,
 };
 
 export const feedKeys = {

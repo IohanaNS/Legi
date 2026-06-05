@@ -13,6 +13,10 @@ type Resource = "posts" | "lists";
 export const socialApi = {
   getUserProfile: (userId: string) =>
     http.get<UserProfileDto>(`/social/users/${userId}`).then((r) => r.data),
+  searchUsers: (usernamePrefix: string, limit = 10) =>
+    http
+      .get<FollowUserDto[]>("/social/users/search", { params: { usernamePrefix, limit } })
+      .then((r) => r.data),
 
   getFeed: (page: number, pageSize: number) =>
     http
