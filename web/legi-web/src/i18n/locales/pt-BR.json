@@ -4,7 +4,8 @@
         "logout": "Sair",
         "follow": "Seguir",
         "like": "Curtir",
-        "share": "Compartilhar"
+        "share": "Compartilhar",
+        "retry": "Tentar novamente"
     },
     "nav": {
         "feed": "Mural",
@@ -90,7 +91,10 @@
             "finished": "Lido",
             "abandoned": "Abandonado",
             "paused": "Pausado"
-        }
+        },
+        "emptyTab": "Nenhum livro aqui ainda",
+        "errorLoading": "Não foi possível carregar",
+        "loadMore": "Carregar mais"
     },
     "auth": {
         "loginTitle": "Entrar",

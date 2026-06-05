@@ -32,3 +32,18 @@ export interface TrendingBook {
   coverUrl?: string;
   rating: number;
 }
+
+// ---- Social DTOs (camelCase JSON, mirror the backend) ----
+
+// Mirrors Legi.Social.Application.Common.DTOs.UserProfileDto.
+export interface UserProfileDto {
+  userId: string;
+  username: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  bannerUrl?: string | null;
+  followersCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+  createdAt: string;
+}

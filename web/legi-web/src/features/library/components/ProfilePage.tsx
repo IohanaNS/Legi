@@ -1,46 +1,60 @@
-﻿import { useState, useMemo } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "../../auth/AuthContext";
+import { useUserProfile } from "../../social/hooks/useUserProfile";
+import { useLibraryCounts } from "../hooks/useLibraryCounts";
+import { useLibraryBooks } from "../hooks/useLibraryBooks";
+import { useLists } from "../hooks/useLists";
 import { ProfileHeader } from "./ProfileHeader";
 import { ProfileStats } from "./ProfileStats";
 import { ProfileTabs } from "./ProfileTabs";
 import { BookGridItem } from "./BookGridItem";
-import { Card } from "../../../components/ui/Card";
-import { Badge } from "../../../components/ui/Badge";
-import { useTranslation } from "react-i18next";
-import { Globe, Lock } from "lucide-react";
-import { userProfile, userBooks, userLists } from "../data/mockProfileData";
+import { ListCard } from "./ListCard";
+import { Button } from "../../../components/ui/Button";
+import { tabToStatus } from "../lib/mappers";
 import type { ProfileTab, ViewMode } from "../types";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ProfileTab>("reading");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  const booksByStatus = useMemo(() => ({
-    reading: userBooks.filter((b) => b.status === "reading"),
-    finished: userBooks.filter((b) => b.status === "finished"),
-    paused: userBooks.filter((b) => b.status === "paused"),
-    abandoned: userBooks.filter((b) => b.status === "abandoned"),
-  }), []);
+  const profileQuery = useUserProfile(user?.userId);
+  const { counts } = useLibraryCounts();
+  const listsQuery = useLists();
+
+  // useLibraryBooks must run unconditionally; gate the fetch off the "lists" tab.
+  const booksStatus = activeTab === "lists" ? "Reading" : tabToStatus(activeTab);
+  const booksQuery = useLibraryBooks(booksStatus, activeTab !== "lists");
 
   const tabs = [
-    { key: "reading" as const, labelKey: "profile.tabs.reading", count: booksByStatus.reading.length },
-    { key: "finished" as const, labelKey: "profile.tabs.finished", count: booksByStatus.finished.length },
-    { key: "paused" as const, labelKey: "profile.tabs.paused", count: booksByStatus.paused.length },
-    { key: "abandoned" as const, labelKey: "profile.tabs.abandoned", count: booksByStatus.abandoned.length },
-    { key: "lists" as const, labelKey: "profile.tabs.lists", count: userLists.length },
+    { key: "reading" as const, labelKey: "profile.tabs.reading", count: counts.Reading ?? 0 },
+    { key: "finished" as const, labelKey: "profile.tabs.finished", count: counts.Finished ?? 0 },
+    { key: "paused" as const, labelKey: "profile.tabs.paused", count: counts.Paused ?? 0 },
+    { key: "abandoned" as const, labelKey: "profile.tabs.abandoned", count: counts.Abandoned ?? 0 },
+    { key: "lists" as const, labelKey: "profile.tabs.lists", count: listsQuery.data?.length ?? 0 },
   ];
 
-  const currentBooks = activeTab === "lists" ? [] : booksByStatus[activeTab] ?? [];
+  const books = booksQuery.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
-    <div className="max-w-3xl">
-      <ProfileHeader profile={userProfile} />
-
-      <ProfileStats
-        booksRead={userProfile.stats.booksRead}
-        followers={userProfile.stats.followers}
-        following={userProfile.stats.following}
-      />
+    <div>
+      {/* Header (Social) + Stats (Social follows + Library Finished count) */}
+      {profileQuery.isLoading ? (
+        <HeaderSkeleton />
+      ) : profileQuery.isError ? (
+        <ErrorState label={t("profile.errorLoading")} onRetry={() => profileQuery.refetch()} />
+      ) : profileQuery.data ? (
+        <>
+          <ProfileHeader profile={profileQuery.data} />
+          <ProfileStats
+            booksRead={counts.Finished ?? 0}
+            followers={profileQuery.data.followersCount}
+            following={profileQuery.data.followingCount}
+          />
+        </>
+      ) : null}
 
       <ProfileTabs
         tabs={tabs}
@@ -51,56 +65,95 @@ export default function ProfilePage() {
       />
 
       <div className="mt-4">
-        {activeTab !== "lists" ? (
-          <div className={
-            viewMode === "grid"
-              ? "grid grid-cols-4 gap-4"
-              : "space-y-3"
-          }>
-            {currentBooks.map((book) => (
-              <BookGridItem key={book.id} book={book} />
-            ))}
-
-            {currentBooks.length === 0 && (
-              <p className="text-sm text-stone-400 col-span-4 text-center py-8">
-                Nenhum livro nesta categoria.
-              </p>
-            )}
-          </div>
+        {activeTab === "lists" ? (
+          listsQuery.isLoading ? (
+            <ContentSkeleton />
+          ) : listsQuery.isError ? (
+            <ErrorState label={t("profile.errorLoading")} onRetry={() => listsQuery.refetch()} />
+          ) : (listsQuery.data?.length ?? 0) === 0 ? (
+            <EmptyState label={t("profile.emptyTab")} />
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {listsQuery.data!.map((list) => (
+                <ListCard key={list.listId} list={list} />
+              ))}
+            </div>
+          )
+        ) : booksQuery.isLoading ? (
+          <ContentSkeleton />
+        ) : booksQuery.isError ? (
+          <ErrorState label={t("profile.errorLoading")} onRetry={() => booksQuery.refetch()} />
+        ) : books.length === 0 ? (
+          <EmptyState label={t("profile.emptyTab")} />
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {userLists.map((list) => (
-              <Card key={list.id} className="cursor-pointer hover:border-stone-300 transition-colors">
-                <div className="h-32 bg-stone-200 rounded-t-xl" />
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-stone-800">{list.name}</h3>
-                    <Badge variant={list.visibility === "public" ? "success" : "secondary"}>
-                      {list.visibility === "public" ? (
-                        <span className="flex items-center gap-1">
-                          <Globe size={10} />
-                          {t("lists.public")}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Lock size={10} />
-                          {t("lists.private")}
-                        </span>
-                      )}
-                    </Badge>
-                  </div>
-                  {list.description && (
-                    <p className="text-xs text-stone-500 line-clamp-2">{list.description}</p>
-                  )}
-                  <p className="text-xs text-stone-400 mt-2">
-                    {t("lists.booksCount", { count: list.bookCount })}
-                  </p>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <>
+            <div className={viewMode === "grid" ? "grid grid-cols-4 gap-4" : "space-y-3"}>
+              {books.map((ub) => (
+                <BookGridItem key={ub.userBookId} userBook={ub} />
+              ))}
+            </div>
+            {booksQuery.hasNextPage && (
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => booksQuery.fetchNextPage()}
+                  disabled={booksQuery.isFetchingNextPage}
+                >
+                  {t("profile.loadMore")}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
+    </div>
+  );
+}
+
+function HeaderSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-40 bg-stone-200 rounded-xl" />
+      <div className="px-4">
+        <div className="-mt-12 w-24 h-24 rounded-full bg-stone-300 ring-4 ring-white" />
+        <div className="mt-3 h-5 w-40 bg-stone-200 rounded" />
+        <div className="mt-3 h-4 w-64 bg-stone-200 rounded" />
+        <div className="flex gap-6 py-4 mt-2">
+          <div className="h-8 w-12 bg-stone-200 rounded" />
+          <div className="h-8 w-12 bg-stone-200 rounded" />
+          <div className="h-8 w-12 bg-stone-200 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContentSkeleton() {
+  return (
+    <div className="grid grid-cols-4 gap-4 animate-pulse">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i}>
+          <div className="aspect-[2/3] bg-stone-200 rounded-lg mb-2" />
+          <div className="h-4 w-3/4 bg-stone-200 rounded" />
+          <div className="h-3 w-1/2 bg-stone-200 rounded mt-1" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <p className="text-sm text-stone-400 text-center py-10">{label}</p>;
+}
+
+function ErrorState({ label, onRetry }: { label: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="text-center py-10">
+      <p className="text-sm text-stone-500 mb-3">{label}</p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
     </div>
   );
 }

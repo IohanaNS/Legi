@@ -1,23 +1,22 @@
-﻿import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { StarRating } from "../../../components/ui/StarRating";
 import { Badge } from "../../../components/ui/Badge";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
-import type { UserBook } from "../types";
+import { progressPercent, statusI18nKey, statusVariant } from "../lib/mappers";
+import type { UserBookDto } from "../types";
 
 interface BookGridItemProps {
-  book: UserBook;
+  userBook: UserBookDto;
 }
 
-export function BookGridItem({ book }: BookGridItemProps) {
+export function BookGridItem({ userBook }: BookGridItemProps) {
   const { t } = useTranslation();
+  const { book, status, ratingStars } = userBook;
 
-  const statusVariant = {
-    not_started: "secondary" as const,
-    reading: "primary" as const,
-    finished: "success" as const,
-    abandoned: "danger" as const,
-    paused: "warning" as const,
-  };
+  const percent =
+    status === "Reading"
+      ? progressPercent(userBook.progressValue, userBook.progressType, book.pageCount)
+      : null;
 
   return (
     <div className="cursor-pointer group">
@@ -27,15 +26,15 @@ export function BookGridItem({ book }: BookGridItemProps) {
         )}
 
         <div className="absolute top-2 left-2">
-          <Badge variant={statusVariant[book.status]}>
-            {t(`profile.status.${book.status}`)}
+          <Badge variant={statusVariant(status)}>
+            {t(`profile.status.${statusI18nKey(status)}`)}
           </Badge>
         </div>
 
-        {book.status === "reading" && book.progress !== undefined && (
+        {percent !== null && (
           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5">
-            <span className="text-white text-xs font-medium">{book.progress}%</span>
-            <ProgressBar value={book.progress} size="sm" className="mt-1" />
+            <span className="text-white text-xs font-medium">{percent}%</span>
+            <ProgressBar value={percent} size="sm" className="mt-1" />
           </div>
         )}
       </div>
@@ -43,8 +42,8 @@ export function BookGridItem({ book }: BookGridItemProps) {
       <h3 className="text-sm font-medium text-stone-800 truncate group-hover:text-green-700 transition-colors">
         {book.title}
       </h3>
-      <p className="text-xs text-stone-500">{book.author}</p>
-      {book.rating && <StarRating rating={book.rating} size={12} className="mt-1" />}
+      <p className="text-xs text-stone-500">{book.authorDisplay}</p>
+      {ratingStars != null && <StarRating rating={ratingStars} size={12} className="mt-1" />}
     </div>
   );
 }

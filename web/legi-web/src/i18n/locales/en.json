@@ -4,7 +4,8 @@
         "logout": "Log out",
         "follow": "Follow",
         "like": "Like",
-        "share": "Share"
+        "share": "Share",
+        "retry": "Retry"
     },
     "nav": {
         "feed": "Feed",
@@ -90,7 +91,10 @@
             "finished": "Read",
             "abandoned": "Abandoned",
             "paused": "Paused"
-        }
+        },
+        "emptyTab": "No books here yet",
+        "errorLoading": "Couldn't load",
+        "loadMore": "Load more"
     },
     "auth": {
         "loginTitle": "Sign in",
