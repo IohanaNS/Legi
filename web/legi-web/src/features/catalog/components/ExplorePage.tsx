@@ -1,129 +1,151 @@
-﻿import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles } from "lucide-react";
-import { BookCard } from "../../../components/ui/BookCard";
+import { Button } from "../../../components/ui/Button";
+import { BookSummaryCard } from "./BookSummaryCard";
 import { SearchBar } from "./SearchBar";
-import { GenreFilter } from "./GenreFilter";
-import { recommendedBooks, allBooks, genres } from "../data/mockCatalogData";
+import { TagFilter } from "./TagFilter";
+import { usePopularTags } from "../hooks/usePopularTags";
+import { useSearchBooks } from "../hooks/useSearchBooks";
 import type { SortOption } from "../types";
 
 export default function ExplorePage() {
   const { t } = useTranslation();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortOption>("best_rated");
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedTagSlug, setSelectedTagSlug] = useState<string | undefined>();
+  const [sort, setSort] = useState<SortOption>("mostPopular");
 
-  const handleToggleGenre = (genreId: string) => {
-    setSelectedGenres((prev) =>
-      prev.includes(genreId)
-        ? prev.filter((id) => id !== genreId)
-        : [...prev, genreId]
-    );
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  const tagsQuery = usePopularTags();
+  const booksQuery = useSearchBooks({
+    searchTerm: debouncedSearch,
+    tagSlug: selectedTagSlug,
+    sort,
+  });
+
+  const books = booksQuery.data?.pages.flatMap((page) => page.books) ?? [];
+  const totalCount = booksQuery.data?.pages[0]?.pagination.totalCount ?? 0;
+
+  const handleToggleTag = (tagSlug: string) => {
+    setSelectedTagSlug((current) => (current === tagSlug ? undefined : tagSlug));
   };
-
-  const filteredBooks = useMemo(() => {
-    let books = allBooks;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      books = books.filter(
-        (book) =>
-          book.title.toLowerCase().includes(query) ||
-          book.author.toLowerCase().includes(query) ||
-          book.genres.some((g) => g.toLowerCase().includes(query))
-      );
-    }
-
-    if (selectedGenres.length > 0) {
-      const selectedGenreNames = selectedGenres.map(
-        (id) => genres.find((g) => g.id === id)?.name ?? ""
-      );
-      books = books.filter((book) =>
-        book.genres.some((g) => selectedGenreNames.includes(g))
-      );
-    }
-
-    switch (sortBy) {
-      case "best_rated":
-        return [...books].sort((a, b) => b.rating - a.rating);
-      case "most_recent":
-        return [...books].reverse();
-      case "most_popular":
-        return [...books].sort((a, b) => b.rating - a.rating);
-      default:
-        return books;
-    }
-  }, [searchQuery, selectedGenres, sortBy]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
+      <header>
         <h1 className="text-2xl font-bold text-stone-800">{t("explore.title")}</h1>
-        <p className="text-stone-500 mt-1">{t("explore.subtitle")}</p>
-      </div>
+        <p className="mt-1 text-stone-500">{t("explore.subtitle")}</p>
+      </header>
 
-      {/* Busca */}
-      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      <SearchBar value={searchInput} onChange={setSearchInput} />
 
-      {/* Recomendados */}
-      <div>
-        <div className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-3">
-          <Sparkles size={16} />
-          {t("explore.recommendedForYou")}
-        </div>
-        <div className="grid grid-cols-5 gap-4">
-          {recommendedBooks.map((book) => (
-            <BookCard
-              key={book.id}
-              title={book.title}
-              author={book.author}
-              coverUrl={book.coverUrl}
-              rating={book.rating}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Filtros de gênero */}
-      <GenreFilter
-        genres={genres}
-        selectedGenres={selectedGenres}
-        onToggleGenre={handleToggleGenre}
+      <TagFilter
+        tags={tagsQuery.data ?? []}
+        selectedTagSlug={selectedTagSlug}
+        isLoading={tagsQuery.isLoading}
+        isError={tagsQuery.isError}
+        onRetry={() => {
+          void tagsQuery.refetch();
+        }}
+        onToggleTag={handleToggleTag}
       />
 
-      {/* Resultados */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
+      <section>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-stone-600">
-            {t("explore.booksFound", { count: filteredBooks.length })}
+            {t("explore.booksFound", { count: totalCount })}
           </p>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-green-600/20 cursor-pointer"
-          >
-            <option value="best_rated">{t("explore.sortBy.bestRated")}</option>
-            <option value="most_recent">{t("explore.sortBy.mostRecent")}</option>
-            <option value="most_popular">{t("explore.sortBy.mostPopular")}</option>
-          </select>
+
+          <label className="flex items-center gap-2 text-sm text-stone-600">
+            {t("explore.sortLabel")}
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortOption)}
+              className="cursor-pointer rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20"
+            >
+              <option value="bestRated">{t("explore.sortBy.bestRated")}</option>
+              <option value="mostRecent">{t("explore.sortBy.mostRecent")}</option>
+              <option value="mostPopular">{t("explore.sortBy.mostPopular")}</option>
+            </select>
+          </label>
         </div>
 
-        <div className="grid grid-cols-5 gap-4">
-          {filteredBooks.map((book) => (
-            <BookCard
-              key={book.id}
-              title={book.title}
-              author={book.author}
-              coverUrl={book.coverUrl}
-              rating={book.rating}
-              genres={book.genres}
-              showGenres
-            />
-          ))}
+        {booksQuery.isLoading ? (
+          <BookGridSkeleton />
+        ) : booksQuery.isError ? (
+          <ErrorState
+            label={t("explore.error")}
+            onRetry={() => {
+              void booksQuery.refetch();
+            }}
+          />
+        ) : books.length === 0 ? (
+          <EmptyState label={t("explore.empty")} />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {books.map((book) => (
+                <BookSummaryCard key={book.id} book={book} />
+              ))}
+            </div>
+
+            {booksQuery.hasNextPage && (
+              <div className="mt-5 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => booksQuery.fetchNextPage()}
+                  disabled={booksQuery.isFetchingNextPage}
+                >
+                  {booksQuery.isFetchingNextPage
+                    ? t("explore.loadingMore")
+                    : t("common.loadMore")}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function BookGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, index) => (
+        <div key={index} className="animate-pulse rounded-lg border border-stone-200 bg-white p-3">
+          <div className="mb-3 aspect-[2/3] rounded-lg bg-stone-200" />
+          <div className="h-4 w-3/4 rounded bg-stone-200" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-stone-200" />
+          <div className="mt-3 h-8 rounded bg-stone-200" />
+          <div className="mt-2 h-8 rounded bg-stone-200" />
         </div>
-      </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <p className="py-10 text-center text-sm text-stone-400">{label}</p>;
+}
+
+function ErrorState({ label, onRetry }: { label: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="py-10 text-center">
+      <p className="mb-3 text-sm text-stone-500">{label}</p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
     </div>
   );
 }

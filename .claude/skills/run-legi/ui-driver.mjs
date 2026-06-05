@@ -3,8 +3,9 @@
 // (chromium is already vendored in web/legi-web/node_modules).
 //
 // Usage (run from repo root):
-//   node .claude/skills/run-legi/ui-driver.mjs login    # register+login, screenshot /feed
-//   node .claude/skills/run-legi/ui-driver.mjs shot /login out.png   # raw screenshot of a path
+//   node .claude/skills/run-legi/ui-driver.mjs login              # register+login, screenshot /feed
+//   node .claude/skills/run-legi/ui-driver.mjs shot /login out.png        # raw (unauth) screenshot of a path
+//   node .claude/skills/run-legi/ui-driver.mjs authed /explore out.png    # register+login, then screenshot an auth-gated route
 //
 // Screenshots land in /tmp/legi-shots/ by default.
 import { createRequire } from 'node:module';

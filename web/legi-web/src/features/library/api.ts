@@ -1,6 +1,11 @@
 import { http } from "../../services/http";
 import type {
-  BackendReadingStatus, PaginatedList, ProgressType, UserBookDto, UserListSummaryDto,
+  AddBookToLibraryResponse,
+  BackendReadingStatus,
+  PaginatedList,
+  ProgressType,
+  UserBookDto,
+  UserListSummaryDto,
 } from "./types";
 
 export interface LibraryQuery {
@@ -39,4 +44,8 @@ export const libraryApi = {
       progressType:
         body.progressType !== undefined ? PROGRESS_TYPE_WIRE[body.progressType] : undefined,
     }),
+  addBookToLibrary: (bookId: string, wishlist: boolean) =>
+    http
+      .post<AddBookToLibraryResponse>("/library", { bookId, wishlist })
+      .then((r) => r.data),
 };

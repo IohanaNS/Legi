@@ -1,18 +1,57 @@
-﻿export interface Book {
-  id: string;
-  title: string;
-  author: string;
-  coverUrl?: string;
-  rating: number;
-  genres: string[];
-  description?: string;
-  pageCount?: number;
-}
+export type BookSortBy = "Relevance" | "Title" | "AverageRating" | "RatingsCount" | "CreatedAt";
 
-export interface Genre {
-  id: string;
+export interface AuthorDto {
   name: string;
-  nameKey: string;
+  slug: string;
 }
 
-export type SortOption = "best_rated" | "most_recent" | "most_popular";
+export interface TagDto {
+  name: string;
+  slug: string;
+}
+
+export interface TagResult extends TagDto {
+  usageCount: number;
+}
+
+export interface BookSummaryDto {
+  id: string;
+  isbn: string;
+  title: string;
+  authors: AuthorDto[];
+  coverUrl?: string | null;
+  averageRating: number;
+  ratingsCount: number;
+  tags: TagDto[];
+}
+
+export interface PaginationMetadata {
+  currentPage: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export interface SearchBooksResponse {
+  books: BookSummaryDto[];
+  pagination: PaginationMetadata;
+}
+
+export interface SearchTagsResponse {
+  tags: TagResult[];
+}
+
+export interface SearchBooksParams {
+  searchTerm?: string;
+  authorSlug?: string;
+  tagSlug?: string;
+  minRating?: number;
+  pageNumber?: number;
+  pageSize?: number;
+  sortBy?: BookSortBy;
+  sortDescending?: boolean;
+}
+
+export type SortOption = "bestRated" | "mostRecent" | "mostPopular";

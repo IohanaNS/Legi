@@ -38,6 +38,14 @@ export interface UserBookDto {
   updatedAt: string;
 }
 
+export interface AddBookToLibraryResponse {
+  userBookId: string;
+  bookId: string;
+  status: BackendReadingStatus;
+  wishlist: boolean;
+  createdAt: string;
+}
+
 export interface UserListSummaryDto {
   listId: string;
   name: string;
