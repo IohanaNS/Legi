@@ -1,8 +1,7 @@
 using Legi.Contracts.Library;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Application.UserBooks.EventHandlers;
-using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Enums;
-using Legi.Library.Domain.Events;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -25,10 +24,9 @@ public class ReadingStatusChangedDomainEventHandlerTests
     public async Task Handle_PublishesExactlyOneIntegrationEvent_WithStringifiedStatuses()
     {
         // Arrange
-        var userId = Guid.NewGuid();
-        var bookId = Guid.NewGuid();
-        var domainEvent = new ReadingStatusChangedDomainEvent(
-            userId, bookId, ReadingStatus.Reading, ReadingStatus.Finished);
+        var domainEvent = LibraryDomainEventFactory.ReadingStatusChanged(
+            oldStatus: ReadingStatus.Reading,
+            newStatus: ReadingStatus.Finished);
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);
@@ -37,8 +35,8 @@ public class ReadingStatusChangedDomainEventHandlerTests
         _eventBusMock.Verify(
             x => x.PublishAsync(
                 It.Is<ReadingStatusChangedIntegrationEvent>(e =>
-                    e.UserId == userId &&
-                    e.BookId == bookId &&
+                    e.UserId == domainEvent.UserId &&
+                    e.BookId == domainEvent.BookId &&
                     e.OldStatus == "Reading" &&
                     e.NewStatus == "Finished" &&
                     e.ChangedAt == domainEvent.OccurredOn),
@@ -54,7 +52,7 @@ public class ReadingStatusChangedDomainEventHandlerTests
         // The translator can only be invoked when the domain event is raised.
         // ChangeReadingStatus early-returns when the status is unchanged, so the
         // domain event is never raised and the translator never runs.
-        var userBook = UserBook.Create(Guid.NewGuid(), Guid.NewGuid());
+        var userBook = UserBookBuilder.Valid().Build();
         userBook.ClearDomainEvents();
 
         userBook.ChangeReadingStatus(ReadingStatus.NotStarted);

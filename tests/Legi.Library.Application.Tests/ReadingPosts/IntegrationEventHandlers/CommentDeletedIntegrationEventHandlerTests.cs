@@ -1,5 +1,6 @@
 using Legi.Contracts.Social;
 using Legi.Library.Application.ReadingPosts.IntegrationEventHandlers;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,8 +19,7 @@ public class CommentDeletedIntegrationEventHandlerTests
             _repo.Object, NullLogger<CommentDeletedIntegrationEventHandler>.Instance);
     }
 
-    private static ReadingProgress NewPost() =>
-        ReadingProgress.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "content", null);
+    private static ReadingProgress NewPost() => ReadingProgressBuilder.Valid().Build();
 
     [Fact]
     public async Task Handle_Post_DecrementsCommentsByExactlyOne()
@@ -30,7 +30,7 @@ public class CommentDeletedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(post.Id, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new CommentDeletedIntegrationEvent("Post", post.Id, Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.CommentDeleted(targetId: post.Id),
             CancellationToken.None);
 
         Assert.Equal(1, post.CommentsCount);
@@ -43,7 +43,7 @@ public class CommentDeletedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(post.Id, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new CommentDeletedIntegrationEvent("Post", post.Id, Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.CommentDeleted(targetId: post.Id),
             CancellationToken.None);
 
         Assert.Equal(0, post.CommentsCount);
@@ -53,7 +53,7 @@ public class CommentDeletedIntegrationEventHandlerTests
     public async Task Handle_ListTargetType_NoLoad_NoThrow()
     {
         await _handler.Handle(
-            new CommentDeletedIntegrationEvent("List", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.CommentDeleted(targetType: "List"),
             CancellationToken.None);
 
         _repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);

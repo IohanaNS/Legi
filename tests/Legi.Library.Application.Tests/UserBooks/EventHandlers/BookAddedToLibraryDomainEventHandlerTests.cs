@@ -1,6 +1,6 @@
 using Legi.Contracts.Library;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Application.UserBooks.EventHandlers;
-using Legi.Library.Domain.Events;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -23,10 +23,7 @@ public class BookAddedToLibraryDomainEventHandlerTests
     public async Task Handle_PublishesExactlyOneIntegrationEvent_WithMatchingFields()
     {
         // Arrange
-        var userBookId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var bookId = Guid.NewGuid();
-        var domainEvent = new BookAddedToLibraryDomainEvent(userBookId, userId, bookId, wishList: false);
+        var domainEvent = LibraryDomainEventFactory.BookAddedToLibrary();
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);
@@ -35,9 +32,9 @@ public class BookAddedToLibraryDomainEventHandlerTests
         _eventBusMock.Verify(
             x => x.PublishAsync(
                 It.Is<BookAddedToLibraryIntegrationEvent>(e =>
-                    e.UserBookId == userBookId &&
-                    e.UserId == userId &&
-                    e.BookId == bookId &&
+                    e.UserBookId == domainEvent.UserBookId &&
+                    e.UserId == domainEvent.UserId &&
+                    e.BookId == domainEvent.BookId &&
                     e.Wishlist == false &&
                     e.AddedAt == domainEvent.OccurredOn),
                 It.IsAny<CancellationToken>()),
@@ -50,8 +47,7 @@ public class BookAddedToLibraryDomainEventHandlerTests
     public async Task Handle_PropagatesWishlistTrue()
     {
         // Arrange
-        var domainEvent = new BookAddedToLibraryDomainEvent(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), wishList: true);
+        var domainEvent = LibraryDomainEventFactory.BookAddedToLibrary(wishList: true);
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);

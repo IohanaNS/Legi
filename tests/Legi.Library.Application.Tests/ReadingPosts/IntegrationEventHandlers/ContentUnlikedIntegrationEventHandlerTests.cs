@@ -1,5 +1,6 @@
 using Legi.Contracts.Social;
 using Legi.Library.Application.ReadingPosts.IntegrationEventHandlers;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,8 +19,7 @@ public class ContentUnlikedIntegrationEventHandlerTests
             _repo.Object, NullLogger<ContentUnlikedIntegrationEventHandler>.Instance);
     }
 
-    private static ReadingProgress NewPost() =>
-        ReadingProgress.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "content", null);
+    private static ReadingProgress NewPost() => ReadingProgressBuilder.Valid().Build();
 
     [Fact]
     public async Task Handle_Post_DecrementsLikesByExactlyOne()
@@ -30,7 +30,7 @@ public class ContentUnlikedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(post.Id, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new ContentUnlikedIntegrationEvent("Post", post.Id, Guid.NewGuid()), CancellationToken.None);
+            SocialIntegrationEventFactory.ContentUnliked(targetId: post.Id), CancellationToken.None);
 
         Assert.Equal(1, post.LikesCount);
     }
@@ -42,7 +42,7 @@ public class ContentUnlikedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(post.Id, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new ContentUnlikedIntegrationEvent("Post", post.Id, Guid.NewGuid()), CancellationToken.None);
+            SocialIntegrationEventFactory.ContentUnliked(targetId: post.Id), CancellationToken.None);
 
         Assert.Equal(0, post.LikesCount);
     }
@@ -51,7 +51,7 @@ public class ContentUnlikedIntegrationEventHandlerTests
     public async Task Handle_ListTargetType_NoLoad_NoThrow()
     {
         await _handler.Handle(
-            new ContentUnlikedIntegrationEvent("List", Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+            SocialIntegrationEventFactory.ContentUnliked(targetType: "List"), CancellationToken.None);
 
         _repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }

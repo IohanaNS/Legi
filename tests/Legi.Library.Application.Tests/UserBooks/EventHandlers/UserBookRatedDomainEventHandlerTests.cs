@@ -1,6 +1,6 @@
 using Legi.Contracts.Library;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Application.UserBooks.EventHandlers;
-using Legi.Library.Domain.Events;
 using Legi.Library.Domain.ValueObjects;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,10 +24,8 @@ public class UserBookRatedDomainEventHandlerTests
     public async Task Handle_PublishesIntegrationEvent_WithRatingValuesAsInts_AndNullPrevious()
     {
         // Arrange
-        var userId = Guid.NewGuid();
-        var bookId = Guid.NewGuid();
         var newRating = Rating.Create(8); // 4.0 stars
-        var domainEvent = new UserBookRatedDomainEvent(userId, bookId, oldRating: null, newRating);
+        var domainEvent = LibraryDomainEventFactory.UserBookRated(newRating: newRating);
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);
@@ -36,8 +34,8 @@ public class UserBookRatedDomainEventHandlerTests
         _eventBusMock.Verify(
             x => x.PublishAsync(
                 It.Is<UserBookRatedIntegrationEvent>(e =>
-                    e.UserId == userId &&
-                    e.BookId == bookId &&
+                    e.UserId == domainEvent.UserId &&
+                    e.BookId == domainEvent.BookId &&
                     e.Rating == 8 &&
                     e.PreviousRating == null),
                 It.IsAny<CancellationToken>()),
@@ -50,9 +48,7 @@ public class UserBookRatedDomainEventHandlerTests
     public async Task Handle_MapsPreviousRating_WhenOldRatingIsSet()
     {
         // Arrange
-        var domainEvent = new UserBookRatedDomainEvent(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+        var domainEvent = LibraryDomainEventFactory.UserBookRated(
             oldRating: Rating.Create(6),
             newRating: Rating.Create(9));
 

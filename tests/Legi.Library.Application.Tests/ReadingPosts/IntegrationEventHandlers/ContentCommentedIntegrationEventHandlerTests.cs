@@ -1,5 +1,6 @@
 using Legi.Contracts.Social;
 using Legi.Library.Application.ReadingPosts.IntegrationEventHandlers;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,8 +19,7 @@ public class ContentCommentedIntegrationEventHandlerTests
             _repo.Object, NullLogger<ContentCommentedIntegrationEventHandler>.Instance);
     }
 
-    private static ReadingProgress NewPost() =>
-        ReadingProgress.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "content", null);
+    private static ReadingProgress NewPost() => ReadingProgressBuilder.Valid().Build();
 
     [Fact]
     public async Task Handle_Post_IncrementsCommentsByExactlyOne()
@@ -28,7 +28,7 @@ public class ContentCommentedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(post.Id, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new ContentCommentedIntegrationEvent("Post", post.Id, Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.ContentCommented(targetId: post.Id),
             CancellationToken.None);
 
         Assert.Equal(1, post.CommentsCount);
@@ -38,7 +38,7 @@ public class ContentCommentedIntegrationEventHandlerTests
     public async Task Handle_ListTargetType_NoLoad_NoThrow()
     {
         await _handler.Handle(
-            new ContentCommentedIntegrationEvent("List", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.ContentCommented(targetType: "List"),
             CancellationToken.None);
 
         _repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -51,7 +51,7 @@ public class ContentCommentedIntegrationEventHandlerTests
             .ReturnsAsync((ReadingProgress?)null);
 
         var ex = await Record.ExceptionAsync(() => _handler.Handle(
-            new ContentCommentedIntegrationEvent("Post", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()),
+            SocialIntegrationEventFactory.ContentCommented(targetId: Guid.NewGuid()),
             CancellationToken.None));
 
         Assert.Null(ex);

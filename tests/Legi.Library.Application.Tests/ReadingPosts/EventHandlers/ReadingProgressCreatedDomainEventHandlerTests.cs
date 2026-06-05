@@ -1,6 +1,6 @@
 using Legi.Contracts.Library;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Application.ReadingPosts.EventHandlers;
-using Legi.Library.Domain.Events;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -23,14 +23,7 @@ public class ReadingProgressCreatedDomainEventHandlerTests
     public async Task Handle_PublishesIntegrationEvent_WithContentAndProgress()
     {
         // Arrange
-        var postId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var bookId = Guid.NewGuid();
-        var domainEvent = new ReadingProgressCreatedDomainEvent(
-            readingPostId: postId,
-            userBookId: Guid.NewGuid(),
-            userId: userId,
-            bookId: bookId,
+        var domainEvent = LibraryDomainEventFactory.ReadingProgressCreated(
             content: "Halfway through, love it",
             progressValue: 50,
             progressType: "Percentage");
@@ -42,9 +35,9 @@ public class ReadingProgressCreatedDomainEventHandlerTests
         _eventBusMock.Verify(
             x => x.PublishAsync(
                 It.Is<ReadingPostCreatedIntegrationEvent>(e =>
-                    e.PostId == postId &&
-                    e.UserId == userId &&
-                    e.BookId == bookId &&
+                    e.PostId == domainEvent.ReadingPostId &&
+                    e.UserId == domainEvent.UserId &&
+                    e.BookId == domainEvent.BookId &&
                     e.Content == "Halfway through, love it" &&
                     e.ProgressValue == 50 &&
                     e.ProgressType == "Percentage" &&
@@ -59,11 +52,7 @@ public class ReadingProgressCreatedDomainEventHandlerTests
     public async Task Handle_PreservesNulls_WhenContentOrProgressMissing()
     {
         // Content-only post (no progress)
-        var domainEvent = new ReadingProgressCreatedDomainEvent(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+        var domainEvent = LibraryDomainEventFactory.ReadingProgressCreated(
             content: "Just a thought, no progress yet",
             progressValue: null,
             progressType: null);

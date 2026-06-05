@@ -1,5 +1,6 @@
 using Legi.Contracts.Social;
 using Legi.Library.Application.ReadingPosts.IntegrationEventHandlers;
+using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Domain.Entities;
 using Legi.Library.Domain.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,8 +19,7 @@ public class ContentLikedIntegrationEventHandlerTests
             _repo.Object, NullLogger<ContentLikedIntegrationEventHandler>.Instance);
     }
 
-    private static ReadingProgress NewPost() =>
-        ReadingProgress.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "content", null);
+    private static ReadingProgress NewPost() => ReadingProgressBuilder.Valid().Build();
 
     [Fact]
     public async Task Handle_Post_IncrementsLikesByExactlyOne()
@@ -29,7 +29,7 @@ public class ContentLikedIntegrationEventHandlerTests
         _repo.Setup(r => r.GetByIdAsync(postId, It.IsAny<CancellationToken>())).ReturnsAsync(post);
 
         await _handler.Handle(
-            new ContentLikedIntegrationEvent("Post", postId, Guid.NewGuid()), CancellationToken.None);
+            SocialIntegrationEventFactory.ContentLiked(targetId: postId), CancellationToken.None);
 
         Assert.Equal(1, post.LikesCount);
     }
@@ -38,7 +38,7 @@ public class ContentLikedIntegrationEventHandlerTests
     public async Task Handle_ListTargetType_NoLoad_NoMutation_NoThrow()
     {
         await _handler.Handle(
-            new ContentLikedIntegrationEvent("List", Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+            SocialIntegrationEventFactory.ContentLiked(targetType: "List"), CancellationToken.None);
 
         _repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -51,7 +51,7 @@ public class ContentLikedIntegrationEventHandlerTests
 
         // Must not throw — a missing post is permanent (deleted), not a transient race.
         var ex = await Record.ExceptionAsync(() => _handler.Handle(
-            new ContentLikedIntegrationEvent("Post", Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
+            SocialIntegrationEventFactory.ContentLiked(targetId: Guid.NewGuid()), CancellationToken.None));
 
         Assert.Null(ex);
     }
