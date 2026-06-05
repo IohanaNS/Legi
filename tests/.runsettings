@@ -9,7 +9,7 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura,json</Format>
-          <Include>[Legi.Identity.*]*,[Legi.Catalog.*]*,[Legi.Library.*]*</Include>
+          <Include>[Legi.Identity.*]*,[Legi.Catalog.*]*,[Legi.Library.*]*,[Legi.Social.*]*</Include>
           <Exclude>[*.Tests]*</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute,Obsolete</ExcludeByAttribute>
           <UseSourceLink>true</UseSourceLink>
