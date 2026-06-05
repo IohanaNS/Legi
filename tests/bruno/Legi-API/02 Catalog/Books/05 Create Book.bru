@@ -1,0 +1,53 @@
+meta {
+  name: Create Book
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "isbn": "{{testIsbn}}",
+    "title": "Clean Code",
+    "authors": [
+      "Robert C. Martin"
+    ],
+    "synopsis": "A handbook of pragmatic software craftsmanship.",
+    "pageCount": 464,
+    "publisher": "Prentice Hall",
+    "coverUrl": "https://covers.openlibrary.org/b/isbn/9780132350884-L.jpg",
+    "tags": [
+      "software",
+      "engineering"
+    ]
+  }
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.bookId) bru.setEnvVar("bookId", data.bookId);
+  if (data.authors && data.authors.length && data.authors[0].slug) {
+    bru.setEnvVar("authorSlug", data.authors[0].slug);
+  }
+  if (data.tags && data.tags.length && data.tags[0].slug) {
+    bru.setEnvVar("tagSlug", data.tags[0].slug);
+  }
+}

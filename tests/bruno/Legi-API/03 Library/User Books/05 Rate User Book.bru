@@ -1,0 +1,26 @@
+meta {
+  name: Rate User Book
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{libraryBaseUrl}}/api/v1/library/{{userBookId}}/rating
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "stars": 4.5
+  }
+}

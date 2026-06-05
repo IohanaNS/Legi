@@ -1,0 +1,15 @@
+meta {
+  name: Get Public Profile
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{identityBaseUrl}}/api/v1/identity/users/{{publicUserId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}

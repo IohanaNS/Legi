@@ -1,0 +1,37 @@
+meta {
+  name: Create User List
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{libraryBaseUrl}}/api/v1/library/lists
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Bruno Smoke List",
+    "description": "Created by the Bruno request collection.",
+    "isPublic": true
+  }
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.listId) bru.setEnvVar("listId", data.listId);
+}

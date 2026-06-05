@@ -1,0 +1,19 @@
+meta {
+  name: Delete Book
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books/{{bookId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

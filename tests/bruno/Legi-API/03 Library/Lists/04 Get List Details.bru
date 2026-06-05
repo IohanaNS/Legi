@@ -1,0 +1,15 @@
+meta {
+  name: Get List Details
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{libraryBaseUrl}}/api/v1/library/lists/{{listId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}

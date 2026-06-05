@@ -1,0 +1,19 @@
+meta {
+  name: Get My Lists
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{libraryBaseUrl}}/api/v1/library/lists
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

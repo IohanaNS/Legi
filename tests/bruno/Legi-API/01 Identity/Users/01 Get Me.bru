@@ -1,0 +1,19 @@
+meta {
+  name: Get Me
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{identityBaseUrl}}/api/v1/identity/users/me
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

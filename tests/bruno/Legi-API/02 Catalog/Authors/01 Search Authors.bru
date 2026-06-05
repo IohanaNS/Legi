@@ -1,0 +1,20 @@
+meta {
+  name: Search Authors
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{catalogBaseUrl}}/api/v1/catalog/authors/search
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+query {
+  searchTerm: {{authorSearchTerm}}
+  limit: 10
+}

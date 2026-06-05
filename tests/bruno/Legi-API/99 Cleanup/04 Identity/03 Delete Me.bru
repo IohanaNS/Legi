@@ -1,0 +1,19 @@
+meta {
+  name: Delete Me
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{identityBaseUrl}}/api/v1/identity/users/me
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

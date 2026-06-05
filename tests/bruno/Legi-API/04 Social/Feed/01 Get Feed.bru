@@ -1,0 +1,24 @@
+meta {
+  name: Get Feed
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{socialBaseUrl}}/api/v1/social/feed
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+query {
+  page: 1
+  pageSize: 20
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Search Books By Author
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+query {
+  authorSlug: {{authorSlug}}
+  pageNumber: 1
+  pageSize: 20
+  sortBy: Title
+  sortDescending: false
+}

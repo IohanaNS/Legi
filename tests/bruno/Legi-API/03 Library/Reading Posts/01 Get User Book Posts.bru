@@ -1,0 +1,24 @@
+meta {
+  name: Get User Book Posts
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{libraryBaseUrl}}/api/v1/library/{{userBookId}}/posts
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+query {
+  page: 1
+  pageSize: 20
+}

@@ -1,0 +1,34 @@
+meta {
+  name: Login Second User
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{identityBaseUrl}}/api/v1/identity/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "emailOrUsername": "{{secondTestEmail}}",
+    "password": "{{testPassword}}"
+  }
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.token) bru.setEnvVar("secondAccessToken", data.token);
+  if (data.refreshToken) bru.setEnvVar("secondRefreshToken", data.refreshToken);
+  if (data.userId) bru.setEnvVar("followingUserId", data.userId);
+}

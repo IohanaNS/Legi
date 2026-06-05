@@ -1,0 +1,38 @@
+meta {
+  name: Create Post Comment
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{socialBaseUrl}}/api/v1/social/posts/{{postId}}/comments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "content": "Post comment created from Bruno."
+  }
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.commentId) {
+    bru.setEnvVar("commentId", data.commentId);
+    bru.setEnvVar("postCommentId", data.commentId);
+  }
+}

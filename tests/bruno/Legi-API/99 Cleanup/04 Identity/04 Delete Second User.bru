@@ -1,0 +1,19 @@
+meta {
+  name: Delete Second User
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{identityBaseUrl}}/api/v1/identity/users/me
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{secondAccessToken}}
+}

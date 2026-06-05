@@ -1,0 +1,19 @@
+meta {
+  name: Delete Reading Post
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{libraryBaseUrl}}/api/v1/library/posts/{{postId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

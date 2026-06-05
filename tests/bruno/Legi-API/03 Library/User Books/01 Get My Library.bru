@@ -1,0 +1,26 @@
+meta {
+  name: Get My Library
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{libraryBaseUrl}}/api/v1/library
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+query {
+  status: Reading
+  wishlist: false
+  page: 1
+  pageSize: 20
+}

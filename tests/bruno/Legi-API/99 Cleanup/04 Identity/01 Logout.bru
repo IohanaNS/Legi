@@ -1,0 +1,26 @@
+meta {
+  name: Logout
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{identityBaseUrl}}/api/v1/identity/auth/logout
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "refreshToken": "{{refreshToken}}"
+  }
+}

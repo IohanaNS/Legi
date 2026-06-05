@@ -1,0 +1,26 @@
+meta {
+  name: Add Book To List
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{libraryBaseUrl}}/api/v1/library/lists/{{listId}}/books
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "userBookId": "{{userBookId}}"
+  }
+}

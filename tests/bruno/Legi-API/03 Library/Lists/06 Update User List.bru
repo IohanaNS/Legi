@@ -1,0 +1,28 @@
+meta {
+  name: Update User List
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{libraryBaseUrl}}/api/v1/library/lists/{{listId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Bruno Smoke List Updated",
+    "description": "Updated by the Bruno request collection.",
+    "isPublic": true
+  }
+}

@@ -1,0 +1,38 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{identityBaseUrl}}/api/v1/identity/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "email": "{{testEmail}}",
+    "username": "{{testUsername}}",
+    "password": "{{testPassword}}"
+  }
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.token) bru.setEnvVar("accessToken", data.token);
+  if (data.refreshToken) bru.setEnvVar("refreshToken", data.refreshToken);
+  if (data.userId) {
+    bru.setEnvVar("userId", data.userId);
+    bru.setEnvVar("publicUserId", data.userId);
+  }
+}

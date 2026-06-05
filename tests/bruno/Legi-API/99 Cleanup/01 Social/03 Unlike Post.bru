@@ -1,0 +1,19 @@
+meta {
+  name: Unlike Post
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{socialBaseUrl}}/api/v1/social/posts/{{postId}}/likes
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

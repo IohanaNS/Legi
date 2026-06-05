@@ -1,0 +1,38 @@
+meta {
+  name: Update Book
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books/{{bookId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "title": "Clean Code: A Handbook of Agile Software Craftsmanship",
+    "synopsis": "Updated via the Bruno smoke-test collection.",
+    "pageCount": 464,
+    "publisher": "Prentice Hall",
+    "coverUrl": "https://covers.openlibrary.org/b/isbn/9780132350884-L.jpg",
+    "authors": [
+      "Robert C. Martin"
+    ],
+    "tags": [
+      "software",
+      "engineering",
+      "craftsmanship"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Remove Book From List
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{libraryBaseUrl}}/api/v1/library/lists/{{listId}}/books/{{userBookId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

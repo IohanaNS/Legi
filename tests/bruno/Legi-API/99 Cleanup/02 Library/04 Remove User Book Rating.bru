@@ -1,0 +1,19 @@
+meta {
+  name: Remove User Book Rating
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{libraryBaseUrl}}/api/v1/library/{{userBookId}}/rating
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

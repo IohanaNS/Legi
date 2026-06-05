@@ -1,0 +1,23 @@
+meta {
+  name: Search Books
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+query {
+  searchTerm: {{bookSearchTerm}}
+  pageNumber: 1
+  pageSize: 20
+  sortBy: Relevance
+  sortDescending: true
+}

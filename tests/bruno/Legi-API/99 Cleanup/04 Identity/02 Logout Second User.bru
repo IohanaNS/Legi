@@ -1,0 +1,26 @@
+meta {
+  name: Logout Second User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{identityBaseUrl}}/api/v1/identity/auth/logout
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{secondAccessToken}}
+}
+
+body:json {
+  {
+    "refreshToken": "{{secondRefreshToken}}"
+  }
+}

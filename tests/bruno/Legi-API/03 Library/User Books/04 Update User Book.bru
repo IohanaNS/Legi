@@ -1,0 +1,29 @@
+meta {
+  name: Update User Book
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{libraryBaseUrl}}/api/v1/library/{{userBookId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": 1,
+    "wishlist": false,
+    "progressValue": 42,
+    "progressType": 0
+  }
+}

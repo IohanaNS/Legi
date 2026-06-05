@@ -1,0 +1,20 @@
+meta {
+  name: Get Post Comments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{socialBaseUrl}}/api/v1/social/posts/{{postId}}/comments
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+query {
+  page: 1
+  pageSize: 20
+}

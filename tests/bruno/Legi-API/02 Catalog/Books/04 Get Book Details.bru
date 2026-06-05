@@ -1,0 +1,15 @@
+meta {
+  name: Get Book Details
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{catalogBaseUrl}}/api/v1/catalog/books/{{bookId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Delete List Comment
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{socialBaseUrl}}/api/v1/social/comments/{{listCommentId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

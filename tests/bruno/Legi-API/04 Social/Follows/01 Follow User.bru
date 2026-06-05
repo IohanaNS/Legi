@@ -1,0 +1,26 @@
+meta {
+  name: Follow User
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{socialBaseUrl}}/api/v1/social/follows
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "followingId": "{{followingUserId}}"
+  }
+}

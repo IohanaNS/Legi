@@ -1,0 +1,15 @@
+meta {
+  name: Get User Profile
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{socialBaseUrl}}/api/v1/social/users/{{publicUserId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Popular Authors
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{catalogBaseUrl}}/api/v1/catalog/authors/popular
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+query {
+  limit: 20
+}
