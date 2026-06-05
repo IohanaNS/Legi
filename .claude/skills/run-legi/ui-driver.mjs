@@ -44,8 +44,9 @@ async function rawShot(routePath, out) {
   await b.close();
 }
 
-async function loginFlow() {
-  // 1. create a fresh user via the Identity API
+// Register a fresh user and drive the login form. Returns { b, p, u } with the
+// browser landed on /feed — caller is responsible for b.close().
+async function login() {
   const u = `uidrv_${Date.now()}`;
   const cred = { email: `${u}@example.com`, username: u, password: 'Senha123!' };
   const reg = await api('/api/v1/identity/auth/register', cred);
@@ -54,7 +55,6 @@ async function loginFlow() {
   }
   console.log(`registered ${u} (status=${reg.status})`);
 
-  // 2. drive the login form in the browser
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
   await p.goto(WEB + '/login', { waitUntil: 'networkidle', timeout: 30000 });
@@ -63,9 +63,24 @@ async function loginFlow() {
   await p.getByRole('button', { name: /entrar|sign in/i }).click();
   await p.waitForURL('**/feed', { timeout: 15000 });
   await p.waitForTimeout(1000);
+  return { b, p, u };
+}
+
+async function loginFlow() {
+  const { b, p, u } = await login();
   const out = path.join(SHOTS, 'feed.png');
   await p.screenshot({ path: out, fullPage: true });
   console.log(`logged in as ${u} -> ${p.url()} -> ${out}`);
+  await b.close();
+}
+
+// Log in, navigate to an auth-gated route, and screenshot it.
+async function authedShot(routePath, out) {
+  const { b, p, u } = await login();
+  await p.goto(WEB + routePath, { waitUntil: 'networkidle', timeout: 30000 });
+  await p.waitForTimeout(1000);
+  await p.screenshot({ path: out, fullPage: true });
+  console.log(`authed (${u}) ${routePath} -> ${out} (landed=${p.url()})`);
   await b.close();
 }
 
@@ -75,7 +90,11 @@ if (cmd === 'login') {
   const routePath = process.argv[3] || '/login';
   const out = process.argv[4] || path.join(SHOTS, 'shot.png');
   await rawShot(routePath, out);
+} else if (cmd === 'authed') {
+  const routePath = process.argv[3] || '/explore';
+  const out = process.argv[4] || path.join(SHOTS, 'authed.png');
+  await authedShot(routePath, out);
 } else {
-  console.error(`unknown command: ${cmd} (use: login | shot <path> <out>)`);
+  console.error(`unknown command: ${cmd} (use: login | shot <path> <out> | authed <path> <out>)`);
   process.exit(1);
 }

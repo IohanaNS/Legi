@@ -82,12 +82,18 @@ Registers a fresh user, logs in through the browser form, screenshots the authen
 feed to `/tmp/legi-shots/`:
 
 ```bash
-node .claude/skills/run-legi/ui-driver.mjs login           # -> /tmp/legi-shots/feed.png
-node .claude/skills/run-legi/ui-driver.mjs shot /login /tmp/legi-shots/login.png
+node .claude/skills/run-legi/ui-driver.mjs login                                  # -> /tmp/legi-shots/feed.png
+node .claude/skills/run-legi/ui-driver.mjs shot /login /tmp/legi-shots/login.png  # unauth route
+node .claude/skills/run-legi/ui-driver.mjs authed /explore /tmp/legi-shots/explore.png  # auth-gated route
 ```
 
-`login` prints the username and lands on `http://localhost:3000/feed`. Open the PNG to
-confirm the sidebar (Mural/Explorar/Listas/Lista de Desejos/Perfil) and feed rendered.
+- `login` prints the username and lands on `http://localhost:3000/feed`. Open the PNG to
+  confirm the sidebar (Mural/Explorar/Listas/Lista de Desejos/Perfil) and feed rendered.
+- `shot <path> <out>` screenshots an **unauthenticated** route. Auth-gated routes
+  (`/explore`, `/feed`, `/lists`, `/profile`…) redirect to `/login` here — use `authed`.
+- `authed <path> <out>` registers+logs in, then screenshots an **auth-gated** route. Use it
+  for pages under development like the catalog `Explorar` page (run the Bruno collection
+  first to seed books, or the grid renders empty).
 
 ## Run — human path
 
