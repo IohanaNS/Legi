@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<ICommentReadRepository, CommentReadRepository>();
         services.AddScoped<ILikeReadRepository, LikeReadRepository>();
         services.AddScoped<IFeedItemReadRepository, FeedItemReadRepository>();
+        services.AddScoped<IUserProfileReadRepository, UserProfileReadRepository>();
 
         return services;
     }

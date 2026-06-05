@@ -49,5 +49,8 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         builder.Property(up => up.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
+
+        builder.HasIndex(up => up.Username)
+            .HasDatabaseName("ix_user_profiles_username");
     }
 }

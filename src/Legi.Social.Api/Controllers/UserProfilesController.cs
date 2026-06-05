@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
 using Legi.Social.Application.Profiles.Queries.GetUserProfile;
+using Legi.Social.Application.Profiles.Queries.SearchUsers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Legi.Social.Api.Controllers;
@@ -16,15 +17,39 @@ public class UserProfilesController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpGet("{userId:guid}")]
-    public async Task<IActionResult> GetUserProfile(Guid userId)
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers(
+        [FromQuery] string usernamePrefix,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
     {
-        Guid? viewerUserId = User.Identity?.IsAuthenticated == true
-            ? Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value)
-            : null;
+        var viewerUserId = GetViewerUserIdOrNull();
+
+        var query = new SearchUsersQuery(usernamePrefix, viewerUserId, limit);
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("{userId:guid}")]
+    public async Task<IActionResult> GetUserProfile(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var viewerUserId = GetViewerUserIdOrNull();
 
         var query = new GetUserProfileQuery(userId, viewerUserId);
-        var result = await _mediator.Send(query);
+        var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
+    }
+
+    private Guid? GetViewerUserIdOrNull()
+    {
+        if (User.Identity?.IsAuthenticated != true)
+            return null;
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                          ?? User.FindFirst("sub")?.Value;
+
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 }
