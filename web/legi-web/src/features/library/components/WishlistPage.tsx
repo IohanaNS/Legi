@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { BookCard } from "../../../components/ui/BookCard";
 import { Button } from "../../../components/ui/Button";
+import { BookGridItem } from "./BookGridItem";
 import { useWishlist } from "../hooks/useWishlist";
 
 export default function WishlistPage() {
@@ -28,12 +28,7 @@ export default function WishlistPage() {
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {books.map((userBook) => (
-              <BookCard
-                key={userBook.userBookId}
-                title={userBook.book.title}
-                author={userBook.book.authorDisplay}
-                coverUrl={userBook.book.coverUrl ?? undefined}
-              />
+              <BookGridItem key={userBook.userBookId} userBook={userBook} editable />
             ))}
           </div>
 

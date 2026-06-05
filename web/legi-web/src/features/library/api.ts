@@ -26,9 +26,24 @@ export interface CreateReadingPostBody {
   progressType?: ProgressType;
 }
 
+export interface UpdateUserBookBody {
+  status?: BackendReadingStatus;
+  wishlist?: boolean;
+  progressValue?: number;
+  progressType?: ProgressType;
+}
+
 const PROGRESS_TYPE_WIRE: Record<ProgressType, number> = {
   Page: 0,
   Percentage: 1,
+};
+
+const READING_STATUS_WIRE: Record<BackendReadingStatus, number> = {
+  NotStarted: 0,
+  Reading: 1,
+  Finished: 2,
+  Abandoned: 3,
+  Paused: 4,
 };
 
 export const libraryApi = {
@@ -48,4 +63,18 @@ export const libraryApi = {
     http
       .post<AddBookToLibraryResponse>("/library", { bookId, wishlist })
       .then((r) => r.data),
+  updateUserBook: (userBookId: string, body: UpdateUserBookBody) =>
+    http.patch(`/library/${userBookId}`, {
+      status: body.status !== undefined ? READING_STATUS_WIRE[body.status] : undefined,
+      wishlist: body.wishlist,
+      progressValue: body.progressValue,
+      progressType:
+        body.progressType !== undefined ? PROGRESS_TYPE_WIRE[body.progressType] : undefined,
+    }),
+  rateUserBook: (userBookId: string, stars: number) =>
+    http.put(`/library/${userBookId}/rating`, { stars }),
+  removeUserBookRating: (userBookId: string) =>
+    http.delete(`/library/${userBookId}/rating`),
+  removeBookFromLibrary: (userBookId: string) =>
+    http.delete(`/library/${userBookId}`),
 };

@@ -160,6 +160,21 @@
         "errorLoading": "Não foi possível carregar",
         "loadMore": "Carregar mais"
     },
+    "libraryActions": {
+        "openMenu": "Ações do livro",
+        "changeStatus": "Mudar status",
+        "rate": "Avaliar",
+        "saveRating": "Salvar avaliação",
+        "removeRating": "Remover avaliação",
+        "removeFromLibrary": "Remover da biblioteca",
+        "confirmRemove": "Remover '{{title}}' da sua biblioteca?",
+        "markAsFinished": "Marcar como lido",
+        "noRating": "Sem avaliação",
+        "ratingValue": "{{rating}} estrelas",
+        "statusError": "Não foi possível atualizar o status. Tente novamente.",
+        "ratingError": "Não foi possível salvar a avaliação. Tente novamente.",
+        "removeError": "Não foi possível remover este livro. Tente novamente."
+    },
     "auth": {
         "loginTitle": "Entrar",
         "registerTitle": "Criar conta",

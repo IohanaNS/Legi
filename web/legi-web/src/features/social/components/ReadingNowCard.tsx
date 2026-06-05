@@ -5,13 +5,16 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { UpdateProgressModal } from "./UpdateProgressModal";
+import { useUpdateBookStatus } from "../../library/hooks/useBookLifecycle";
 import { useReadingNow } from "../../library/hooks/useReadingNow";
 import { progressPercent } from "../../library/lib/mappers";
 
 export function ReadingNowCard() {
   const { t } = useTranslation();
   const { data: userBook, isLoading } = useReadingNow();
+  const updateStatus = useUpdateBookStatus();
   const [showModal, setShowModal] = useState(false);
+  const [markFinishedError, setMarkFinishedError] = useState(false);
 
   // Hide entirely while loading or when the user has nothing in progress.
   if (isLoading || !userBook) return null;
@@ -53,9 +56,30 @@ export function ReadingNowCard() {
                 </div>
               )}
 
-              <Button variant="primary" size="sm" className="mt-3" onClick={() => setShowModal(true)}>
-                {t("feed.updateProgress")}
-              </Button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="primary" size="sm" onClick={() => setShowModal(true)}>
+                  {t("feed.updateProgress")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={updateStatus.isPending}
+                  onClick={() => {
+                    setMarkFinishedError(false);
+                    updateStatus.mutate(
+                      { userBookId: userBook.userBookId, status: "Finished" },
+                      {
+                        onError: () => setMarkFinishedError(true),
+                      },
+                    );
+                  }}
+                >
+                  {t("libraryActions.markAsFinished")}
+                </Button>
+              </div>
+              {markFinishedError && (
+                <p className="mt-2 text-xs text-red-600">{t("libraryActions.statusError")}</p>
+              )}
             </div>
           </div>
         </div>

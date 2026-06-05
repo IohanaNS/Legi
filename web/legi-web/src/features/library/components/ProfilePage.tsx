@@ -89,7 +89,7 @@ export default function ProfilePage() {
           <>
             <div className={viewMode === "grid" ? "grid grid-cols-4 gap-4" : "space-y-3"}>
               {books.map((ub) => (
-                <BookGridItem key={ub.userBookId} userBook={ub} />
+                <BookGridItem key={ub.userBookId} userBook={ub} editable />
               ))}
             </div>
             {booksQuery.hasNextPage && (

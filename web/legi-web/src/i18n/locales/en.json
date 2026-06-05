@@ -160,6 +160,21 @@
         "errorLoading": "Couldn't load",
         "loadMore": "Load more"
     },
+    "libraryActions": {
+        "openMenu": "Book actions",
+        "changeStatus": "Change status",
+        "rate": "Rate",
+        "saveRating": "Save rating",
+        "removeRating": "Remove rating",
+        "removeFromLibrary": "Remove from library",
+        "confirmRemove": "Remove '{{title}}' from your library?",
+        "markAsFinished": "Mark as read",
+        "noRating": "No rating",
+        "ratingValue": "{{rating}} stars",
+        "statusError": "Couldn't update status. Please try again.",
+        "ratingError": "Couldn't save rating. Please try again.",
+        "removeError": "Couldn't remove this book. Please try again."
+    },
     "auth": {
         "loginTitle": "Sign in",
         "registerTitle": "Create account",
