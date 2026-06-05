@@ -1,21 +1,10 @@
-import {
-  createContext, useContext, useEffect, useState, type ReactNode,
-} from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "./api";
 import { authStorage, type StoredUser } from "../../services/authStorage";
 import { setOnUnauthorized } from "../../services/http";
+import { AuthContext, type AuthContextValue } from "./authContext";
 import type { AuthResponse, LoginRequest, RegisterRequest } from "./types";
-
-interface AuthContextValue {
-  user: StoredUser | null;
-  isAuthenticated: boolean;
-  login: (body: LoginRequest) => Promise<void>;
-  register: (body: RegisterRequest) => Promise<void>;
-  logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 function persist(res: AuthResponse): StoredUser {
   const user: StoredUser = { userId: res.userId, email: res.email, username: res.username };
@@ -57,10 +46,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = { user, isAuthenticated: !!user, login, register, logout };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
 }

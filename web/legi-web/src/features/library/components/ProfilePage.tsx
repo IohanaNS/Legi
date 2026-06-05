@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/useAuth";
 import { useUserProfile } from "../../social/hooks/useUserProfile";
 import { useLibraryCounts } from "../hooks/useLibraryCounts";
 import { useLibraryBooks } from "../hooks/useLibraryBooks";

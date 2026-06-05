@@ -25,10 +25,12 @@ export function BookCard({
   className,
   onClick,
 }: BookCardProps) {
+  const interactive = !!onClick;
+
   if (variant === "horizontal") {
     return (
       <div
-        className={cn("flex gap-3 cursor-pointer group", className)}
+        className={cn("flex gap-3 group", interactive && "cursor-pointer", className)}
         onClick={onClick}
       >
         <div className="w-16 h-22 bg-stone-200 rounded-lg flex-shrink-0 overflow-hidden">
@@ -37,7 +39,12 @@ export function BookCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-stone-800 truncate group-hover:text-green-700 transition-colors">
+          <p
+            className={cn(
+              "text-sm font-medium text-stone-800 truncate",
+              interactive && "group-hover:text-green-700 transition-colors",
+            )}
+          >
             {title}
           </p>
           <p className="text-xs text-stone-500">{author}</p>
@@ -49,7 +56,7 @@ export function BookCard({
 
   return (
     <div
-      className={cn("cursor-pointer group", className)}
+      className={cn("group", interactive && "cursor-pointer", className)}
       onClick={onClick}
     >
       <div className="aspect-[2/3] bg-stone-200 rounded-lg overflow-hidden mb-2">
@@ -57,7 +64,12 @@ export function BookCard({
           <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
         )}
       </div>
-      <h3 className="text-sm font-medium text-stone-800 truncate group-hover:text-green-700 transition-colors">
+      <h3
+        className={cn(
+          "text-sm font-medium text-stone-800 truncate",
+          interactive && "group-hover:text-green-700 transition-colors",
+        )}
+      >
         {title}
       </h3>
       <p className="text-xs text-stone-500">{author}</p>

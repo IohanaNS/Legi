@@ -2,7 +2,7 @@
 import { CurrentlyReading } from "./CurrentlyReading";
 import { FeedPostCard } from "./FeedPostCard";
 import { FeedSidebar } from "./FeedSidebar";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/useAuth";
 import {
   currentlyReading,
   feedPosts,

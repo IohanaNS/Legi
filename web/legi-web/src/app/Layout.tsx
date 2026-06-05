@@ -10,7 +10,7 @@ import {
   Settings,
   LogOut
 } from "lucide-react";
-import { useAuth } from "../features/auth/AuthContext";
+import { useAuth } from "../features/auth/useAuth";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },

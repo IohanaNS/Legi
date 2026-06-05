@@ -5,7 +5,9 @@
         "follow": "Follow",
         "like": "Like",
         "share": "Share",
-        "retry": "Retry"
+        "retry": "Retry",
+        "loadMore": "Load more",
+        "couldNotLoad": "Couldn't load"
     },
     "nav": {
         "feed": "Feed",
@@ -60,6 +62,8 @@
     "lists": {
         "title": "My Lists",
         "subtitle": "{{count}} lists created",
+        "count": "{{count}} lists",
+        "empty": "You haven't created any lists yet",
         "newList": "New list",
         "public": "Public",
         "private": "Private",
@@ -67,7 +71,9 @@
     },
     "wishlist": {
         "title": "Wishlist",
-        "subtitle": "{{count}} books in reading queue"
+        "subtitle": "{{count}} books in reading queue",
+        "count": "{{count}} books",
+        "empty": "Your wishlist is empty"
     },
     "profile": {
         "title": "Profile",

@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { isAxiosError } from "axios";
-import { useAuth } from "../AuthContext";
+import { useAuth } from "../useAuth";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 

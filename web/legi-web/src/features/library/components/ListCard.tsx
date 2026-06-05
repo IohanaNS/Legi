@@ -2,17 +2,27 @@ import { useTranslation } from "react-i18next";
 import { Globe, Lock } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
+import { cn } from "../../../lib/utils";
 import type { UserListSummaryDto } from "../types";
 
 interface ListCardProps {
   list: UserListSummaryDto;
+  interactive?: boolean;
+  onClick?: () => void;
 }
 
-export function ListCard({ list }: ListCardProps) {
+export function ListCard({ list, interactive = false, onClick }: ListCardProps) {
   const { t } = useTranslation();
+  const isInteractive = interactive || !!onClick;
 
   return (
-    <Card className="cursor-pointer hover:border-stone-300 transition-colors">
+    <Card
+      className={cn(
+        "transition-colors",
+        isInteractive && "cursor-pointer hover:border-stone-300",
+      )}
+      onClick={isInteractive ? onClick : undefined}
+    >
       <div className="p-4">
         <div className="flex items-center gap-2 mb-1">
           <h3 className="font-semibold text-stone-800 truncate">{list.name}</h3>

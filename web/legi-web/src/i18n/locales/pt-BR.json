@@ -5,7 +5,9 @@
         "follow": "Seguir",
         "like": "Curtir",
         "share": "Compartilhar",
-        "retry": "Tentar novamente"
+        "retry": "Tentar novamente",
+        "loadMore": "Carregar mais",
+        "couldNotLoad": "Não foi possível carregar"
     },
     "nav": {
         "feed": "Mural",
@@ -60,6 +62,8 @@
     "lists": {
         "title": "Minhas Listas",
         "subtitle": "{{count}} listas criadas",
+        "count": "{{count}} listas",
+        "empty": "Você ainda não criou nenhuma lista",
         "newList": "Nova lista",
         "public": "Pública",
         "private": "Privada",
@@ -67,7 +71,9 @@
     },
     "wishlist": {
         "title": "Lista de Desejos",
-        "subtitle": "{{count}} livros na fila de leitura"
+        "subtitle": "{{count}} livros na fila de leitura",
+        "count": "{{count}} livros",
+        "empty": "Sua lista de desejos está vazia"
     },
     "profile": {
         "title": "Perfil",
