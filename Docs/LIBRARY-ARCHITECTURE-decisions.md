@@ -239,13 +239,13 @@ Domain events ficam no `Library.Domain`. Integration events e handlers ficam no 
 
 | Evento | Consumidores | Dados |
 |--------|-------------|-------|
-| `BookAddedToLibraryDomainEvent` | Social (feed) | UserId, BookId, Wishlist |
+| `BookAddedToLibraryDomainEvent` | Social (feed: "X adicionou Y à biblioteca" → `ActivityType.BookAdded`; wishlist add é privado, não gera feed) | UserId, BookId, Wishlist |
 | `BookRemovedFromLibraryDomainEvent` | Social (ocultar feed items), UserList (hard delete dos items) | UserId, BookId, UserBookId |
-| `ReadingStatusChangedDomainEvent` | Social (feed: "X começou a ler Y") | UserId, BookId, OldStatus, NewStatus |
+| `ReadingStatusChangedDomainEvent` | Social (feed: só transição para `Finished` → `ActivityType.BookFinished`; demais status são no-op no feed) | UserId, BookId, OldStatus, NewStatus |
 | `UserBookRatedDomainEvent` | Catalog (recalcular média), Social (feed) | UserId, BookId, RatingValue, PreviousRatingValue |
 | `UserBookRatingRemovedDomainEvent` | Catalog (recalcular média) | UserId, BookId, PreviousRatingValue |
 
-**Nota:** `ReadingStatusChangedDomainEvent` carrega OldStatus e NewStatus para que o Social possa diferenciar transições (ex: "começou a ler" é mais relevante no feed que "pausou").
+**Nota:** `ReadingStatusChangedDomainEvent` carrega OldStatus e NewStatus para que o Social possa diferenciar transições. Hoje só a transição para `Finished` é feed-worthy (`BookFinished`); as demais (Reading, Paused, Abandoned) são no-op. Adicionar um livro à biblioteca gera `ActivityType.BookAdded` ("adicionou à biblioteca") — **não** "começou a ler". `ActivityType.BookStarted` fica reservado para um futuro evento explícito de início de leitura (sem produtor hoje).
 
 ### 6.2 ReadingPost (2 eventos)
 

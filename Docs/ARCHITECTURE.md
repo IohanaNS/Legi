@@ -1111,7 +1111,7 @@ FeedItem (Read Model — desnormalizado para feed)
 ├── ActorUsername: string
 ├── ActorAvatarUrl: string?
 ├── ActivityType: ActivityType
-├── TargetType: InteractableType? (null se não é interagível, ex: BookStarted)
+├── TargetType: InteractableType? (null se não é interagível, ex: BookAdded)
 ├── ReferenceId: Guid (id do post, review, lista, etc)
 ├── BookTitle: string?
 ├── BookAuthor: string?
@@ -1123,7 +1123,7 @@ FeedItem (Read Model — desnormalizado para feed)
 **Enums:**
 ```csharp
 enum InteractableType { Post, Review, List }
-enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, ReviewCreated, ListCreated }
+enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRated, ReviewCreated, ListCreated }
 ```
 
 **Regras:**
@@ -1137,6 +1137,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookRated, Review
 - Like e Comment usam `TargetType + TargetId` polimórfico — modelo unificado para Post, Review e List
 - **Listas são não-interagíveis no v1 (decisão Fase 4, Opção A — ver MESSAGING-ARCHITECTURE-decisions.md §6.5 e bloco 4E):** curtir/comentar exige um `ContentSnapshot` do alvo, e o snapshot de lista só seria criado pelo handler de `UserListCreated`, dropado por YAGNI (criar lista vazia não é fato social relevante). Sem snapshot, nenhuma lista pode ser curtida/comentada. Na prática `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"`. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos/colunas mantidos, prontos para reativação) e `SearchPublicAsync` ordena por `BooksCount`/`CreatedAt` (não por likes, que seriam sempre 0). Reativar = handler snapshot-only para `UserListCreated` (cria `ContentSnapshot(List)` sem `FeedItem`) — Opção B, fora do escopo do v1. Review segue o mesmo princípio até existir seu pipeline.
 - Feed: fan-out on read (query com join em follows), não fan-out on write
+- `BookAdded` ≠ `BookStarted`: adicionar um livro à biblioteca (não-wishlist) gera `ActivityType.BookAdded` ("adicionou à biblioteca"), **não** "começou a ler". `BookStarted` fica reservado para um futuro evento de início de leitura (hoje sem produtor — uma mudança de status para `Reading` é no-op no feed; só `Finished` vira `BookFinished`). Ambos são não-interagíveis (`TargetType = null`). `ActivityType` é persistido como string, então novos valores não exigem migração.
 - LikesCount/CommentsCount no feed são query em tempo real (mesmo banco), não desnormalizados na Activity
 
 **Domain Events (6 — princípio YAGNI, apenas com consumidores identificados):**
