@@ -3,7 +3,13 @@ import { libraryApi } from "../api";
 import { libraryKeys } from "../queryKeys";
 import type { BackendReadingStatus, PaginatedList, UserBookDto } from "../types";
 
-const STATUSES: BackendReadingStatus[] = ["Reading", "Finished", "Paused", "Abandoned"];
+const STATUSES: BackendReadingStatus[] = [
+  "Reading",
+  "Finished",
+  "Paused",
+  "Abandoned",
+  "NotStarted",
+];
 
 export function useLibraryCounts() {
   const results = useQueries({

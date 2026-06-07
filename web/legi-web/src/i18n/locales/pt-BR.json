@@ -110,6 +110,7 @@
         "progressPosted": "atualizou o progresso em",
         "bookFinished": "terminou",
         "bookStarted": "começou a ler",
+        "bookAdded": "adicionou à biblioteca",
         "bookRated": "avaliou",
         "reviewCreated": "resenhou",
         "listCreated": "criou uma lista"
@@ -188,6 +189,7 @@
             "finished": "Lidos",
             "paused": "Pausados",
             "abandoned": "Abandonados",
+            "not_started": "Não iniciados",
             "lists": "Listas"
         },
         "status": {

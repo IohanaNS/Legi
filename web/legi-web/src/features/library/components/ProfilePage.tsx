@@ -43,6 +43,11 @@ export default function ProfilePage() {
     { key: "finished" as const, labelKey: "profile.tabs.finished", count: counts.Finished ?? 0 },
     { key: "paused" as const, labelKey: "profile.tabs.paused", count: counts.Paused ?? 0 },
     { key: "abandoned" as const, labelKey: "profile.tabs.abandoned", count: counts.Abandoned ?? 0 },
+    {
+      key: "not_started" as const,
+      labelKey: "profile.tabs.not_started",
+      count: counts.NotStarted ?? 0,
+    },
     { key: "lists" as const, labelKey: "profile.tabs.lists", count: listsQuery.data?.length ?? 0 },
   ];
 

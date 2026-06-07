@@ -5,6 +5,7 @@ public enum ActivityType
     ProgressPosted,
     BookFinished,
     BookStarted,
+    BookAdded,
     BookRated,
     ReviewCreated,
     ListCreated

@@ -10,13 +10,15 @@ namespace Legi.Social.Application.Feed.IntegrationEventHandlers;
 /// <summary>
 /// Projects a Library "book added to library" event into the feed.
 ///
-/// A real add (Wishlist == false) becomes a <see cref="ActivityType.BookStarted"/>
+/// A real add (Wishlist == false) becomes a <see cref="ActivityType.BookAdded"/>
 /// FeedItem keyed by the actor (fan-out on read — decision 3.12: one FeedItem per
-/// activity, never one per follower). A wishlist add is private and produces no
+/// activity, never one per follower). Adding a book to the library is not the same
+/// as starting to read it (<see cref="ActivityType.BookStarted"/>), which is driven
+/// separately by a reading-status change. A wishlist add is private and produces no
 /// feed activity — the handler no-ops but the dispatcher still commits the inbox
 /// row so the message is acked, not redelivered.
 ///
-/// No ContentSnapshot: a book-started activity is not interactable
+/// No ContentSnapshot: a book-added activity is not interactable
 /// (nothing to like or comment on).
 ///
 /// Resolves actor display data from the local UserProfile and book display data
@@ -55,7 +57,7 @@ public sealed class BookAddedToLibraryIntegrationEventHandler(
             actorId: profile.UserId,
             actorUsername: profile.Username,
             actorAvatarUrl: profile.AvatarUrl,
-            activityType: ActivityType.BookStarted,
+            activityType: ActivityType.BookAdded,
             targetType: null,
             referenceId: integrationEvent.BookId,
             bookTitle: book.Title,
@@ -66,7 +68,7 @@ public sealed class BookAddedToLibraryIntegrationEventHandler(
         await feedItemRepository.StageAddAsync(feedItem, cancellationToken);
 
         logger.LogInformation(
-            "Staged BookStarted FeedItem for user {UserId} book {BookId}",
+            "Staged BookAdded FeedItem for user {UserId} book {BookId}",
             integrationEvent.UserId, integrationEvent.BookId);
     }
 }

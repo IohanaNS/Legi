@@ -46,7 +46,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_RealAdd_StagesBookStartedFeedItem_WithResolvedActorAndBook()
+    public async Task Handle_RealAdd_StagesBookAddedFeedItem_WithResolvedActorAndBook()
     {
         SeedProfileAndBook();
         FeedItem? captured = null;
@@ -61,7 +61,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
 
         _feed.Verify(r => r.StageAddAsync(It.IsAny<FeedItem>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.NotNull(captured);
-        Assert.Equal(ActivityType.BookStarted, captured!.ActivityType);
+        Assert.Equal(ActivityType.BookAdded, captured!.ActivityType);
         Assert.Null(captured.TargetType);
         Assert.Equal(_userId, captured.ActorId);
         Assert.Equal("alice", captured.ActorUsername);

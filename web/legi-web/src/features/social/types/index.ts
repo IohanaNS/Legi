@@ -36,6 +36,7 @@ export type ActivityType =
   | "ProgressPosted"
   | "BookFinished"
   | "BookStarted"
+  | "BookAdded"
   | "BookRated"
   | "ReviewCreated"
   | "ListCreated";
@@ -98,5 +99,6 @@ export type ActivityData =
   | { kind: "BookFinished"; rating?: number; content?: string }
   | { kind: "BookRated"; rating?: number }
   | { kind: "BookStarted"; content?: string }
+  | { kind: "BookAdded" }
   | { kind: "ReviewCreated"; rating?: number; content?: string }
   | { kind: "ListCreated"; name?: string; description?: string };

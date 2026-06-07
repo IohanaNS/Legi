@@ -7,6 +7,7 @@ const TAB_TO_STATUS: Record<StatusTab, BackendReadingStatus> = {
   finished: "Finished",
   paused: "Paused",
   abandoned: "Abandoned",
+  not_started: "NotStarted",
 };
 
 export const tabToStatus = (tab: StatusTab) => TAB_TO_STATUS[tab];

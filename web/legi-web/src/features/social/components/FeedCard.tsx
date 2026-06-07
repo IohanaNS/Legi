@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { QueryKey } from "@tanstack/react-query";
-import { BarChart3, CheckCircle, BookOpen, Star, ListPlus, PenLine } from "lucide-react";
+import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Avatar } from "../../../components/ui/Avatar";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
@@ -20,6 +20,7 @@ const ACTIVITY_ICON: Record<ActivityType, React.ReactNode> = {
   ProgressPosted: <BarChart3 size={14} className="text-green-600" />,
   BookFinished: <CheckCircle size={14} className="text-green-600" />,
   BookStarted: <BookOpen size={14} className="text-green-600" />,
+  BookAdded: <BookPlus size={14} className="text-green-600" />,
   BookRated: <Star size={14} className="text-green-600" />,
   ReviewCreated: <PenLine size={14} className="text-green-600" />,
   ListCreated: <ListPlus size={14} className="text-green-600" />,
@@ -29,6 +30,7 @@ const ACTIVITY_I18N: Record<ActivityType, string> = {
   ProgressPosted: "activity.progressPosted",
   BookFinished: "activity.bookFinished",
   BookStarted: "activity.bookStarted",
+  BookAdded: "activity.bookAdded",
   BookRated: "activity.bookRated",
   ReviewCreated: "activity.reviewCreated",
   ListCreated: "activity.listCreated",
