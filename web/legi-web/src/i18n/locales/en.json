@@ -21,8 +21,11 @@
         "greeting": "Hi, {{username}} 👋",
         "subtitle": "See what your friends are reading",
         "readingNow": "Reading now",
+        "changeBook": "Change book",
+        "shareImpression": "Share your impression of the reading...",
         "progress": "Progress",
         "pageN": "page {{page}}",
+        "pagesOf": "{{read}} of {{total}} pages",
         "updateProgress": "Update progress",
         "empty": "You're not following anyone yet",
         "emptyHint": "Find people to follow and your feed will fill up.",
@@ -57,17 +60,20 @@
             "months": "{{count}}mo",
             "years": "{{count}}y"
         },
-        "updateProgressModal": {
-            "title": "Update progress",
-            "value": "Value",
-            "type": "Type",
+        "progressUnit": {
             "page": "Pages",
-            "percentage": "Percentage",
-            "note": "Note (optional)",
-            "notePlaceholder": "How's the reading going?",
-            "cancel": "Cancel",
-            "save": "Save",
-            "error": "Couldn't update progress. Please try again."
+            "percentage": "Percentage"
+        },
+        "progressError": "Couldn't update progress. Please try again.",
+        "changeBookModal": {
+            "title": "Search another book",
+            "placeholder": "Type the title or author...",
+            "current": "Current",
+            "pagesCount": "{{count}} pages",
+            "loading": "Searching...",
+            "empty": "No books in progress",
+            "noResults": "No books found",
+            "error": "Couldn't load books"
         }
     },
     "activity": {
@@ -143,6 +149,7 @@
             "following": "Following"
         },
         "tabs": {
+            "activity": "Activity",
             "reading": "Reading",
             "finished": "Read",
             "paused": "Paused",

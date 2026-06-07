@@ -1,13 +1,15 @@
 import type { BackendReadingStatus, ProfileTab, ProgressType } from "../types";
 
-const TAB_TO_STATUS: Record<Exclude<ProfileTab, "lists">, BackendReadingStatus> = {
+type StatusTab = Exclude<ProfileTab, "lists" | "activity">;
+
+const TAB_TO_STATUS: Record<StatusTab, BackendReadingStatus> = {
   reading: "Reading",
   finished: "Finished",
   paused: "Paused",
   abandoned: "Abandoned",
 };
 
-export const tabToStatus = (tab: Exclude<ProfileTab, "lists">) => TAB_TO_STATUS[tab];
+export const tabToStatus = (tab: StatusTab) => TAB_TO_STATUS[tab];
 
 // Backend PascalCase status -> i18n key under `profile.status.*`.
 const STATUS_I18N_KEY: Record<BackendReadingStatus, string> = {

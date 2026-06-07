@@ -54,23 +54,23 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             <p className="text-sm">
               <Link
                 to={`/users/${item.actorId}`}
-                className="font-semibold text-stone-800 hover:text-green-700 transition-colors"
+                className="font-semibold text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
               >
                 @{item.actorUsername}
               </Link>{" "}
-              <span className="inline-flex items-center gap-1 text-stone-500">
+              <span className="inline-flex items-center gap-1 text-stone-500 dark:text-stone-400">
                 {ACTIVITY_ICON[item.activityType]}
                 {t(ACTIVITY_I18N[item.activityType])}
               </span>{" "}
               {data.kind === "ListCreated" ? (
-                <span className="font-semibold text-stone-800">{data.name}</span>
+                <span className="font-semibold text-stone-800 dark:text-stone-100">{data.name}</span>
               ) : (
                 item.bookTitle && (
-                  <span className="font-semibold text-stone-800">{item.bookTitle}</span>
+                  <span className="font-semibold text-stone-800 dark:text-stone-100">{item.bookTitle}</span>
                 )
               )}
             </p>
-            <p className="text-xs text-stone-400">{relativeTime(item.createdAt, t)}</p>
+            <p className="text-xs text-stone-400 dark:text-stone-500">{relativeTime(item.createdAt, t)}</p>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
 
           <div className="flex-1 min-w-0">
             {item.bookAuthor && (
-              <p className="text-xs text-stone-500 mb-1">{item.bookAuthor}</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">{item.bookAuthor}</p>
             )}
 
             {data.kind === "ProgressPosted" && <ProgressBody data={data} />}
@@ -107,11 +107,11 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             )}
 
             {data.kind === "ListCreated" && data.description && (
-              <p className="text-sm text-stone-600">{data.description}</p>
+              <p className="text-sm text-stone-600 dark:text-stone-300">{data.description}</p>
             )}
 
             {"content" in data && data.content && (
-              <p className="text-sm text-stone-600 leading-relaxed mt-1">"{data.content}"</p>
+              <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed mt-1">"{data.content}"</p>
             )}
           </div>
         </div>
@@ -135,8 +135,8 @@ function ProgressBody({
     return (
       <div className="mb-1">
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-stone-600">{t("feed.progress")}</span>
-          <span className="font-medium text-stone-800">{percent}%</span>
+          <span className="text-stone-600 dark:text-stone-300">{t("feed.progress")}</span>
+          <span className="font-medium text-stone-800 dark:text-stone-100">{percent}%</span>
         </div>
         <ProgressBar value={percent} />
       </div>
@@ -146,7 +146,7 @@ function ProgressBody({
   // Page progress: no pageCount in the feed payload, degrade to "page N".
   if (data.progressType === "Page" && data.progress != null) {
     return (
-      <p className="text-sm text-stone-600 mb-1">{t("feed.pageN", { page: data.progress })}</p>
+      <p className="text-sm text-stone-600 dark:text-stone-300 mb-1">{t("feed.pageN", { page: data.progress })}</p>
     );
   }
 

@@ -21,8 +21,11 @@
         "greeting": "Olá, {{username}} 👋",
         "subtitle": "Veja o que seus amigos estão lendo",
         "readingNow": "Lendo agora",
+        "changeBook": "Trocar livro",
+        "shareImpression": "Compartilhe sua impressão sobre a leitura...",
         "progress": "Progresso",
         "pageN": "página {{page}}",
+        "pagesOf": "{{read}} de {{total}} páginas",
         "updateProgress": "Atualizar progresso",
         "empty": "Você ainda não segue ninguém",
         "emptyHint": "Encontre pessoas para seguir e seu mural vai se encher.",
@@ -57,17 +60,20 @@
             "months": "{{count}}mês",
             "years": "{{count}}a"
         },
-        "updateProgressModal": {
-            "title": "Atualizar progresso",
-            "value": "Valor",
-            "type": "Tipo",
+        "progressUnit": {
             "page": "Páginas",
-            "percentage": "Porcentagem",
-            "note": "Nota (opcional)",
-            "notePlaceholder": "Como está a leitura?",
-            "cancel": "Cancelar",
-            "save": "Salvar",
-            "error": "Não foi possível atualizar o progresso. Tente novamente."
+            "percentage": "Porcentagem"
+        },
+        "progressError": "Não foi possível atualizar o progresso. Tente novamente.",
+        "changeBookModal": {
+            "title": "Buscar outro livro",
+            "placeholder": "Digite o título ou autor...",
+            "current": "Atual",
+            "pagesCount": "{{count}} páginas",
+            "loading": "Buscando...",
+            "empty": "Nenhum livro em andamento",
+            "noResults": "Nenhum livro encontrado",
+            "error": "Não foi possível carregar os livros"
         }
     },
     "activity": {
@@ -143,6 +149,7 @@
             "following": "Seguindo"
         },
         "tabs": {
+            "activity": "Atividade",
             "reading": "Lendo",
             "finished": "Lidos",
             "paused": "Pausados",

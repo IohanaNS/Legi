@@ -12,12 +12,14 @@ public class FeedItemReadRepository(SocialDbContext context) : IFeedItemReadRepo
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        // Feed = activities from people the viewer follows
+        // Feed = the viewer's own activity + activities from people they follow.
         var query = context.FeedItems
             .AsNoTracking()
-            .Where(fi => context.Follows.Any(f =>
-                f.FollowerId == viewerUserId &&
-                f.FollowingId == fi.ActorId));
+            .Where(fi =>
+                fi.ActorId == viewerUserId ||
+                context.Follows.Any(f =>
+                    f.FollowerId == viewerUserId &&
+                    f.FollowingId == fi.ActorId));
 
         var totalCount = await query.CountAsync(cancellationToken);
 

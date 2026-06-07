@@ -57,5 +57,5 @@ export interface UserListSummaryDto {
 }
 
 // UI tab keys (i18n)
-export type ProfileTab = "reading" | "finished" | "paused" | "abandoned" | "lists";
+export type ProfileTab = "activity" | "reading" | "finished" | "paused" | "abandoned" | "lists";
 export type ViewMode = "grid" | "list";

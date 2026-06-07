@@ -22,10 +22,10 @@ export default function FeedPage() {
       {/* Main column */}
       <div className="flex-1 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">
+          <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">
             {t("feed.greeting", { username: user?.username ?? "" })}
           </h1>
-          <p className="mt-1 text-stone-500">{t("feed.subtitle")}</p>
+          <p className="mt-1 text-stone-500 dark:text-stone-400">{t("feed.subtitle")}</p>
         </div>
 
         <ReadingNowCard />
@@ -70,9 +70,9 @@ function FeedEmptyState() {
   return (
     <Card>
       <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-        <UserSearch size={28} className="text-stone-300" />
-        <p className="text-sm font-medium text-stone-600">{t("feed.empty")}</p>
-        <p className="text-xs text-stone-400">{t("feed.emptyHint")}</p>
+        <UserSearch size={28} className="text-stone-300 dark:text-stone-600" />
+        <p className="text-sm font-medium text-stone-600 dark:text-stone-300">{t("feed.empty")}</p>
+        <p className="text-xs text-stone-400 dark:text-stone-500">{t("feed.emptyHint")}</p>
       </div>
     </Card>
   );
@@ -109,7 +109,7 @@ function ErrorState({ label, onRetry }: { label: string; onRetry: () => void }) 
   const { t } = useTranslation();
   return (
     <div className="py-10 text-center">
-      <p className="mb-3 text-sm text-stone-500">{label}</p>
+      <p className="mb-3 text-sm text-stone-500 dark:text-stone-400">{label}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         {t("common.retry")}
       </Button>

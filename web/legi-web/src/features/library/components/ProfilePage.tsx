@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../auth/useAuth";
 import { useUserProfile } from "../../social/hooks/useUserProfile";
+import { useUserActivity } from "../../social/hooks/useFeed";
+import { feedKeys } from "../../social/queryKeys";
+import { FeedCard } from "../../social/components/FeedCard";
 import { useLibraryCounts } from "../hooks/useLibraryCounts";
 import { useLibraryBooks } from "../hooks/useLibraryBooks";
 import { useLists } from "../hooks/useLists";
@@ -23,12 +26,19 @@ export default function ProfilePage() {
   const profileQuery = useUserProfile(user?.userId);
   const { counts } = useLibraryCounts();
   const listsQuery = useLists();
+  const activity = useUserActivity(user?.userId);
 
-  // useLibraryBooks must run unconditionally; gate the fetch off the "lists" tab.
-  const booksStatus = activeTab === "lists" ? "Reading" : tabToStatus(activeTab);
-  const booksQuery = useLibraryBooks(booksStatus, activeTab !== "lists");
+  // useLibraryBooks must run unconditionally; gate the fetch to the status tabs only.
+  const isBooksTab = activeTab !== "lists" && activeTab !== "activity";
+  const booksStatus = isBooksTab ? tabToStatus(activeTab) : "Reading";
+  const booksQuery = useLibraryBooks(booksStatus, isBooksTab);
 
   const tabs = [
+    {
+      key: "activity" as const,
+      labelKey: "profile.tabs.activity",
+      count: activity.data?.pages[0]?.totalItems ?? 0,
+    },
     { key: "reading" as const, labelKey: "profile.tabs.reading", count: counts.Reading ?? 0 },
     { key: "finished" as const, labelKey: "profile.tabs.finished", count: counts.Finished ?? 0 },
     { key: "paused" as const, labelKey: "profile.tabs.paused", count: counts.Paused ?? 0 },
@@ -37,6 +47,8 @@ export default function ProfilePage() {
   ];
 
   const books = booksQuery.data?.pages.flatMap((p) => p.items) ?? [];
+  const activityItems = activity.data?.pages.flatMap((p) => p.items) ?? [];
+  const activityKey = feedKeys.activity(user?.userId ?? "");
 
   return (
     <div>
@@ -65,7 +77,32 @@ export default function ProfilePage() {
       />
 
       <div className="mt-4">
-        {activeTab === "lists" ? (
+        {activeTab === "activity" ? (
+          activity.isLoading ? (
+            <ContentSkeleton />
+          ) : activity.isError ? (
+            <ErrorState label={t("profile.errorLoading")} onRetry={() => activity.refetch()} />
+          ) : activityItems.length === 0 ? (
+            <EmptyState label={t("feed.activityEmpty")} />
+          ) : (
+            <div className="space-y-4">
+              {activityItems.map((item) => (
+                <FeedCard key={item.id} item={item} listKey={activityKey} />
+              ))}
+              {activity.hasNextPage && (
+                <div className="flex justify-center mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => activity.fetchNextPage()}
+                    disabled={activity.isFetchingNextPage}
+                  >
+                    {t("profile.loadMore")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
+        ) : activeTab === "lists" ? (
           listsQuery.isLoading ? (
             <ContentSkeleton />
           ) : listsQuery.isError ? (

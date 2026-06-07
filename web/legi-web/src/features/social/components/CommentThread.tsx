@@ -30,7 +30,7 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-stone-100 space-y-3">
+    <div className="mt-3 pt-3 border-t border-stone-100 dark:border-dark-raised space-y-3">
       {/* Add comment */}
       <form onSubmit={handleSubmit} className="flex items-start gap-2">
         <input
@@ -38,7 +38,7 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
           onChange={(e) => setContent(e.target.value)}
           maxLength={500}
           placeholder={t("feed.addComment")}
-          className="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+          className="flex-1 rounded-lg border border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-raised text-stone-800 dark:text-stone-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
         />
         <Button type="submit" size="sm" disabled={!content.trim() || addComment.isPending}>
           {t("feed.send")}
@@ -47,17 +47,17 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
 
       {/* List */}
       {query.isLoading ? (
-        <p className="text-xs text-stone-400">{t("feed.loadingComments")}</p>
+        <p className="text-xs text-stone-400 dark:text-stone-500">{t("feed.loadingComments")}</p>
       ) : query.isError ? (
         <button
           type="button"
           onClick={() => query.refetch()}
-          className="text-xs text-stone-500 hover:text-stone-700"
+          className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
         >
           {t("common.couldNotLoad")} · {t("common.retry")}
         </button>
       ) : comments.length === 0 ? (
-        <p className="text-xs text-stone-400">{t("feed.noComments")}</p>
+        <p className="text-xs text-stone-400 dark:text-stone-500">{t("feed.noComments")}</p>
       ) : (
         <>
           <ul className="space-y-3">
@@ -92,13 +92,13 @@ function CommentRow({ comment }: { comment: CommentDto }) {
         <p className="text-sm">
           <Link
             to={`/users/${comment.userId}`}
-            className="font-medium text-stone-800 hover:text-green-700 transition-colors"
+            className="font-medium text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
           >
             @{comment.username}
           </Link>{" "}
-          <span className="text-xs text-stone-400">{relativeTime(comment.createdAt, t)}</span>
+          <span className="text-xs text-stone-400 dark:text-stone-500">{relativeTime(comment.createdAt, t)}</span>
         </p>
-        <p className="text-sm text-stone-600 break-words">{comment.content}</p>
+        <p className="text-sm text-stone-600 dark:text-stone-300 break-words">{comment.content}</p>
       </div>
     </li>
   );

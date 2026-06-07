@@ -21,7 +21,7 @@ export function InteractionBar({ item, listKey }: InteractionBarProps) {
 
   return (
     <>
-      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-stone-100">
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-stone-100 dark:border-dark-raised">
         <button
           type="button"
           onClick={() => toggleLike.mutate(item)}
@@ -29,7 +29,7 @@ export function InteractionBar({ item, listKey }: InteractionBarProps) {
           aria-label={t("feed.like")}
           className={cn(
             "flex items-center gap-1.5 text-sm transition-colors",
-            item.isLikedByMe ? "text-red-500" : "text-stone-500 hover:text-red-500",
+            item.isLikedByMe ? "text-red-500" : "text-stone-500 dark:text-stone-400 hover:text-red-500",
           )}
         >
           <Heart size={16} className={item.isLikedByMe ? "fill-red-500" : ""} />
@@ -41,7 +41,7 @@ export function InteractionBar({ item, listKey }: InteractionBarProps) {
           onClick={() => setShowComments((v) => !v)}
           aria-expanded={showComments}
           aria-label={t("feed.comment")}
-          className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
         >
           <MessageCircle size={16} />
           {item.commentsCount}
