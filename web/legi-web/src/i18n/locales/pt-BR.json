@@ -175,6 +175,9 @@
         "ratingError": "Não foi possível salvar a avaliação. Tente novamente.",
         "removeError": "Não foi possível remover este livro. Tente novamente."
     },
+    "theme": {
+        "darkMode": "Modo escuro"
+    },
     "auth": {
         "loginTitle": "Entrar",
         "registerTitle": "Criar conta",

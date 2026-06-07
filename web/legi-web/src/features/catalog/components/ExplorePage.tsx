@@ -41,8 +41,8 @@ export default function ExplorePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-stone-800">{t("explore.title")}</h1>
-        <p className="mt-1 text-stone-500">{t("explore.subtitle")}</p>
+        <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">{t("explore.title")}</h1>
+        <p className="mt-1 text-stone-500 dark:text-stone-400">{t("explore.subtitle")}</p>
       </header>
 
       <SearchBar value={searchInput} onChange={setSearchInput} />
@@ -60,16 +60,16 @@ export default function ExplorePage() {
 
       <section>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-stone-600 dark:text-stone-300">
             {t("explore.booksFound", { count: totalCount })}
           </p>
 
-          <label className="flex items-center gap-2 text-sm text-stone-600">
+          <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
             {t("explore.sortLabel")}
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as SortOption)}
-              className="cursor-pointer rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20"
+              className="cursor-pointer rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card px-3 py-1.5 text-sm text-stone-700 dark:text-stone-200 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20"
             >
               <option value="bestRated">{t("explore.sortBy.bestRated")}</option>
               <option value="mostRecent">{t("explore.sortBy.mostRecent")}</option>
@@ -121,12 +121,12 @@ function BookGridSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {Array.from({ length: 10 }).map((_, index) => (
-        <div key={index} className="animate-pulse rounded-lg border border-stone-200 bg-white p-3">
-          <div className="mb-3 aspect-[2/3] rounded-lg bg-stone-200" />
-          <div className="h-4 w-3/4 rounded bg-stone-200" />
-          <div className="mt-2 h-3 w-1/2 rounded bg-stone-200" />
-          <div className="mt-3 h-8 rounded bg-stone-200" />
-          <div className="mt-2 h-8 rounded bg-stone-200" />
+        <div key={index} className="animate-pulse rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3">
+          <div className="mb-3 aspect-[2/3] rounded-lg bg-stone-200 dark:bg-dark-raised" />
+          <div className="h-4 w-3/4 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="mt-3 h-8 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="mt-2 h-8 rounded bg-stone-200 dark:bg-dark-raised" />
         </div>
       ))}
     </div>
@@ -134,7 +134,7 @@ function BookGridSkeleton() {
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <p className="py-10 text-center text-sm text-stone-400">{label}</p>;
+  return <p className="py-10 text-center text-sm text-stone-400 dark:text-stone-500">{label}</p>;
 }
 
 function ErrorState({ label, onRetry }: { label: string; onRetry: () => void }) {

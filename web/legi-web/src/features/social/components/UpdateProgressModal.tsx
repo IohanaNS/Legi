@@ -46,24 +46,24 @@ export function UpdateProgressModal({ userBook, onClose }: UpdateProgressModalPr
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-lg"
+        className="w-full max-w-md rounded-xl bg-white dark:bg-dark-card p-5 shadow-lg dark:shadow-black/40"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-stone-800">
+          <h2 className="text-lg font-semibold text-stone-800 dark:text-stone-100">
             {t("feed.updateProgressModal.title")}
           </h2>
-          <button type="button" onClick={onClose} className="text-stone-400 hover:text-stone-600">
+          <button type="button" onClick={onClose} className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300">
             <X size={18} />
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-stone-500">{userBook.book.title}</p>
+        <p className="mb-4 text-sm text-stone-500 dark:text-stone-400">{userBook.book.title}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-stone-600">
+              <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">
                 {t("feed.updateProgressModal.value")}
               </label>
               <input
@@ -71,17 +71,17 @@ export function UpdateProgressModal({ userBook, onClose }: UpdateProgressModalPr
                 min={0}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                className="w-full rounded-lg border border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-raised text-stone-800 dark:text-stone-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-stone-600">
+              <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">
                 {t("feed.updateProgressModal.type")}
               </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as ProgressType)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                className="w-full rounded-lg border border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-raised text-stone-800 dark:text-stone-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
               >
                 <option value="Percentage">{t("feed.updateProgressModal.percentage")}</option>
                 <option value="Page">{t("feed.updateProgressModal.page")}</option>

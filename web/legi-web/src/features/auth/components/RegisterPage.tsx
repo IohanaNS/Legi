@@ -28,7 +28,7 @@ export default function RegisterPage() {
     : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-stone-50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">
       <Card className="w-full max-w-sm p-6 space-y-4">
         <h1 className="text-xl font-semibold text-stone-800">{t("auth.registerTitle")}</h1>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>

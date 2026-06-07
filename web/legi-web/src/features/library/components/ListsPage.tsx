@@ -11,8 +11,8 @@ export default function ListsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-stone-800">{t("lists.title")}</h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">{t("lists.title")}</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           {t("lists.count", { count: lists.length })}
         </p>
       </header>
@@ -40,11 +40,11 @@ function ListGridSkeleton() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="h-28 animate-pulse rounded-xl border border-stone-200 bg-white p-4"
+          className="h-28 animate-pulse rounded-xl border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-4"
         >
-          <div className="mb-3 h-4 w-2/3 rounded bg-stone-200" />
-          <div className="h-3 w-full rounded bg-stone-200" />
-          <div className="mt-2 h-3 w-1/3 rounded bg-stone-200" />
+          <div className="mb-3 h-4 w-2/3 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="h-3 w-full rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="mt-2 h-3 w-1/3 rounded bg-stone-200 dark:bg-dark-raised" />
         </div>
       ))}
     </div>

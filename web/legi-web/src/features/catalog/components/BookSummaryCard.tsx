@@ -51,26 +51,26 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
   };
 
   return (
-    <article className="flex h-full flex-col rounded-lg border border-stone-200 bg-white p-3">
-      <div className="mb-3 aspect-[2/3] overflow-hidden rounded-lg bg-stone-200">
+    <article className="flex h-full flex-col rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3">
+      <div className="mb-3 aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised">
         {book.coverUrl ? (
           <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-400">
+          <div className="flex h-full w-full items-center justify-center text-stone-400 dark:text-stone-500">
             <BookOpen size={34} />
           </div>
         )}
       </div>
 
       <div className="flex flex-1 flex-col">
-        <h3 className="line-clamp-2 min-h-10 text-sm font-medium text-stone-800">
+        <h3 className="line-clamp-2 min-h-10 text-sm font-medium text-stone-800 dark:text-stone-100">
           {book.title}
         </h3>
-        <p className="mt-1 truncate text-xs text-stone-500">{authors}</p>
+        <p className="mt-1 truncate text-xs text-stone-500 dark:text-stone-400">{authors}</p>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <StarRating rating={Number(book.averageRating)} size={12} />
-          <span className="text-xs text-stone-500">
+          <span className="text-xs text-stone-500 dark:text-stone-400">
             {t("explore.ratingsCount", { count: book.ratingsCount })}
           </span>
         </div>

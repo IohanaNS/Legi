@@ -175,6 +175,9 @@
         "ratingError": "Couldn't save rating. Please try again.",
         "removeError": "Couldn't remove this book. Please try again."
     },
+    "theme": {
+        "darkMode": "Dark mode"
+    },
     "auth": {
         "loginTitle": "Sign in",
         "registerTitle": "Create account",

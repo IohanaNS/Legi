@@ -9,7 +9,7 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
   return (
     <div>
       {/* Banner */}
-      <div className="h-40 bg-stone-300 rounded-xl overflow-hidden">
+      <div className="h-40 bg-stone-300 dark:bg-dark-raised rounded-xl overflow-hidden">
         {profile.bannerUrl && (
           <img src={profile.bannerUrl} alt="" className="w-full h-full object-cover" />
         )}
@@ -22,17 +22,17 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
             src={profile.avatarUrl ?? undefined}
             fallback={profile.username}
             size="xl"
-            className="ring-4 ring-white"
+            className="ring-4 ring-white dark:ring-dark-bg"
           />
         </div>
 
         <div className="mt-3">
-          <h1 className="text-xl font-bold text-stone-800">@{profile.username}</h1>
+          <h1 className="text-xl font-bold text-stone-800 dark:text-stone-100">@{profile.username}</h1>
         </div>
 
         {/* Bio */}
         {profile.bio && (
-          <p className="mt-3 text-sm text-stone-600 leading-relaxed">{profile.bio}</p>
+          <p className="mt-3 text-sm text-stone-600 dark:text-stone-300 leading-relaxed">{profile.bio}</p>
         )}
       </div>
     </div>

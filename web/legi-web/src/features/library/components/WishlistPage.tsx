@@ -12,8 +12,8 @@ export default function WishlistPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-stone-800">{t("wishlist.title")}</h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">{t("wishlist.title")}</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           {t("wishlist.count", { count: totalCount })}
         </p>
       </header>
@@ -54,9 +54,9 @@ function BookGridSkeleton() {
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {Array.from({ length: 10 }).map((_, index) => (
         <div key={index} className="animate-pulse">
-          <div className="mb-2 aspect-[2/3] rounded-lg bg-stone-200" />
-          <div className="h-4 w-3/4 rounded bg-stone-200" />
-          <div className="mt-1 h-3 w-1/2 rounded bg-stone-200" />
+          <div className="mb-2 aspect-[2/3] rounded-lg bg-stone-200 dark:bg-dark-raised" />
+          <div className="h-4 w-3/4 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="mt-1 h-3 w-1/2 rounded bg-stone-200 dark:bg-dark-raised" />
         </div>
       ))}
     </div>

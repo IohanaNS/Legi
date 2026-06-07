@@ -1,4 +1,5 @@
-﻿import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Newspaper,
@@ -7,10 +8,12 @@ import {
   Gift,
   User,
   Search,
-  Settings,
-  LogOut
+  LogOut,
+  Moon,
+  ChevronUp,
 } from "lucide-react";
 import { useAuth } from "../features/auth/useAuth";
+import { useTheme } from "../hooks/useTheme";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -23,24 +26,36 @@ const navItems = [
 export default function Layout() {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const { isDark, toggle: toggleTheme } = useTheme();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
 
   const toggleLanguage = () => {
-    const newLang = i18n.language === "pt-BR" ? "en" : "pt-BR";
-    i18n.changeLanguage(newLang);
+    i18n.changeLanguage(i18n.language === "pt-BR" ? "en" : "pt-BR");
   };
 
   return (
-    <div className="flex min-h-screen bg-stone-50">
+    <div className="flex min-h-screen bg-parchment dark:bg-dark-bg">
       {/* Sidebar */}
-      <aside className="w-56 bg-white border-r border-stone-200 flex flex-col fixed h-full">
+      <aside className="w-56 bg-forest-950 dark:bg-dark-sidebar flex flex-col fixed h-full">
         {/* Logo */}
         <div className="p-4">
-          <h1 className="text-xl font-bold text-green-800">📖 Legi</h1>
+          <h1 className="text-xl font-bold text-green-300">📖 Legi</h1>
         </div>
 
         {/* Busca */}
         <div className="px-3 mb-2">
-          <div className="flex items-center gap-2 bg-stone-100 rounded-lg px-3 py-2 text-stone-500 text-sm">
+          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 text-green-300 text-sm">
             <Search size={16} />
             <span>{t("common.search")}</span>
           </div>
@@ -55,8 +70,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-green-700 text-white"
-                    : "text-stone-700 hover:bg-stone-100"
+                    ? "bg-green-600 text-white"
+                    : "text-green-200 hover:bg-white/10 hover:text-white"
                 }`
               }
             >
@@ -70,29 +85,86 @@ export default function Layout() {
         <div className="px-3 mb-2">
           <button
             onClick={toggleLanguage}
-            className="w-full text-left px-3 py-2 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+            className="w-full text-left px-3 py-2 text-xs text-green-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
           >
             {i18n.language === "pt-BR" ? "🇺🇸 English" : "🇧🇷 Português"}
           </button>
         </div>
 
         {/* Usuário no rodapé */}
-        <div className="border-t border-stone-200 p-3">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 bg-stone-300 rounded-full flex items-center justify-center text-xs font-semibold text-stone-600 uppercase">
+        <div className="relative p-3 border-t border-white/10" ref={menuRef}>
+          {/* Popover */}
+          {userMenuOpen && (
+            <div className="absolute bottom-full left-2 right-2 mb-1 rounded-xl bg-forest-900 dark:bg-dark-card border border-white/10 shadow-2xl overflow-hidden">
+              {/* User info */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+                <div className="w-10 h-10 bg-green-800 rounded-full flex items-center justify-center text-sm font-semibold text-green-100 uppercase shrink-0">
+                  {user?.username?.charAt(0) ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">
+                    {user?.username ?? ""}
+                  </p>
+                  <p className="text-xs text-green-400 truncate">{user?.email ?? ""}</p>
+                </div>
+              </div>
+
+              {/* Dark mode toggle */}
+              <button
+                onClick={toggleTheme}
+                className="flex w-full items-center justify-between px-4 py-3 text-sm text-green-200 hover:bg-white/10 transition-colors"
+              >
+                <span className="flex items-center gap-3">
+                  <Moon size={16} />
+                  {t("theme.darkMode")}
+                </span>
+                {/* Toggle pill */}
+                <div
+                  className={`relative w-9 h-5 rounded-full transition-colors ${
+                    isDark ? "bg-brand" : "bg-white/20"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                      isDark ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {/* Logout */}
+              <button
+                onClick={() => {
+                  logout();
+                  setUserMenuOpen(false);
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-green-200 hover:bg-white/10 transition-colors border-t border-white/10"
+              >
+                <LogOut size={16} />
+                {t("common.logout")}
+              </button>
+            </div>
+          )}
+
+          {/* Trigger */}
+          <button
+            onClick={() => setUserMenuOpen((o) => !o)}
+            className="flex w-full items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center text-xs font-semibold text-green-100 uppercase shrink-0">
               {user?.username?.charAt(0) ?? "?"}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-800 truncate">@{user?.username ?? ""}</p>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-medium text-green-100 truncate">
+                @{user?.username ?? ""}
+              </p>
             </div>
-            <Settings size={16} className="text-stone-400" />
-          </div>
-          <button
-            onClick={() => logout()}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700"
-          >
-            <LogOut size={14} />
-            {t("common.logout")}
+            <ChevronUp
+              size={14}
+              className={`text-green-500 shrink-0 transition-transform ${
+                userMenuOpen ? "" : "rotate-180"
+              }`}
+            />
           </button>
         </div>
       </aside>

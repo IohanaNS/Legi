@@ -1,7 +1,9 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { authStorage } from "./authStorage";
 
-export const http = axios.create({ baseURL: "/api/v1" });
+// Cap request duration so a stalled backend surfaces an error (and the UI's
+// retry state) instead of leaving the page stuck on loading skeletons forever.
+export const http = axios.create({ baseURL: "/api/v1", timeout: 30_000 });
 
 // Registered by the AuthProvider; called when refresh fails for good.
 let onUnauthorized: (() => void) | null = null;
@@ -22,7 +24,11 @@ async function refreshAccessToken(): Promise<string> {
   if (!refreshToken) throw new Error("No refresh token");
 
   // Raw axios (not `http`) so we don't re-enter this interceptor.
-  const { data } = await axios.post("/api/v1/identity/auth/refresh", { refreshToken });
+  const { data } = await axios.post(
+    "/api/v1/identity/auth/refresh",
+    { refreshToken },
+    { timeout: 30_000 },
+  );
   authStorage.setTokens({ accessToken: data.token, refreshToken: data.refreshToken });
   return data.token;
 }

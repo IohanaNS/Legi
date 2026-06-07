@@ -16,11 +16,11 @@ export function ProfileStats({ booksRead, followers, following }: ProfileStatsPr
   ];
 
   return (
-    <div className="flex gap-6 px-4 py-4 border-b border-stone-200">
+    <div className="flex gap-6 px-4 py-4 border-b border-stone-200 dark:border-dark-raised">
       {stats.map((stat) => (
         <div key={stat.label} className="text-center">
-          <p className="text-lg font-bold text-stone-800">{stat.value}</p>
-          <p className="text-xs text-stone-500">{stat.label}</p>
+          <p className="text-lg font-bold text-stone-800 dark:text-stone-100">{stat.value}</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">{stat.label}</p>
         </div>
       ))}
     </div>

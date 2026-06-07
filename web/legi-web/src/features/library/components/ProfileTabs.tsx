@@ -27,7 +27,7 @@ export function ProfileTabs({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center justify-between border-b border-stone-200">
+    <div className="flex items-center justify-between border-b border-stone-200 dark:border-dark-raised">
       <div className="flex">
         {tabs.map((tab) => (
           <button
@@ -36,8 +36,8 @@ export function ProfileTabs({
             className={cn(
               "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === tab.key
-                ? "border-green-700 text-green-700"
-                : "border-transparent text-stone-500 hover:text-stone-700"
+                ? "border-green-600 text-green-600 dark:text-green-400 dark:border-green-400"
+                : "border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
             )}
           >
             {t(tab.labelKey)}
@@ -45,8 +45,8 @@ export function ProfileTabs({
               className={cn(
                 "text-xs px-1.5 py-0.5 rounded-full",
                 activeTab === tab.key
-                  ? "bg-green-100 text-green-700"
-                  : "bg-stone-100 text-stone-500"
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                  : "bg-stone-100 text-stone-500 dark:bg-dark-raised dark:text-stone-400"
               )}
             >
               {tab.count}
@@ -60,7 +60,7 @@ export function ProfileTabs({
           onClick={() => onViewModeChange("grid")}
           className={cn(
             "p-1.5 rounded transition-colors cursor-pointer",
-            viewMode === "grid" ? "text-stone-800 bg-stone-100" : "text-stone-400 hover:text-stone-600"
+            viewMode === "grid" ? "text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-dark-raised" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
           )}
         >
           <LayoutGrid size={18} />
@@ -69,7 +69,7 @@ export function ProfileTabs({
           onClick={() => onViewModeChange("list")}
           className={cn(
             "p-1.5 rounded transition-colors cursor-pointer",
-            viewMode === "list" ? "text-stone-800 bg-stone-100" : "text-stone-400 hover:text-stone-600"
+            viewMode === "list" ? "text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-dark-raised" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
           )}
         >
           <List size={18} />

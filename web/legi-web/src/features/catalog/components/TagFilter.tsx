@@ -25,7 +25,7 @@ export function TagFilter({
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm text-stone-600">
+      <div className="mb-3 flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
         <Filter size={16} />
         {t("explore.filterByTag")}
       </div>
@@ -33,7 +33,7 @@ export function TagFilter({
       {isLoading ? (
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="h-8 w-20 animate-pulse rounded-full bg-stone-200" />
+            <div key={index} className="h-8 w-20 animate-pulse rounded-full bg-stone-200 dark:bg-dark-raised" />
           ))}
         </div>
       ) : isError ? (
@@ -55,8 +55,8 @@ export function TagFilter({
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm transition-colors",
                   isSelected
-                    ? "border-green-700 bg-green-700 text-white"
-                    : "border-stone-300 bg-white text-stone-600 hover:border-stone-400",
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-card text-stone-600 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500",
                 )}
               >
                 {tag.name}

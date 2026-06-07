@@ -96,16 +96,16 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
           if (!isOpen) setRatingValue(userBook.ratingStars ?? 0);
           setIsOpen(!isOpen);
         }}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-sm ring-1 ring-stone-200 transition-colors hover:bg-white"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-dark-card/90 text-stone-700 dark:text-stone-200 shadow-sm ring-1 ring-stone-200 dark:ring-dark-raised transition-colors hover:bg-white dark:hover:bg-dark-card"
         disabled={isPending}
       >
         {isPending ? <LoaderCircle size={16} className="animate-spin" /> : <MoreHorizontal size={17} />}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-9 z-20 w-64 rounded-lg border border-stone-200 bg-white p-3 shadow-lg">
+        <div className="absolute right-0 top-9 z-20 w-64 rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3 shadow-lg dark:shadow-black/40">
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase text-stone-500">
+            <p className="mb-2 text-xs font-semibold uppercase text-stone-500 dark:text-stone-400">
               {t("libraryActions.changeStatus")}
             </p>
             <div className="space-y-1">
@@ -118,7 +118,7 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
                     type="button"
                     onClick={() => handleStatusChange(status)}
                     disabled={isPending || isCurrent}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50 disabled:cursor-default disabled:text-stone-400"
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-dark-raised disabled:cursor-default disabled:text-stone-400 dark:disabled:text-stone-600"
                   >
                     {t(`profile.status.${statusI18nKey(status)}`)}
                     {isCurrent && <Check size={14} />}
@@ -128,12 +128,12 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
             </div>
           </section>
 
-          <section className="mt-3 border-t border-stone-100 pt-3">
+          <section className="mt-3 border-t border-stone-100 dark:border-dark-raised pt-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase text-stone-500">
+              <p className="text-xs font-semibold uppercase text-stone-500 dark:text-stone-400">
                 {t("libraryActions.rate")}
               </p>
-              <span className="text-xs font-medium text-stone-600">
+              <span className="text-xs font-medium text-stone-600 dark:text-stone-300">
                 {ratingValue === 0
                   ? t("libraryActions.noRating")
                   : t("libraryActions.ratingValue", { rating: ratingValue.toFixed(1) })}
@@ -171,7 +171,7 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
             </Button>
           </section>
 
-          <section className="mt-3 border-t border-stone-100 pt-3">
+          <section className="mt-3 border-t border-stone-100 dark:border-dark-raised pt-3">
             <Button
               type="button"
               size="sm"
