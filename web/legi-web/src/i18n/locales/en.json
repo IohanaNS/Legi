@@ -9,6 +9,36 @@
         "loadMore": "Load more",
         "couldNotLoad": "Couldn't load"
     },
+    "globalSearch": {
+        "title": "Search",
+        "close": "Close search",
+        "inputLabel": "Search books, authors, lists, and users",
+        "placeholder": "Search books, authors, lists, or users...",
+        "hint": "Search for books, authors, lists, or users.",
+        "minChars": "Enter at least 2 characters.",
+        "books": "Books",
+        "authors": "Authors",
+        "lists": "Lists",
+        "users": "Users",
+        "bookResult": "Book",
+        "authorResult": "Author",
+        "authorBooksCount": "{{count}} books",
+        "listFallback": "List without description",
+        "searchingBooks": "Searching books...",
+        "searchingAuthors": "Searching authors...",
+        "searchingLists": "Searching lists...",
+        "searchingUsers": "Searching users...",
+        "booksError": "Couldn't search books",
+        "authorsError": "Couldn't search authors",
+        "listsError": "Couldn't search lists",
+        "usersError": "Couldn't search users",
+        "noBooks": "No books found",
+        "noAuthors": "No authors found",
+        "noLists": "No lists found",
+        "noUsers": "No users found",
+        "usersMinChars": "Users appear after 3 characters.",
+        "usersInvalid": "Use letters, numbers, or underscore for users."
+    },
     "nav": {
         "feed": "Feed",
         "explore": "Explore",
@@ -87,7 +117,8 @@
     "explore": {
         "title": "Explore",
         "subtitle": "Discover your next favorite book",
-        "searchPlaceholder": "Search by title or ISBN",
+        "searchPlaceholder": "Search by title, author, or ISBN",
+        "authorFilter": "Author: {{author}}",
         "filterByTag": "Filter by tag",
         "tagsError": "Couldn't load tags",
         "booksFound": "{{count}} books found",
@@ -131,7 +162,10 @@
         "newList": "New list",
         "public": "Public",
         "private": "Private",
-        "booksCount": "{{count}} books"
+        "booksCount": "{{count}} books",
+        "searchPlaceholder": "Search your lists...",
+        "filteredCount": "{{count}} of {{total}} lists",
+        "emptySearch": "No lists found"
     },
     "wishlist": {
         "title": "Wishlist",

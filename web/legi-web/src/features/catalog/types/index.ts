@@ -14,6 +14,10 @@ export interface TagResult extends TagDto {
   usageCount: number;
 }
 
+export interface AuthorResult extends AuthorDto {
+  booksCount: number;
+}
+
 export interface BookSummaryDto {
   id: string;
   isbn: string;
@@ -41,6 +45,10 @@ export interface SearchBooksResponse {
 
 export interface SearchTagsResponse {
   tags: TagResult[];
+}
+
+export interface SearchAuthorsResponse {
+  authors: AuthorResult[];
 }
 
 export interface SearchBooksParams {

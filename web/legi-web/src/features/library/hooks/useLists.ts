@@ -2,6 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { libraryApi } from "../api";
 import { libraryKeys } from "../queryKeys";
 
-export function useLists() {
-  return useQuery({ queryKey: libraryKeys.lists(), queryFn: libraryApi.getLists });
+interface UseListsOptions {
+  enabled?: boolean;
+}
+
+export function useLists({ enabled = true }: UseListsOptions = {}) {
+  return useQuery({
+    queryKey: libraryKeys.lists(),
+    queryFn: libraryApi.getLists,
+    enabled,
+  });
 }

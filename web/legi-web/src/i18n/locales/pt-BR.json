@@ -9,6 +9,36 @@
         "loadMore": "Carregar mais",
         "couldNotLoad": "Não foi possível carregar"
     },
+    "globalSearch": {
+        "title": "Busca",
+        "close": "Fechar busca",
+        "inputLabel": "Buscar livros, autores, listas e usuários",
+        "placeholder": "Buscar livros, autores, listas ou usuários...",
+        "hint": "Busque por livros, autores, listas ou usuários.",
+        "minChars": "Digite pelo menos 2 caracteres.",
+        "books": "Livros",
+        "authors": "Autores",
+        "lists": "Listas",
+        "users": "Usuários",
+        "bookResult": "Livro",
+        "authorResult": "Autor",
+        "authorBooksCount": "{{count}} livros",
+        "listFallback": "Lista sem descrição",
+        "searchingBooks": "Buscando livros...",
+        "searchingAuthors": "Buscando autores...",
+        "searchingLists": "Buscando listas...",
+        "searchingUsers": "Buscando usuários...",
+        "booksError": "Não foi possível buscar livros",
+        "authorsError": "Não foi possível buscar autores",
+        "listsError": "Não foi possível buscar listas",
+        "usersError": "Não foi possível buscar usuários",
+        "noBooks": "Nenhum livro encontrado",
+        "noAuthors": "Nenhum autor encontrado",
+        "noLists": "Nenhuma lista encontrada",
+        "noUsers": "Nenhum usuário encontrado",
+        "usersMinChars": "Usuários aparecem a partir de 3 caracteres.",
+        "usersInvalid": "Use letras, números ou sublinhado para usuários."
+    },
     "nav": {
         "feed": "Mural",
         "explore": "Explorar",
@@ -87,7 +117,8 @@
     "explore": {
         "title": "Explorar",
         "subtitle": "Descubra seu próximo livro favorito",
-        "searchPlaceholder": "Buscar por título ou ISBN",
+        "searchPlaceholder": "Buscar por título, autor ou ISBN",
+        "authorFilter": "Autor: {{author}}",
         "filterByTag": "Filtrar por tag",
         "tagsError": "Não foi possível carregar as tags",
         "booksFound": "{{count}} livros encontrados",
@@ -131,7 +162,10 @@
         "newList": "Nova lista",
         "public": "Pública",
         "private": "Privada",
-        "booksCount": "{{count}} livros"
+        "booksCount": "{{count}} livros",
+        "searchPlaceholder": "Buscar nas suas listas...",
+        "filteredCount": "{{count}} de {{total}} listas",
+        "emptySearch": "Nenhuma lista encontrada"
     },
     "wishlist": {
         "title": "Lista de Desejos",

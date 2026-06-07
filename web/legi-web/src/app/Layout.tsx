@@ -7,13 +7,13 @@ import {
   List,
   Gift,
   User,
-  Search,
   LogOut,
   Moon,
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "../features/auth/useAuth";
 import { useTheme } from "../hooks/useTheme";
+import { GlobalSearch } from "../features/search/components/GlobalSearch";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -55,10 +55,7 @@ export default function Layout() {
 
         {/* Busca */}
         <div className="px-3 mb-2">
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 text-green-300 text-sm">
-            <Search size={16} />
-            <span>{t("common.search")}</span>
-          </div>
+          <GlobalSearch />
         </div>
 
         {/* Navegação */}

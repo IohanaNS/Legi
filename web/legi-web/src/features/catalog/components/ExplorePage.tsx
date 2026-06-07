@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { BookSummaryCard } from "./BookSummaryCard";
 import { SearchBar } from "./SearchBar";
@@ -10,8 +12,11 @@ import type { SortOption } from "../types";
 
 export default function ExplorePage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [searchInput, setSearchInput] = useState("");
+  const searchInput = searchParams.get("search") ?? "";
+  const authorSlug = searchParams.get("authorSlug") ?? undefined;
+  const authorName = searchParams.get("authorName");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedTagSlug, setSelectedTagSlug] = useState<string | undefined>();
   const [sort, setSort] = useState<SortOption>("mostPopular");
@@ -27,6 +32,7 @@ export default function ExplorePage() {
   const tagsQuery = usePopularTags();
   const booksQuery = useSearchBooks({
     searchTerm: debouncedSearch,
+    authorSlug,
     tagSlug: selectedTagSlug,
     sort,
   });
@@ -38,6 +44,24 @@ export default function ExplorePage() {
     setSelectedTagSlug((current) => (current === tagSlug ? undefined : tagSlug));
   };
 
+  const handleSearchChange = (value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      nextParams.set("search", value);
+    } else {
+      nextParams.delete("search");
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const clearAuthorFilter = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("authorSlug");
+    nextParams.delete("authorName");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   return (
     <div className="space-y-6">
       <header>
@@ -45,7 +69,24 @@ export default function ExplorePage() {
         <p className="mt-1 text-stone-500 dark:text-stone-400">{t("explore.subtitle")}</p>
       </header>
 
-      <SearchBar value={searchInput} onChange={setSearchInput} />
+      <SearchBar value={searchInput} onChange={handleSearchChange} />
+
+      {authorSlug && (
+        <div className="flex">
+          <button
+            type="button"
+            onClick={clearAuthorFilter}
+            className="inline-flex max-w-full items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 transition-colors hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100 dark:hover:bg-amber-900/30"
+          >
+            <span className="truncate">
+              {t("explore.authorFilter", {
+                author: authorName ?? authorSlug,
+              })}
+            </span>
+            <X size={14} className="shrink-0" />
+          </button>
+        </div>
+      )}
 
       <TagFilter
         tags={tagsQuery.data ?? []}
