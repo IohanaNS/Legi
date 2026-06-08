@@ -35,6 +35,29 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         return book;
     }
 
+    public async Task<Book?> FindByTitleAndFirstAuthorAsync(
+        string title,
+        string firstAuthor,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedTitle = title.Trim().ToLowerInvariant();
+        var normalizedAuthorSlug = Author.Create(firstAuthor).Slug;
+
+        var book = await context.Books
+            .Where(b => b.Title.ToLower() == normalizedTitle)
+            .Where(b => context.BookAuthors
+                .Any(ba => ba.BookId == b.Id
+                           && ba.Order == 0
+                           && ba.Author.Slug == normalizedAuthorSlug))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (book == null) return book;
+        await LoadAuthorsIntoDomainAsync(book, cancellationToken);
+        await LoadTagsIntoDomainAsync(book, cancellationToken);
+
+        return book;
+    }
+
     public async Task<bool> ExistsByIsbnAsync(string isbn, CancellationToken cancellationToken = default)
     {
         var normalizedIsbn = isbn.Replace("-", "").Replace(" ", "").Trim().ToUpperInvariant();

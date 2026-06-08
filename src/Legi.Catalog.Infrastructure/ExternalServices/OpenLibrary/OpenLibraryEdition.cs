@@ -95,6 +95,48 @@ internal record OpenLibraryWork
 }
 
 /// <summary>
+/// Maps to: GET https://openlibrary.org/search.json?q={query}
+/// </summary>
+internal record OpenLibrarySearchResponse
+{
+    [JsonPropertyName("docs")]
+    public List<OpenLibrarySearchDoc>? Docs { get; init; }
+}
+
+internal record OpenLibrarySearchDoc
+{
+    [JsonPropertyName("key")]
+    public string? Key { get; init; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; init; }
+
+    [JsonPropertyName("author_name")]
+    public List<string>? AuthorNames { get; init; }
+
+    [JsonPropertyName("isbn")]
+    public List<string>? Isbns { get; init; }
+
+    [JsonPropertyName("cover_i")]
+    public long? CoverId { get; init; }
+
+    [JsonPropertyName("subject")]
+    public List<string>? Subjects { get; init; }
+
+    [JsonPropertyName("publisher")]
+    public List<string>? Publishers { get; init; }
+
+    [JsonPropertyName("number_of_pages_median")]
+    public int? NumberOfPagesMedian { get; init; }
+
+    [JsonPropertyName("language")]
+    public List<string>? Languages { get; init; }
+
+    [JsonPropertyName("first_publish_year")]
+    public int? FirstPublishYear { get; init; }
+}
+
+/// <summary>
 /// Handles Open Library's inconsistent description format.
 /// Sometimes it's a plain string: "A dystopian novel..."
 /// Sometimes it's an object: { "type": "/type/text", "value": "A dystopian novel..." }

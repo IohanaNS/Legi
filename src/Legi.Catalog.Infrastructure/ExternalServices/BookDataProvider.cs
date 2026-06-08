@@ -54,6 +54,32 @@ internal class BookDataProvider : IBookDataProvider
         return null;
     }
 
+    public async Task<IReadOnlyList<ExternalBookCandidate>> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm) || maxResults <= 0)
+        {
+            return [];
+        }
+
+        var results = new List<ExternalBookCandidate>();
+
+        foreach (var client in _orderedClients)
+        {
+            _logger.LogDebug(
+                "Searching {Provider} for external books matching {SearchTerm}",
+                client.ProviderName,
+                searchTerm);
+
+            var providerResults = await client.SearchAsync(searchTerm, maxResults, ct);
+            results.AddRange(providerResults);
+        }
+
+        return results;
+    }
+
     /// <summary>
     /// Determines if the returned data is useful enough to stop the fallback chain.
     /// A result with only covers or publishers but no title/authors isn't worth stopping for.

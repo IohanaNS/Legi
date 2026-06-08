@@ -19,6 +19,9 @@ internal record GoogleBooksSearchResponse
 
 internal record GoogleBooksVolume
 {
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
     [JsonPropertyName("volumeInfo")]
     public GoogleBooksVolumeInfo? VolumeInfo { get; init; }
 }
@@ -67,6 +70,18 @@ internal record GoogleBooksVolumeInfo
 
     [JsonPropertyName("publishedDate")]
     public string? PublishedDate { get; init; }
+
+    [JsonPropertyName("industryIdentifiers")]
+    public List<GoogleBooksIndustryIdentifier>? IndustryIdentifiers { get; init; }
+}
+
+internal record GoogleBooksIndustryIdentifier
+{
+    [JsonPropertyName("type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("identifier")]
+    public string? Identifier { get; init; }
 }
 
 internal record GoogleBooksImageLinks

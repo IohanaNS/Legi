@@ -148,6 +148,8 @@ services:
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            ExternalServices__GoogleBooks__Enabled: ${ExternalServices__GoogleBooks__Enabled:-true}
+            ExternalServices__GoogleBooks__ApiKey: ${ExternalServices__GoogleBooks__ApiKey:-}
             RabbitMq__Host: rabbitmq
             RabbitMq__Port: 5672
             RabbitMq__VirtualHost: /

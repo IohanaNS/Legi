@@ -24,7 +24,21 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             var normalizedSearch = searchTerm.ToLower();
             query = query.Where(b =>
                 b.Title.ToLower().Contains(normalizedSearch) ||
-                b.Isbn.Value.Contains(normalizedSearch)
+                b.Isbn.Value.Contains(normalizedSearch) ||
+                // A free-text term that names an author should surface that
+                // author's books, not just books with the term in the title.
+                context.BookAuthors
+                    .Where(ba => ba.BookId == b.Id)
+                    .Join(context.Authors,
+                        ba => ba.AuthorId,
+                        a => a.Id,
+                        (ba, a) => a)
+                    .Any(a => a.Name.ToLower().Contains(normalizedSearch)) ||
+                // Books surfaced via external search are aliased to the query that
+                // found them, so terms absent from the title/ISBN still match
+                // (e.g. cross-language titles: "redoma" → "The Bell Jar").
+                context.BookSearchAliases
+                    .Any(a => a.BookId == b.Id && a.Alias.Contains(normalizedSearch))
             );
         }
 

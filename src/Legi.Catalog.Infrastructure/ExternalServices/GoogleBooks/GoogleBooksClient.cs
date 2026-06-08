@@ -77,9 +77,64 @@ internal class GoogleBooksClient : IExternalBookClient
         }
     }
 
+    public async Task<IReadOnlyList<ExternalBookCandidate>> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        CancellationToken ct)
+    {
+        try
+        {
+            var url = BuildTextSearchUrl(searchTerm, maxResults);
+            var response = await _httpClient.GetFromJsonAsync<GoogleBooksSearchResponse>(url, ct);
+
+            if (response is null or { TotalItems: 0 } || response.Items is null)
+            {
+                _logger.LogDebug("Query {SearchTerm} returned no results in Google Books", searchTerm);
+                return [];
+            }
+
+            return response.Items
+                .Select(GoogleBooksMapper.ToExternalBookCandidate)
+                .Where(candidate => candidate is not null)
+                .Cast<ExternalBookCandidate>()
+                .ToList();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            _logger.LogWarning("Google Books API rate limit exceeded for query {SearchTerm}", searchTerm);
+            return [];
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Google Books API search failed for query {SearchTerm}", searchTerm);
+            return [];
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Google Books API search timed out for query {SearchTerm}", searchTerm);
+            return [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unexpected error searching Google Books for query {SearchTerm}", searchTerm);
+            return [];
+        }
+    }
+
     private string BuildSearchUrl(string isbn)
     {
         var url = $"/books/v1/volumes?q=isbn:{isbn}";
+
+        if (_settings.HasApiKey)
+            url += $"&key={_settings.ApiKey}";
+
+        return url;
+    }
+
+    private string BuildTextSearchUrl(string searchTerm, int maxResults)
+    {
+        var limit = Math.Clamp(maxResults, 1, 40);
+        var url = $"/books/v1/volumes?q={Uri.EscapeDataString(searchTerm)}&maxResults={limit}";
 
         if (_settings.HasApiKey)
             url += $"&key={_settings.ApiKey}";

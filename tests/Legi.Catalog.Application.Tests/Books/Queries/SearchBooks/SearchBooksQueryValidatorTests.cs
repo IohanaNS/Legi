@@ -21,6 +21,20 @@ public class SearchBooksQueryValidatorTests
         Assert.Contains(result.Errors, e => e.ErrorMessage == "Page number must be at least 1");
     }
 
+    [Fact]
+    public void Validate_ShouldFail_WhenAuthenticatedUserIdIsEmpty()
+    {
+        // Arrange
+        var query = SearchBooksQueryFactory.Create(authenticatedUserId: Guid.Empty);
+
+        // Act
+        var result = _validator.Validate(query);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Authenticated user id is required");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(101)]

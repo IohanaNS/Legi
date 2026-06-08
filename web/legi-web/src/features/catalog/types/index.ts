@@ -38,9 +38,24 @@ export interface PaginationMetadata {
   hasNext: boolean;
 }
 
+export type ExternalSearchStatus =
+  | "NotApplicable"
+  | "NotNeeded"
+  | "Queued"
+  | "AlreadyQueued"
+  | "RecentlyCompleted"
+  | "FailedRecently";
+
+export interface ExternalBookSearchEnrichment {
+  status: ExternalSearchStatus;
+  message?: string | null;
+  refreshAfterSeconds?: number | null;
+}
+
 export interface SearchBooksResponse {
   books: BookSummaryDto[];
   pagination: PaginationMetadata;
+  enrichment: ExternalBookSearchEnrichment;
 }
 
 export interface SearchTagsResponse {

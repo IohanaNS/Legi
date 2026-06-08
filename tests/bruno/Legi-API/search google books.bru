@@ -1,0 +1,21 @@
+meta {
+  name: search google books
+  type: http
+  seq: 7
+}
+
+get {
+  url: https://www.googleapis.com/books/v1/volumes?q=lord%20of&maxResults=1&key=YOUR_REAL_KEY_HERE
+  body: none
+  auth: inherit
+}
+
+params:query {
+  q: lord%20of
+  maxResults: 1
+  key: YOUR_REAL_KEY_HERE
+}
+
+settings {
+  encodeUrl: false
+}

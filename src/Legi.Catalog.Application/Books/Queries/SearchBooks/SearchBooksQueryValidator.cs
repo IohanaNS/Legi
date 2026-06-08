@@ -6,6 +6,10 @@ public class SearchBooksQueryValidator : AbstractValidator<SearchBooksQuery>
 {
     public SearchBooksQueryValidator()
     {
+        RuleFor(x => x.AuthenticatedUserId)
+            .NotEmpty()
+            .WithMessage("Authenticated user id is required");
+
         RuleFor(x => x.PageNumber)
             .GreaterThanOrEqualTo(1)
             .WithMessage("Page number must be at least 1");

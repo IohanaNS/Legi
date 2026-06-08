@@ -3,6 +3,7 @@ using System;
 using Legi.Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Legi.Catalog.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    partial class CatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260607231557_AddExternalBookSearchJobs")]
+    partial class AddExternalBookSearchJobs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -197,38 +200,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.ToTable("book_ratings", (string)null);
                 });
 
-            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookSearchAliasEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("alias");
-
-                    b.Property<Guid>("BookId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("book_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Alias")
-                        .HasDatabaseName("ix_book_search_aliases_alias");
-
-                    b.HasIndex("BookId", "Alias")
-                        .IsUnique()
-                        .HasDatabaseName("ix_book_search_aliases_book_id_alias");
-
-                    b.ToTable("book_search_aliases", (string)null);
-                });
-
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>
                 {
                     b.Property<Guid>("BookId")
@@ -263,12 +234,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("attempts");
 
-                    b.Property<int>("CandidatesFound")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("candidates_found");
-
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
@@ -280,12 +245,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.Property<string>("Error")
                         .HasColumnType("text")
                         .HasColumnName("error");
-
-                    b.Property<int>("ImportedCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("imported_count");
 
                     b.Property<int>("MaxResults")
                         .HasColumnType("integer")
@@ -311,12 +270,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("requested_by_user_id");
 
-                    b.Property<int>("SkippedCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("skipped_count");
-
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -326,12 +279,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("status");
-
-                    b.Property<int>("UpdatedCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("updated_count");
 
                     b.HasKey("Id");
 
@@ -501,15 +448,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Book");
-                });
-
-            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookSearchAliasEntity", b =>
-                {
-                    b.HasOne("Legi.Catalog.Domain.Entities.Book", null)
-                        .WithMany()
-                        .HasForeignKey("BookId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>

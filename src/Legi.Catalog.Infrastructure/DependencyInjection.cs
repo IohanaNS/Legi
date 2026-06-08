@@ -45,25 +45,45 @@ public static class DependencyInjection
         services.AddScoped<IBookReadRepository, BookReadRepository>();
         services.AddScoped<ITagReadRepository, TagReadRepository>();
         services.AddScoped<IAuthorReadRepository, AuthorReadRepository>();
-        
-        services.AddHttpClient<OpenLibraryClient>(client =>
+        services.AddScoped<IExternalBookSearchQueue, ExternalBookSearchQueue>();
+        services.AddScoped<IBookSearchAliasWriter, BookSearchAliasWriter>();
+        services.AddSingleton<IBookCoverUrlResolver, OpenLibraryCoverUrlResolver>();
+        services.AddHostedService<ExternalBookSearchWorker>();
+
+        var openLibrarySettings = new OpenLibrarySettings();
+        configuration.GetSection(OpenLibrarySettings.SectionName).Bind(openLibrarySettings);
+
+        var googleBooksSettings = new GoogleBooksSettings();
+        configuration.GetSection(GoogleBooksSettings.SectionName).Bind(googleBooksSettings);
+
+        services.Configure<GoogleBooksSettings>(
+            configuration.GetSection(GoogleBooksSettings.SectionName));
+        services.Configure<OpenLibrarySettings>(
+            configuration.GetSection(OpenLibrarySettings.SectionName));
+
+        if (openLibrarySettings.Enabled)
         {
-            client.BaseAddress = new Uri("https://openlibrary.org");
-            client.Timeout = TimeSpan.FromSeconds(10);
-            client.DefaultRequestHeaders.Add("User-Agent", "Legi/1.0 (book-catalog-app)");
-        });
+            services.AddHttpClient<OpenLibraryClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://openlibrary.org");
+                client.Timeout = TimeSpan.FromSeconds(openLibrarySettings.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("User-Agent", "Legi/1.0 (book-catalog-app)");
+            });
 
-        services.AddHttpClient<GoogleBooksClient>(client =>
+            services.AddScoped<IExternalBookClient>(sp => sp.GetRequiredService<OpenLibraryClient>());
+        }
+
+        if (googleBooksSettings.Enabled)
         {
-            client.BaseAddress = new Uri("https://www.googleapis.com");
-            client.Timeout = TimeSpan.FromSeconds(10);
-        });
+            services.AddHttpClient<GoogleBooksClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://www.googleapis.com");
+                client.Timeout = TimeSpan.FromSeconds(googleBooksSettings.TimeoutSeconds);
+            });
 
-// Register individual clients
-        services.AddScoped<IExternalBookClient, OpenLibraryClient>();
-        services.AddScoped<IExternalBookClient, GoogleBooksClient>();
+            services.AddScoped<IExternalBookClient>(sp => sp.GetRequiredService<GoogleBooksClient>());
+        }
 
-// Register orchestrator
         services.AddScoped<IBookDataProvider, BookDataProvider>();
 
         return services;

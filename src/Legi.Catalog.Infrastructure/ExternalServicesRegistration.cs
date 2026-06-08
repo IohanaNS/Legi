@@ -39,7 +39,7 @@ public static class ExternalServicesRegistration
                 client.DefaultRequestHeaders.Add("User-Agent", "Legi/1.0 (book-catalog-app)");
             });
 
-            services.AddScoped<IExternalBookClient, OpenLibraryClient>();
+            services.AddScoped<IExternalBookClient>(sp => sp.GetRequiredService<OpenLibraryClient>());
         }
 
         // --- Google Books (Priority 2: fallback, optional API key) ---
@@ -51,7 +51,7 @@ public static class ExternalServicesRegistration
                 client.Timeout = TimeSpan.FromSeconds(googleBooksSettings.TimeoutSeconds);
             });
 
-            services.AddScoped<IExternalBookClient, GoogleBooksClient>();
+            services.AddScoped<IExternalBookClient>(sp => sp.GetRequiredService<GoogleBooksClient>());
         }
 
         // --- Orchestrator ---

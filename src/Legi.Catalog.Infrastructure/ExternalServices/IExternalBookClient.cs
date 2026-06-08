@@ -25,4 +25,13 @@ internal interface IExternalBookClient
     /// Returns null if not found. Must never throw — catch and log internally.
     /// </summary>
     Task<ExternalBookData?> GetByIsbnAsync(string isbn, CancellationToken ct);
+
+    /// <summary>
+    /// Searches this provider by free text.
+    /// Returns an empty list when no data is found. Must never throw.
+    /// </summary>
+    Task<IReadOnlyList<ExternalBookCandidate>> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        CancellationToken ct);
 }

@@ -23,6 +23,7 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
   const addToLibrary = useAddToLibrary();
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingTarget, setPendingTarget] = useState<ActionTarget | null>(null);
+  const [coverFailed, setCoverFailed] = useState(false);
 
   const authors = book.authors.map((author) => author.name).join(", ") || t("explore.unknownAuthor");
   const isKnownPresent = feedback === "added" || feedback === "alreadyInLibrary";
@@ -53,8 +54,13 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
   return (
     <article className="flex h-full flex-col rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3">
       <div className="mb-3 aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised">
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
+        {book.coverUrl && !coverFailed ? (
+          <img
+            src={book.coverUrl}
+            alt={book.title}
+            className="h-full w-full object-cover"
+            onError={() => setCoverFailed(true)}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-stone-400 dark:text-stone-500">
             <BookOpen size={34} />

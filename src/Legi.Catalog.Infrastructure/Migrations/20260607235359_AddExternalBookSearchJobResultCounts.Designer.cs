@@ -3,6 +3,7 @@ using System;
 using Legi.Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Legi.Catalog.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    partial class CatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260607235359_AddExternalBookSearchJobResultCounts")]
+    partial class AddExternalBookSearchJobResultCounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -195,38 +198,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.HasKey("BookId", "UserId");
 
                     b.ToTable("book_ratings", (string)null);
-                });
-
-            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookSearchAliasEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("alias");
-
-                    b.Property<Guid>("BookId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("book_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Alias")
-                        .HasDatabaseName("ix_book_search_aliases_alias");
-
-                    b.HasIndex("BookId", "Alias")
-                        .IsUnique()
-                        .HasDatabaseName("ix_book_search_aliases_book_id_alias");
-
-                    b.ToTable("book_search_aliases", (string)null);
                 });
 
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>
@@ -501,15 +472,6 @@ namespace Legi.Catalog.Infrastructure.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Book");
-                });
-
-            modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookSearchAliasEntity", b =>
-                {
-                    b.HasOne("Legi.Catalog.Domain.Entities.Book", null)
-                        .WithMany()
-                        .HasForeignKey("BookId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Legi.Catalog.Infrastructure.Persistence.Entities.BookTagEntity", b =>

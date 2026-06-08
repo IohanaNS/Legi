@@ -125,6 +125,8 @@
         "booksFound": "{{count}} livros encontrados",
         "sortLabel": "Ordenar por",
         "empty": "Nenhum livro encontrado",
+        "searchingExternal": "Buscando em fontes externas...",
+        "searchingExternalHint": "Estamos procurando na Open Library e no Google Books. Os resultados aparecerão aqui em instantes.",
         "error": "Não foi possível carregar os livros",
         "loadingMore": "Carregando mais...",
         "unknownAuthor": "Autor desconhecido",

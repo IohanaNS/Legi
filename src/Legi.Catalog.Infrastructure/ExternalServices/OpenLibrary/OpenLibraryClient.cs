@@ -17,6 +17,9 @@ namespace Legi.Catalog.Infrastructure.ExternalServices.OpenLibrary;
 /// </summary>
 internal class OpenLibraryClient : IExternalBookClient
 {
+    private const string SearchFields =
+        "key,title,author_name,isbn,cover_i,subject,publisher,number_of_pages_median,language,first_publish_year";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenLibraryClient> _logger;
 
@@ -74,6 +77,40 @@ internal class OpenLibraryClient : IExternalBookClient
         {
             _logger.LogWarning(ex, "Unexpected error fetching from Open Library for ISBN {Isbn}", isbn);
             return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<ExternalBookCandidate>> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        CancellationToken ct)
+    {
+        try
+        {
+            var limit = Math.Clamp(maxResults, 1, 50);
+            var url = $"/search.json?q={Uri.EscapeDataString(searchTerm)}&limit={limit}&fields={SearchFields}";
+            var response = await _httpClient.GetFromJsonAsync<OpenLibrarySearchResponse>(url, ct);
+
+            return response?.Docs?
+                .Select(OpenLibraryMapper.ToExternalBookCandidate)
+                .Where(candidate => candidate is not null)
+                .Cast<ExternalBookCandidate>()
+                .ToList() ?? [];
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Open Library API search failed for query {SearchTerm}", searchTerm);
+            return [];
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Open Library API search timed out for query {SearchTerm}", searchTerm);
+            return [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unexpected error searching Open Library for query {SearchTerm}", searchTerm);
+            return [];
         }
     }
 

@@ -4,6 +4,7 @@ using Legi.Catalog.Domain.Repositories;
 namespace Legi.Catalog.Application.Books.Queries.SearchBooks;
 
 public record SearchBooksQuery(
+    Guid AuthenticatedUserId,
     string? SearchTerm = null,
     string? AuthorSlug = null,
     string? TagSlug = null,

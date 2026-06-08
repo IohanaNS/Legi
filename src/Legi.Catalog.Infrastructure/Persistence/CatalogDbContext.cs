@@ -13,6 +13,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<AuthorEntity> Authors => Set<AuthorEntity>();
     public DbSet<BookAuthorEntity> BookAuthors => Set<BookAuthorEntity>();
     public DbSet<BookRatingEntity> BookRatings => Set<BookRatingEntity>();
+    public DbSet<ExternalBookSearchJobEntity> ExternalBookSearchJobs => Set<ExternalBookSearchJobEntity>();
+    public DbSet<BookSearchAliasEntity> BookSearchAliases => Set<BookSearchAliasEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

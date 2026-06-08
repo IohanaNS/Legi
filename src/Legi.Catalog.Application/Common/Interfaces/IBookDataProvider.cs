@@ -14,6 +14,15 @@ public interface IBookDataProvider
     /// Individual provider failures are logged as warnings but never thrown.
     /// </summary>
     Task<ExternalBookData?> GetByIsbnAsync(string isbn, CancellationToken ct = default);
+
+    /// <summary>
+    /// Searches external sources by free text and returns normalized candidates.
+    /// Provider failures are isolated and should not fail the search pipeline.
+    /// </summary>
+    Task<IReadOnlyList<ExternalBookCandidate>> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        CancellationToken ct = default);
 }
 
 /// <summary>
@@ -35,4 +44,26 @@ public record ExternalBookData
     /// For logging/debugging only — never persisted.
     /// </summary>
     public string? ProviderName { get; init; }
+}
+
+/// <summary>
+/// Normalized external search candidate from any provider.
+/// Provider-specific identifiers and metadata are used only for dedupe/logging
+/// and are not persisted to Catalog books.
+/// </summary>
+public record ExternalBookCandidate
+{
+    public string Provider { get; init; } = null!;
+    public string? ProviderBookId { get; init; }
+    public string? Isbn10 { get; init; }
+    public string? Isbn13 { get; init; }
+    public string? Title { get; init; }
+    public IReadOnlyList<string> Authors { get; init; } = [];
+    public string? Synopsis { get; init; }
+    public int? PageCount { get; init; }
+    public string? Publisher { get; init; }
+    public string? CoverUrl { get; init; }
+    public IReadOnlyList<string> Tags { get; init; } = [];
+    public string? Language { get; init; }
+    public string? PublishedDate { get; init; }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { BookSummaryCard } from "./BookSummaryCard";
 import { SearchBar } from "./SearchBar";
@@ -39,6 +39,9 @@ export default function ExplorePage() {
 
   const books = booksQuery.data?.pages.flatMap((page) => page.books) ?? [];
   const totalCount = booksQuery.data?.pages[0]?.pagination.totalCount ?? 0;
+  const enrichmentStatus = booksQuery.data?.pages[0]?.enrichment?.status;
+  const isSearchingExternal =
+    enrichmentStatus === "Queued" || enrichmentStatus === "AlreadyQueued";
 
   const handleToggleTag = (tagSlug: string) => {
     setSelectedTagSlug((current) => (current === tagSlug ? undefined : tagSlug));
@@ -128,6 +131,11 @@ export default function ExplorePage() {
               void booksQuery.refetch();
             }}
           />
+        ) : books.length === 0 && isSearchingExternal ? (
+          <SearchingExternalState
+            label={t("explore.searchingExternal")}
+            hint={t("explore.searchingExternalHint")}
+          />
         ) : books.length === 0 ? (
           <EmptyState label={t("explore.empty")} />
         ) : (
@@ -176,6 +184,16 @@ function BookGridSkeleton() {
 
 function EmptyState({ label }: { label: string }) {
   return <p className="py-10 text-center text-sm text-stone-400 dark:text-stone-500">{label}</p>;
+}
+
+function SearchingExternalState({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-center">
+      <Loader2 size={24} className="animate-spin text-green-600" />
+      <p className="text-sm font-medium text-stone-600 dark:text-stone-300">{label}</p>
+      <p className="text-xs text-stone-400 dark:text-stone-500">{hint}</p>
+    </div>
+  );
 }
 
 function ErrorState({ label, onRetry }: { label: string; onRetry: () => void }) {

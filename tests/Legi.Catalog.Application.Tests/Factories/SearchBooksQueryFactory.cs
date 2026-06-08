@@ -6,6 +6,7 @@ namespace Legi.Catalog.Application.Tests.Factories;
 public static class SearchBooksQueryFactory
 {
     public static SearchBooksQuery Create(
+        Guid? authenticatedUserId = null,
         string? searchTerm = "clean",
         string? authorSlug = null,
         string? tagSlug = null,
@@ -16,6 +17,7 @@ public static class SearchBooksQueryFactory
         bool sortDescending = true)
     {
         return new SearchBooksQuery(
+            authenticatedUserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111"),
             searchTerm,
             authorSlug,
             tagSlug,

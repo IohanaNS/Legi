@@ -25,9 +25,11 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Search books in the global catalog with filters and pagination
     /// </summary>
+    [Authorize]
     [HttpGet]
     [ProducesResponseType(typeof(SearchBooksResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<SearchBooksResponse>> SearchBooks(
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? authorSlug = null,
@@ -40,6 +42,7 @@ public class BooksController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new SearchBooksQuery(
+            GetAuthenticatedUserId(),
             searchTerm,
             authorSlug,
             tagSlug,
