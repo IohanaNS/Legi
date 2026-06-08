@@ -95,7 +95,7 @@ export interface CreateCommentResponse {
 // NOTE: ProgressPosted carries the RAW progress value (page number or %),
 // discriminated by progressType. BookFinished/BookStarted carry no data today.
 export type ActivityData =
-  | { kind: "ProgressPosted"; progress?: number; progressType?: "Page" | "Percentage"; content?: string }
+  | { kind: "ProgressPosted"; progress?: number; progressType?: "Page" | "Percentage"; content?: string; isSpoiler?: boolean }
   | { kind: "BookFinished"; rating?: number; content?: string }
   | { kind: "BookRated"; rating?: number }
   | { kind: "BookStarted"; content?: string }

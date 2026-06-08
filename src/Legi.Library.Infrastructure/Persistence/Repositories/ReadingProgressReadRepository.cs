@@ -34,6 +34,7 @@ public class ReadingProgressReadRepository : IReadingPostReadRepository
                 rp.Id,
                 rp.UserBookId,
                 rp.Content,
+                rp.IsSpoiler,
                 rp.CurrentProgress != null ? rp.CurrentProgress.Value : null,
                 rp.CurrentProgress != null ? rp.CurrentProgress.Type.ToString() : null,
                 rp.ReadingDate,

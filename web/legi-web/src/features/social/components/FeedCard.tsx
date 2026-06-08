@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { QueryKey } from "@tanstack/react-query";
-import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine } from "lucide-react";
+import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine, Eye, EyeOff } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Avatar } from "../../../components/ui/Avatar";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
@@ -38,6 +39,7 @@ const ACTIVITY_I18N: Record<ActivityType, string> = {
 
 export function FeedCard({ item, listKey }: FeedCardProps) {
   const { t } = useTranslation();
+  const [isSpoilerRevealed, setIsSpoilerRevealed] = useState(false);
   const data = parseActivityData(item);
 
   return (
@@ -113,7 +115,15 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             )}
 
             {"content" in data && data.content && (
-              <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed mt-1">"{data.content}"</p>
+              data.kind === "ProgressPosted" && data.isSpoiler ? (
+                <SpoilerContent
+                  content={data.content}
+                  isRevealed={isSpoilerRevealed}
+                  onToggle={() => setIsSpoilerRevealed((current) => !current)}
+                />
+              ) : (
+                <ContentQuote content={data.content} />
+              )
             )}
           </div>
         </div>
@@ -122,6 +132,58 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
         {isInteractable(item) && <InteractionBar item={item} listKey={listKey} />}
       </div>
     </Card>
+  );
+}
+
+function ContentQuote({ content }: { content: string }) {
+  return (
+    <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+      "{content}"
+    </p>
+  );
+}
+
+function SpoilerContent({
+  content,
+  isRevealed,
+  onToggle,
+}: {
+  content: string;
+  isRevealed: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`mt-1 block w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-green-600 ${
+        isRevealed
+          ? "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-dark-raised dark:bg-dark-raised/50 dark:text-stone-300 dark:hover:bg-dark-raised"
+          : "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+      }`}
+    >
+      {isRevealed ? (
+        <>
+          <span className="whitespace-pre-wrap break-words leading-relaxed">"{content}"</span>
+          <span className="mt-2 flex items-center gap-1 text-xs font-medium text-stone-500 dark:text-stone-400">
+            <Eye size={13} />
+            {t("feed.spoilerHide")}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="flex items-center gap-2 font-medium">
+            <EyeOff size={14} />
+            {t("feed.spoilerWarning")}
+          </span>
+          <span className="mt-1 block text-xs text-amber-800 dark:text-amber-300">
+            {t("feed.spoilerReveal")}
+          </span>
+        </>
+      )}
+    </button>
   );
 }
 

@@ -32,6 +32,10 @@ public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingProgress
             .HasColumnName("content")
             .HasMaxLength(ReadingProgress.MaxContentLength);
 
+        builder.Property(rp => rp.IsSpoiler)
+            .HasColumnName("is_spoiler")
+            .HasDefaultValue(false);
+
         builder.Property(rp => rp.ReadingDate)
             .HasColumnName("reading_date")
             .IsRequired();

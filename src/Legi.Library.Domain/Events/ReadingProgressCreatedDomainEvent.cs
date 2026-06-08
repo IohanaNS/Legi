@@ -9,7 +9,8 @@ public sealed class ReadingProgressCreatedDomainEvent(
     Guid bookId,
     string? content,
     int? progressValue,
-    string? progressType)
+    string? progressType,
+    bool isSpoiler = false)
     : IDomainEvent
 {
     public Guid ReadingPostId { get; } = readingPostId;
@@ -18,6 +19,7 @@ public sealed class ReadingProgressCreatedDomainEvent(
     public Guid BookId { get; } = bookId;
     public string? Content { get; } = content;
     public int? ProgressValue { get; } = progressValue;
+    public bool IsSpoiler { get; } = isSpoiler;
 
     /// <summary>
     /// String form of <see cref="Legi.Library.Domain.Enums.ProgressType"/>

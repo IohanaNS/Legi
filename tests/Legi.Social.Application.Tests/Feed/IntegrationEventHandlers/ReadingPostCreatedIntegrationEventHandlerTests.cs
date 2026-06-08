@@ -103,6 +103,37 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
         Assert.False(root.TryGetProperty("progress", out _));
         Assert.False(root.TryGetProperty("progressType", out _));
         Assert.Equal("Just a thought, no progress yet", root.GetProperty("content").GetString());
+        Assert.False(root.TryGetProperty("isSpoiler", out _));
+    }
+
+    [Fact]
+    public async Task Handle_SpoilerPost_AddsSpoilerFlagAndOmitsContentPreview()
+    {
+        ContentSnapshot? snapshot = null;
+        FeedItem? feedItem = null;
+        _content.Setup(r => r.StageAddOrUpdateAsync(It.IsAny<ContentSnapshot>(), It.IsAny<CancellationToken>()))
+            .Callback<ContentSnapshot, CancellationToken>((cs, _) => snapshot = cs)
+            .Returns(Task.CompletedTask);
+        _feed.Setup(r => r.StageAddAsync(It.IsAny<FeedItem>(), It.IsAny<CancellationToken>()))
+            .Callback<FeedItem, CancellationToken>((fi, _) => feedItem = fi)
+            .Returns(Task.CompletedTask);
+
+        var evt = new ReadingPostCreatedIntegrationEvent(
+            _postId, _userId, _bookId,
+            Content: "The ending changes everything",
+            ProgressValue: 80, ProgressType: "Percentage",
+            CreatedAt: DateTime.UtcNow,
+            IsSpoiler: true);
+
+        await _handler.Handle(evt, CancellationToken.None);
+
+        Assert.NotNull(snapshot);
+        Assert.Null(snapshot!.ContentPreview);
+
+        using var doc = JsonDocument.Parse(feedItem!.Data!);
+        var root = doc.RootElement;
+        Assert.Equal("The ending changes everything", root.GetProperty("content").GetString());
+        Assert.True(root.GetProperty("isSpoiler").GetBoolean());
     }
 
     [Fact]

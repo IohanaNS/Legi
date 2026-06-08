@@ -8,5 +8,6 @@ public record UpdateReadingPostCommand(
     Guid UserId,
     string? Content,
     int? ProgressValue,
-    ProgressType? ProgressType
+    ProgressType? ProgressType,
+    bool IsSpoiler = false
 ) : IRequest<UpdateReadingPostResponse>;

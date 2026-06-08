@@ -71,7 +71,8 @@ public class CreateReadingPostCommandHandler
             userBook.BookId,
             request.Content,
             progress,
-            request.ReadingDate);
+            request.ReadingDate,
+            request.IsSpoiler);
 
         // 4. Update UserBook's current progress (same transaction)
         if (progress is not null)
@@ -86,6 +87,7 @@ public class CreateReadingPostCommandHandler
             post.Id,
             post.UserBookId,
             post.Content,
+            post.IsSpoiler,
             post.CurrentProgress?.Value,
             post.CurrentProgress?.Type.ToString(),
             post.ReadingDate,

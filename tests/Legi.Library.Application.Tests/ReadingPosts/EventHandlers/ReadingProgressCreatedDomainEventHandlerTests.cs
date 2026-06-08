@@ -26,7 +26,8 @@ public class ReadingProgressCreatedDomainEventHandlerTests
         var domainEvent = LibraryDomainEventFactory.ReadingProgressCreated(
             content: "Halfway through, love it",
             progressValue: 50,
-            progressType: "Percentage");
+            progressType: "Percentage",
+            isSpoiler: true);
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);
@@ -39,6 +40,7 @@ public class ReadingProgressCreatedDomainEventHandlerTests
                     e.UserId == domainEvent.UserId &&
                     e.BookId == domainEvent.BookId &&
                     e.Content == "Halfway through, love it" &&
+                    e.IsSpoiler &&
                     e.ProgressValue == 50 &&
                     e.ProgressType == "Percentage" &&
                     e.CreatedAt == domainEvent.OccurredOn),

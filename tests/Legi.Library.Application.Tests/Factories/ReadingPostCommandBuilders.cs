@@ -12,6 +12,7 @@ public sealed class CreateReadingPostCommandBuilder
     private int? _progressValue = 50;
     private ProgressType? _progressType = ProgressType.Percentage;
     private DateOnly? _readingDate = new(2026, 1, 15);
+    private bool _isSpoiler;
 
     public static CreateReadingPostCommandBuilder Valid() => new();
 
@@ -46,6 +47,12 @@ public sealed class CreateReadingPostCommandBuilder
         return this;
     }
 
+    public CreateReadingPostCommandBuilder WithIsSpoiler(bool isSpoiler)
+    {
+        _isSpoiler = isSpoiler;
+        return this;
+    }
+
     public CreateReadingPostCommand Build()
     {
         return new CreateReadingPostCommand(
@@ -54,7 +61,8 @@ public sealed class CreateReadingPostCommandBuilder
             _content,
             _progressValue,
             _progressType,
-            _readingDate);
+            _readingDate,
+            _isSpoiler);
     }
 }
 
@@ -65,6 +73,7 @@ public sealed class UpdateReadingPostCommandBuilder
     private string? _content = "Updated note.";
     private int? _progressValue = 75;
     private ProgressType? _progressType = ProgressType.Percentage;
+    private bool _isSpoiler;
 
     public static UpdateReadingPostCommandBuilder Valid() => new();
 
@@ -93,6 +102,12 @@ public sealed class UpdateReadingPostCommandBuilder
         return this;
     }
 
+    public UpdateReadingPostCommandBuilder WithIsSpoiler(bool isSpoiler)
+    {
+        _isSpoiler = isSpoiler;
+        return this;
+    }
+
     public UpdateReadingPostCommand Build()
     {
         return new UpdateReadingPostCommand(
@@ -100,6 +115,7 @@ public sealed class UpdateReadingPostCommandBuilder
             _userId,
             _content,
             _progressValue,
-            _progressType);
+            _progressType,
+            _isSpoiler);
     }
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, RefreshCw } from "lucide-react";
+import { BookOpen, EyeOff, RefreshCw } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { ChangeBookModal } from "./ChangeBookModal";
@@ -64,6 +64,7 @@ function ReadingNowForm({ userBook }: { userBook: UserBookDto }) {
   const [type, setType] = useState<ProgressType>(userBook.progressType ?? "Percentage");
   const [value, setValue] = useState<number>(userBook.progressValue ?? 0);
   const [note, setNote] = useState("");
+  const [isSpoiler, setIsSpoiler] = useState(false);
 
   const sliderMax = type === "Page" && book.pageCount ? book.pageCount : 100;
   const percent = progressPercent(value, type, book.pageCount) ?? 0;
@@ -97,11 +98,17 @@ function ReadingNowForm({ userBook }: { userBook: UserBookDto }) {
         userBookId: userBook.userBookId,
         body: {
           content: note.trim() || undefined,
+          isSpoiler,
           progressValue: value > 0 ? value : undefined,
           progressType: value > 0 ? type : undefined,
         },
       },
-      { onSuccess: () => setNote("") },
+      {
+        onSuccess: () => {
+          setNote("");
+          setIsSpoiler(false);
+        },
+      },
     );
   };
 
@@ -173,10 +180,34 @@ function ReadingNowForm({ userBook }: { userBook: UserBookDto }) {
         value={note}
         onChange={(e) => setNote(e.target.value)}
         maxLength={2000}
-        rows={2}
+        rows={3}
         placeholder={t("feed.shareImpression")}
-        className="mt-4 w-full resize-none rounded-lg border border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-raised text-stone-800 dark:text-stone-100 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+        className="mt-4 min-h-20 max-h-64 w-full resize-y rounded-lg border border-stone-300 dark:border-dark-raised bg-white dark:bg-dark-raised text-stone-800 dark:text-stone-100 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
       />
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isSpoiler}
+        onClick={() => setIsSpoiler((current) => !current)}
+        className="mt-2 flex w-full items-center justify-between rounded-lg border border-stone-200 dark:border-dark-raised px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-dark-raised/70 focus:outline-none focus:ring-1 focus:ring-green-600"
+      >
+        <span className="flex items-center gap-2">
+          <EyeOff size={14} />
+          {t("feed.spoiler")}
+        </span>
+        <span
+          className={`relative h-5 w-9 rounded-full transition-colors ${
+            isSpoiler ? "bg-green-700" : "bg-stone-300 dark:bg-stone-600"
+          }`}
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+              isSpoiler ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </span>
+      </button>
 
       {updateProgress.isError && (
         <p className="mt-2 text-xs text-red-600">{t("feed.progressError")}</p>

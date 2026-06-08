@@ -55,7 +55,7 @@ public sealed class ReadingPostCreatedIntegrationEventHandler(
             bookTitle: book.Title,
             bookAuthor: book.AuthorDisplay,
             bookCoverUrl: book.CoverUrl,
-            contentPreview: integrationEvent.Content);
+            contentPreview: integrationEvent.IsSpoiler ? null : integrationEvent.Content);
 
         await contentSnapshotRepository.StageAddOrUpdateAsync(snapshot, cancellationToken);
 
@@ -64,7 +64,8 @@ public sealed class ReadingPostCreatedIntegrationEventHandler(
             {
                 progress = integrationEvent.ProgressValue,
                 progressType = integrationEvent.ProgressType,
-                content = integrationEvent.Content
+                content = integrationEvent.Content,
+                isSpoiler = integrationEvent.IsSpoiler ? true : (bool?)null
             },
             DataJsonOptions);
 

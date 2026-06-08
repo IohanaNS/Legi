@@ -4,6 +4,7 @@ public record ReadingPostDto(
     Guid PostId,
     Guid UserBookId,
     string? Content,
+    bool IsSpoiler,
     int? ProgressValue,
     string? ProgressType,
     DateOnly ReadingDate,

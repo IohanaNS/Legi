@@ -22,6 +22,7 @@ export interface LibraryQuery {
 // not the string. We accept the readable string here and map it on the wire.
 export interface CreateReadingPostBody {
   content?: string;
+  isSpoiler?: boolean;
   progressValue?: number;
   progressType?: ProgressType;
 }
@@ -55,6 +56,7 @@ export const libraryApi = {
   createReadingPost: (userBookId: string, body: CreateReadingPostBody) =>
     http.post(`/library/${userBookId}/posts`, {
       content: body.content,
+      isSpoiler: body.isSpoiler,
       progressValue: body.progressValue,
       progressType:
         body.progressType !== undefined ? PROGRESS_TYPE_WIRE[body.progressType] : undefined,

@@ -32,6 +32,7 @@ public class UpdateReadingPostCommandHandlerTests
             .WithPostId(post.Id)
             .WithContent("Updated note.")
             .WithProgress(75, ProgressType.Percentage)
+            .WithIsSpoiler(true)
             .Build();
 
         _readingPostRepository
@@ -44,10 +45,12 @@ public class UpdateReadingPostCommandHandlerTests
         var response = await _handler.Handle(command, CancellationToken.None);
 
         Assert.Equal("Updated note.", post.Content);
+        Assert.True(post.IsSpoiler);
         Assert.Equal(75, post.CurrentProgress?.Value);
         Assert.Equal(ProgressType.Percentage, post.CurrentProgress?.Type);
         Assert.Equal(75, response.ProgressValue);
         Assert.Equal("Percentage", response.ProgressType);
+        Assert.True(response.IsSpoiler);
         _readingPostRepository.Verify(r => r.UpdateAsync(post, It.IsAny<CancellationToken>()), Times.Once);
     }
 

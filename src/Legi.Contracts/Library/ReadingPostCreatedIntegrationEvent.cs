@@ -19,5 +19,6 @@ public sealed record ReadingPostCreatedIntegrationEvent(
     string? Content,
     int? ProgressValue,
     string? ProgressType,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsSpoiler = false
 ) : IIntegrationEvent;

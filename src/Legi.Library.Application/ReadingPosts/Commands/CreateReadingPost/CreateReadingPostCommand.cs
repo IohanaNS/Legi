@@ -9,5 +9,6 @@ public record CreateReadingPostCommand(
     string? Content,
     int? ProgressValue,
     ProgressType? ProgressType,
-    DateOnly? ReadingDate
+    DateOnly? ReadingDate,
+    bool IsSpoiler = false
 ) : IRequest<CreateReadingPostResponse>;

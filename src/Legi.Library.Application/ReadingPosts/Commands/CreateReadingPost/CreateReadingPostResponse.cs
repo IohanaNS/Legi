@@ -4,6 +4,7 @@ public record CreateReadingPostResponse(
     Guid PostId,
     Guid UserBookId,
     string? Content,
+    bool IsSpoiler,
     int? ProgressValue,
     string? ProgressType,
     DateOnly ReadingDate,

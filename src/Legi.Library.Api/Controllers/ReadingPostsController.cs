@@ -55,7 +55,8 @@ public class ReadingPostsController : ControllerBase
             request.Content,
             request.ProgressValue,
             request.ProgressType,
-            request.ReadingDate);
+            request.ReadingDate,
+            request.IsSpoiler);
 
         var result = await _mediator.Send(command, cancellationToken);
         return CreatedAtAction(
@@ -78,7 +79,8 @@ public class ReadingPostsController : ControllerBase
             GetUserId(),
             request.Content,
             request.ProgressValue,
-            request.ProgressType);
+            request.ProgressType,
+            request.IsSpoiler);
 
         var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
@@ -103,9 +105,11 @@ public record CreateReadingPostRequest(
     string? Content,
     int? ProgressValue = null,
     ProgressType? ProgressType = null,
-    DateOnly? ReadingDate = null);
+    DateOnly? ReadingDate = null,
+    bool IsSpoiler = false);
 
 public record UpdateReadingPostRequest(
     string? Content,
     int? ProgressValue = null,
-    ProgressType? ProgressType = null);
+    ProgressType? ProgressType = null,
+    bool IsSpoiler = false);

@@ -70,13 +70,14 @@ public class UpdateReadingPostCommandHandler
             }
         }
 
-        post.Update(request.Content, progress);
+        post.Update(request.Content, progress, request.IsSpoiler);
 
         await _readingPostRepository.UpdateAsync(post, cancellationToken);
 
         return new UpdateReadingPostResponse(
             post.Id,
             post.Content,
+            post.IsSpoiler,
             post.CurrentProgress?.Value,
             post.CurrentProgress?.Type.ToString(),
             post.UpdatedAt);

@@ -33,6 +33,7 @@ public class CreateReadingPostCommandHandlerTests
         var command = CreateReadingPostCommandBuilder.Valid()
             .WithUserBookId(userBook.Id)
             .WithProgress(75, ProgressType.Percentage)
+            .WithIsSpoiler(true)
             .Build();
         ReadingProgress? addedPost = null;
 
@@ -51,11 +52,13 @@ public class CreateReadingPostCommandHandlerTests
 
         Assert.NotNull(addedPost);
         Assert.Equal(command.Content, addedPost.Content);
+        Assert.True(addedPost.IsSpoiler);
         Assert.Equal(75, addedPost.CurrentProgress?.Value);
         Assert.Equal(ProgressType.Percentage, addedPost.CurrentProgress?.Type);
         Assert.Equal(75, userBook.CurrentProgress?.Value);
         Assert.Equal(75, response.ProgressValue);
         Assert.Equal("Percentage", response.ProgressType);
+        Assert.True(response.IsSpoiler);
         Assert.Equal(command.ReadingDate, response.ReadingDate);
         _readingPostRepository.Verify(r => r.AddAsync(addedPost, It.IsAny<CancellationToken>()), Times.Once);
         _userBookRepository.Verify(r => r.UpdateAsync(userBook, It.IsAny<CancellationToken>()), Times.Once);

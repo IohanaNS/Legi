@@ -12,6 +12,7 @@ public class ReadingProgress : BaseAuditableEntity
     public Guid UserId { get; private set; }
     public Guid BookId { get; private set; }
     public string? Content { get; private set; }
+    public bool IsSpoiler { get; private set; }
     public Progress? CurrentProgress { get; private set; }
     public int LikesCount { get; private set; }
     public int CommentsCount { get; private set; }
@@ -23,7 +24,8 @@ public class ReadingProgress : BaseAuditableEntity
         Guid bookId,
         string? content,
         Progress? progress,
-        DateOnly? readingDate = null)
+        DateOnly? readingDate = null,
+        bool isSpoiler = false)
     {
         if (string.IsNullOrWhiteSpace(content) && progress is null)
             throw new DomainException("Post must have content or progress (or both");
@@ -38,6 +40,7 @@ public class ReadingProgress : BaseAuditableEntity
             UserId = userId,
             BookId = bookId,
             Content = content,
+            IsSpoiler = isSpoiler,
             CurrentProgress = progress,
             ReadingDate = readingDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
             LikesCount = 0,
@@ -54,11 +57,12 @@ public class ReadingProgress : BaseAuditableEntity
                 readingPost.BookId,
                 readingPost.Content,
                 readingPost.CurrentProgress?.Value,
-                readingPost.CurrentProgress?.Type.ToString()));
+                readingPost.CurrentProgress?.Type.ToString(),
+                readingPost.IsSpoiler));
         return readingPost;
     }
 
-    public void Update(string? content, Progress? progress)
+    public void Update(string? content, Progress? progress, bool isSpoiler = false)
     {
         if (string.IsNullOrWhiteSpace(content) && progress is null)
             throw new DomainException("Post must have content or progress (or both)");
@@ -67,6 +71,7 @@ public class ReadingProgress : BaseAuditableEntity
             ValidateContent(content);
 
         Content = content;
+        IsSpoiler = isSpoiler;
         CurrentProgress = progress;
         UpdatedAt = DateTime.UtcNow;
     }

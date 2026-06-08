@@ -67,7 +67,7 @@ Documento vivo com as decisões de design do domínio Library, construído incre
 **Decisão:** ReadingPost é um conceito de leitura pessoal com efeitos colaterais sociais. O Library é a fonte de verdade. O Social consome posts via integration events para alimentar o feed e gerenciar interações (likes/comments).
 
 **Fluxo de dados:**
-- Library → Social: `ReadingPostCreatedIntegrationEvent` → Social cria FeedItem
+- Library → Social: `ReadingPostCreatedIntegrationEvent` → Social cria FeedItem. O contrato carrega `Content`, progresso e `IsSpoiler`; quando `IsSpoiler = true`, o Social oculta o texto no feed até o usuário revelar e não grava preview textual no `ContentSnapshot`.
 - Social → Library: `ContentLikedIntegrationEvent` → Library incrementa LikesCount no ReadingPost
 
 ### 2.5 Soft Delete no UserBook
@@ -116,6 +116,7 @@ ReadingPost (Aggregate Root)
 ├── UserId: Guid (desnormalizado)
 ├── BookId: Guid (desnormalizado)
 ├── Content: string? (max 2000)
+├── IsSpoiler: bool (default false; metadado para ocultar texto no feed)
 ├── Progress: Progress? (VO)
 ├── ReadingDate: Date
 ├── LikesCount: int (desnormalizado, fonte: Social)
@@ -251,7 +252,7 @@ Domain events ficam no `Library.Domain`. Integration events e handlers ficam no 
 
 | Evento | Consumidores | Dados |
 |--------|-------------|-------|
-| `ReadingPostCreatedDomainEvent` | Social (feed) | PostId, UserBookId, UserId, BookId |
+| `ReadingPostCreatedDomainEvent` | Social (feed) | PostId, UserBookId, UserId, BookId, Content, ProgressValue, ProgressType, IsSpoiler |
 | `ReadingPostDeletedDomainEvent` | Social (remover do feed) | PostId, UserId, BookId |
 
 **Cortado por YAGNI:** `ReadingPostUpdatedDomainEvent` — nenhum consumidor claro. O feed mostra snapshot do momento da criação; edição do post não precisa propagar. Adicionável no futuro sem refatoração.
@@ -300,6 +301,7 @@ Domain events ficam no `Library.Domain`. Integration events e handlers ficam no 
 |-------|-----------|-----------------|
 | **Conteúdo obrigatório** | Deve ter Content OU Progress (ou ambos). Não pode ser totalmente vazio | Aggregate (construtor) |
 | **Content max length** | Máximo 2000 caracteres | Aggregate + FluentValidation |
+| **Spoiler** | `IsSpoiler` é persistido com o post e propagado ao Social para ocultar o texto no feed; não altera a regra de conteúdo/progresso obrigatório | Aggregate + command handler |
 | **Progress page** | Value >= 0 | Value Object (Progress) |
 | **Progress percentage** | Value entre 0 e 100 | Value Object (Progress) |
 | **Progress vs PageCount** | Se type = Page, value <= PageCount do livro | Command handler (acessa BookSnapshot) |

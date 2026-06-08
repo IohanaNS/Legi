@@ -21,6 +21,7 @@ public class ReadingProgressTests
         Assert.Equal(LibraryTestIds.UserId, post.UserId);
         Assert.Equal(LibraryTestIds.BookId, post.BookId);
         Assert.Equal("Halfway through, still engaged.", post.Content);
+        Assert.False(post.IsSpoiler);
         Assert.Equal(50, post.CurrentProgress?.Value);
         Assert.Equal(new DateOnly(2026, 1, 15), post.ReadingDate);
 
@@ -30,6 +31,22 @@ public class ReadingProgressTests
         Assert.Equal(post.Content, domainEvent.Content);
         Assert.Equal(50, domainEvent.ProgressValue);
         Assert.Equal("Percentage", domainEvent.ProgressType);
+        Assert.False(domainEvent.IsSpoiler);
+    }
+
+    [Fact]
+    public void Create_SpoilerContent_CreatesPostAndRaisesCreatedEventWithSpoilerFlag()
+    {
+        var post = ReadingProgressBuilder.Valid()
+            .WithIsSpoiler(true)
+            .KeepingDomainEvents()
+            .Build();
+
+        Assert.True(post.IsSpoiler);
+
+        var domainEvent = Assert.IsType<ReadingProgressCreatedDomainEvent>(
+            Assert.Single(post.DomainEvents));
+        Assert.True(domainEvent.IsSpoiler);
     }
 
     [Fact]
@@ -72,9 +89,10 @@ public class ReadingProgressTests
         var post = ReadingProgressBuilder.Valid().Build();
         var progress = Progress.CreatePage(200);
 
-        post.Update("New note", progress);
+        post.Update("New note", progress, isSpoiler: true);
 
         Assert.Equal("New note", post.Content);
+        Assert.True(post.IsSpoiler);
         Assert.Equal(progress, post.CurrentProgress);
     }
 

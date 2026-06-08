@@ -63,7 +63,8 @@ public static class LibraryDomainEventFactory
         Guid? bookId = null,
         string? content = "Halfway through, still engaged.",
         int? progressValue = 50,
-        string? progressType = "Percentage")
+        string? progressType = "Percentage",
+        bool isSpoiler = false)
     {
         return new ReadingProgressCreatedDomainEvent(
             readingPostId ?? LibraryTestIds.ReadingPostId,
@@ -72,7 +73,8 @@ public static class LibraryDomainEventFactory
             bookId ?? LibraryTestIds.BookId,
             content,
             progressValue,
-            progressType);
+            progressType,
+            isSpoiler);
     }
 
     public static ReadingPostDeletedDomainEvent ReadingPostDeleted(

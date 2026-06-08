@@ -633,6 +633,7 @@ ReadingProgress (Aggregate Root — promovido de entity filha) ✅
 ├── UserId: Guid (desnormalizado para feed/queries)
 ├── BookId: Guid (desnormalizado para feed/queries)
 ├── Content: string? (max 2000, constante: MaxContentLength)
+├── IsSpoiler: bool (default false; metadado de visibilidade no feed)
 ├── CurrentProgress: Progress? (VO)
 ├── ReadingDate: DateOnly
 ├── LikesCount: int (desnormalizado, fonte: Social)
@@ -716,6 +717,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - Máximo 100 listas por usuário
 - Nome da lista único por usuário (case-insensitive)
 - ReadingProgress deve ter conteúdo OU progresso (ou ambos)
+- `ReadingProgress.IsSpoiler` é metadado de apresentação: não altera invariantes do post, mas é persistido no Library e propagado para o Social para ocultar o texto no feed até o usuário revelar.
 
 **Domain Events (8 — princípio YAGNI, apenas com consumidores identificados):**
 
@@ -802,7 +804,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | Configuration | Tabela | Destaques |
 |---------------|--------|-----------|
 | `UserBookConfiguration` | `user_books` | Status como string (max 20). Rating e Progress como owned entities. Global Query Filter `DeletedAt == null`. Unique index filtrado `(UserId, BookId) WHERE deleted_at IS NULL`. |
-| `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingProgress.MaxContentLength`. Progress como owned entity. Index composto `(UserBookId, ReadingDate DESC)`. |
+| `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingProgress.MaxContentLength`. `IsSpoiler` boolean com default false. Progress como owned entity. Index composto `(UserBookId, ReadingDate DESC)`. |
 | `UserListConfiguration` | `user_lists` | Name max `UserList.MaxNameLength`, Description max `UserList.MaxDescriptionLength`. One-to-many com `UserListItem` via field access (`_items`). Cascade delete. Unique index `(UserId, Name)`. Index filtrado `IsPublic = true`. |
 | `UserListItemConfiguration` | `user_list_items` | Shadow FK `user_list_id`. Unique index `(user_list_id, UserBookId)`. Index `(user_list_id, Order)`. |
 | `BookSnapshotConfiguration` | `book_snapshots` | PK = `BookId` (do Catalog). Title max 500, AuthorDisplay max 1000. Read model desnormalizado. |
@@ -919,6 +921,7 @@ CREATE TABLE reading_posts (
     user_id UUID NOT NULL,       -- desnormalizado para feed/queries
     book_id UUID NOT NULL,       -- desnormalizado para feed/queries
     content VARCHAR(2000),
+    is_spoiler BOOLEAN NOT NULL DEFAULT FALSE,
     progress_value INT CHECK (progress_value >= 0),
     progress_type progress_type,
     reading_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -1101,7 +1104,7 @@ ContentSnapshot (Read Model — PK composta, enriquecido)
 ├── BookTitle: string? (do Catalog/Library)
 ├── BookAuthor: string? (do Catalog/Library)
 ├── BookCoverUrl: string? (do Catalog/Library)
-├── ContentPreview: string? (primeiros ~200 chars do post/review)
+├── ContentPreview: string? (primeiros ~200 chars do post/review; null para posts marcados como spoiler)
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
@@ -1116,7 +1119,7 @@ FeedItem (Read Model — desnormalizado para feed)
 ├── BookTitle: string?
 ├── BookAuthor: string?
 ├── BookCoverUrl: string?
-├── Data: string? (JSON — progresso, rating, texto do post)
+├── Data: string? (JSON — progresso, rating, texto do post; `ProgressPosted` pode carregar `isSpoiler`)
 └── CreatedAt: DateTime
 ```
 
@@ -1137,6 +1140,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - Like e Comment usam `TargetType + TargetId` polimórfico — modelo unificado para Post, Review e List
 - **Listas são não-interagíveis no v1 (decisão Fase 4, Opção A — ver MESSAGING-ARCHITECTURE-decisions.md §6.5 e bloco 4E):** curtir/comentar exige um `ContentSnapshot` do alvo, e o snapshot de lista só seria criado pelo handler de `UserListCreated`, dropado por YAGNI (criar lista vazia não é fato social relevante). Sem snapshot, nenhuma lista pode ser curtida/comentada. Na prática `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"`. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos/colunas mantidos, prontos para reativação) e `SearchPublicAsync` ordena por `BooksCount`/`CreatedAt` (não por likes, que seriam sempre 0). Reativar = handler snapshot-only para `UserListCreated` (cria `ContentSnapshot(List)` sem `FeedItem`) — Opção B, fora do escopo do v1. Review segue o mesmo princípio até existir seu pipeline.
 - Feed: fan-out on read (query com join em follows), não fan-out on write
+- `ReadingPostCreatedIntegrationEvent.IsSpoiler` é preservado no `FeedItem.Data` de `ProgressPosted`; quando true, o `ContentSnapshot.ContentPreview` fica null para não vazar texto em superfícies de interação/notificação.
 - `BookAdded` ≠ `BookStarted`: adicionar um livro à biblioteca (não-wishlist) gera `ActivityType.BookAdded` ("adicionou à biblioteca"), **não** "começou a ler". `BookStarted` fica reservado para um futuro evento de início de leitura (hoje sem produtor — uma mudança de status para `Reading` é no-op no feed; só `Finished` vira `BookFinished`). Ambos são não-interagíveis (`TargetType = null`). `ActivityType` é persistido como string, então novos valores não exigem migração.
 - LikesCount/CommentsCount no feed são query em tempo real (mesmo banco), não desnormalizados na Activity
 
@@ -1299,6 +1303,7 @@ Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-lea
 **Identity → Catalog + Library + Social** (Fase 3): `UserDeleted` — cada serviço purga seus próprios dados (Catalog: `created_by` → "Usuário Removido"; Library: user_books/lists; Social: follows/likes/comments/feed).
 **Catalog → Library + Social** (Fases 2 / 4A): `BookCreated` / `BookUpdated` — cada serviço mantém seu `BookSnapshot` local como fonte de lookup de display data em write-time (decisão 2.6.1).
 **Library → Social** (Fases 4B / 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` — Social projeta `FeedItem` / `ContentSnapshot` (feed fan-out on read).
+`ReadingPostCreated` carrega `Content`, progresso e `IsSpoiler`; o Social grava `isSpoiler` no `FeedItem.Data` e suprime `ContentPreview` quando o post é spoiler.
 **Social → Library** (Fases 4D / 4E): `ContentLiked` / `ContentUnliked` / `ContentCommented` / `CommentDeleted` — Library ajusta `LikesCount` / `CommentsCount` no `ReadingProgress` (apenas `Post`; idempotência inbox-only, decisão 8.1.1).
 **Library → Catalog** (Fase 5): `UserBookRated` / `UserBookRatingRemoved` → Catalog mantém uma projeção `BookRating` por-usuário e recalcula `average_rating`/`ratings_count` no `Book` (recompute-from-rows, convergente; `UserBookRated` é um segundo consumer no fanout que o Social já usa).
 

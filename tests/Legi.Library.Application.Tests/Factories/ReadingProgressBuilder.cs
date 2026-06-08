@@ -11,6 +11,7 @@ public sealed class ReadingProgressBuilder
     private string? _content = "Halfway through, still engaged.";
     private Progress? _progress = Progress.CreatePercentage(50);
     private DateOnly? _readingDate = new(2026, 1, 15);
+    private bool _isSpoiler;
     private bool _clearDomainEvents = true;
 
     public static ReadingProgressBuilder Valid() => new();
@@ -51,6 +52,12 @@ public sealed class ReadingProgressBuilder
         return this;
     }
 
+    public ReadingProgressBuilder WithIsSpoiler(bool isSpoiler)
+    {
+        _isSpoiler = isSpoiler;
+        return this;
+    }
+
     public ReadingProgressBuilder KeepingDomainEvents()
     {
         _clearDomainEvents = false;
@@ -65,7 +72,8 @@ public sealed class ReadingProgressBuilder
             _bookId,
             _content,
             _progress,
-            _readingDate);
+            _readingDate,
+            _isSpoiler);
 
         if (_clearDomainEvents)
             post.ClearDomainEvents();
