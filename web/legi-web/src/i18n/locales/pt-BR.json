@@ -252,7 +252,11 @@
         "removeError": "Não foi possível remover este livro. Tente novamente."
     },
     "theme": {
-        "darkMode": "Modo escuro"
+        "darkMode": "Modo escuro",
+        "appearance": "Aparência",
+        "light": "Claro",
+        "dark": "Escuro",
+        "system": "Sistema"
     },
     "auth": {
         "loginTitle": "Entrar",

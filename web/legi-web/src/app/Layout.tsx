@@ -8,7 +8,9 @@ import {
   Gift,
   User,
   LogOut,
+  Sun,
   Moon,
+  Monitor,
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "../features/auth/useAuth";
@@ -26,7 +28,7 @@ const navItems = [
 export default function Layout() {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
-  const { isDark, toggle: toggleTheme } = useTheme();
+  const { mode, setMode } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -106,28 +108,34 @@ export default function Layout() {
                 </div>
               </div>
 
-              {/* Dark mode toggle */}
-              <button
-                onClick={toggleTheme}
-                className="flex w-full items-center justify-between px-4 py-3 text-sm text-green-200 hover:bg-white/10 transition-colors"
-              >
-                <span className="flex items-center gap-3">
-                  <Moon size={16} />
-                  {t("theme.darkMode")}
-                </span>
-                {/* Toggle pill */}
-                <div
-                  className={`relative w-9 h-5 rounded-full transition-colors ${
-                    isDark ? "bg-brand" : "bg-white/20"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
-                      isDark ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
+              {/* Appearance: Light / Dark / System */}
+              <div className="px-4 py-3">
+                <p className="mb-2 text-xs font-medium text-green-400">
+                  {t("theme.appearance")}
+                </p>
+                <div className="flex gap-1 rounded-lg bg-black/20 p-1">
+                  {(
+                    [
+                      { value: "light", icon: Sun, label: t("theme.light") },
+                      { value: "dark", icon: Moon, label: t("theme.dark") },
+                      { value: "system", icon: Monitor, label: t("theme.system") },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setMode(opt.value)}
+                      className={`flex flex-1 flex-col items-center gap-1 rounded-md py-1.5 text-[11px] transition-colors ${
+                        mode === opt.value
+                          ? "bg-brand text-white"
+                          : "text-green-200 hover:bg-white/10"
+                      }`}
+                    >
+                      <opt.icon size={15} />
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              </button>
+              </div>
 
               {/* Logout */}
               <button

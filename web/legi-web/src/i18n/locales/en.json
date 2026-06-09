@@ -252,7 +252,11 @@
         "removeError": "Couldn't remove this book. Please try again."
     },
     "theme": {
-        "darkMode": "Dark mode"
+        "darkMode": "Dark mode",
+        "appearance": "Appearance",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
     },
     "auth": {
         "loginTitle": "Sign in",
