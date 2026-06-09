@@ -68,7 +68,9 @@ export default function ExplorePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">{t("explore.title")}</h1>
+        <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
+          {t("explore.title")}
+        </h1>
         <p className="mt-1 text-stone-500 dark:text-stone-400">{t("explore.subtitle")}</p>
       </header>
 

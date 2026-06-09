@@ -64,7 +64,7 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          <h1 className="mt-3 text-xl font-bold text-stone-800">@{profile.username}</h1>
+          <h1 className="mt-3 font-serif text-xl font-semibold text-stone-800">@{profile.username}</h1>
           {profile.bio && (
             <p className="mt-3 text-sm leading-relaxed text-stone-600">{profile.bio}</p>
           )}

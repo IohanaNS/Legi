@@ -92,7 +92,7 @@ function FollowRow({ user, onNavigate }: { user: FollowUserDto; onNavigate: () =
         <Link
           to={`/users/${user.userId}`}
           onClick={onNavigate}
-          className="block truncate text-sm font-medium text-stone-800 hover:text-green-700"
+          className="block truncate text-sm font-semibold text-stone-800 hover:text-green-700"
         >
           @{user.username}
         </Link>

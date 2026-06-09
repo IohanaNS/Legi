@@ -50,7 +50,7 @@ export default function Layout() {
       <aside className="w-56 bg-forest-950 dark:bg-dark-sidebar flex flex-col fixed h-full">
         {/* Logo */}
         <div className="p-4">
-          <h1 className="text-xl font-bold text-green-300">📖 Legi</h1>
+          <h1 className="font-serif text-xl font-semibold text-green-300">📖 Legi</h1>
         </div>
 
         {/* Busca */}

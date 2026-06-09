@@ -93,7 +93,7 @@ function CommentRow({ comment }: { comment: CommentDto }) {
         <p className="text-sm">
           <Link
             to={`/users/${comment.userId}`}
-            className="font-medium text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
+            className="font-semibold text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
           >
             @{comment.username}
           </Link>{" "}

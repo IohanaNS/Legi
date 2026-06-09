@@ -27,7 +27,9 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
         </div>
 
         <div className="mt-3">
-          <h1 className="text-xl font-bold text-stone-800 dark:text-stone-100">@{profile.username}</h1>
+          <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">
+            @{profile.username}
+          </h1>
         </div>
 
         {/* Bio */}

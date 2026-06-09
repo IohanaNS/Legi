@@ -15,6 +15,7 @@ export default function FeedPage() {
   const feed = useFeed();
   const listKey = feedKeys.list();
 
+  const greetingName = formatGreetingName(user?.username);
   const items = feed.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -22,8 +23,8 @@ export default function FeedPage() {
       {/* Main column */}
       <div className="flex-1 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">
-            {t("feed.greeting", { username: user?.username ?? "" })}
+          <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
+            {t("feed.greeting", { username: greetingName })}
           </h1>
           <p className="mt-1 text-stone-500 dark:text-stone-400">{t("feed.subtitle")}</p>
         </div>
@@ -63,6 +64,13 @@ export default function FeedPage() {
       </aside>
     </div>
   );
+}
+
+function formatGreetingName(username?: string): string {
+  const firstName = username?.trim().split(/\s+/)[0] ?? "";
+  if (!firstName) return "";
+
+  return firstName.charAt(0).toLocaleUpperCase() + firstName.slice(1);
 }
 
 function FeedEmptyState() {

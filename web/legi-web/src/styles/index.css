@@ -3,6 +3,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-display: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
   --color-forest-950: #142a1a;
   --color-forest-900: #1c3a24;
   --color-forest-800: #274f32;
@@ -12,4 +16,25 @@
   --color-dark-card: #1a2920;
   --color-dark-sidebar: #0a1410;
   --color-dark-raised: #243320;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 }

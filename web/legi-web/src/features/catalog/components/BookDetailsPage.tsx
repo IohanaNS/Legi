@@ -124,7 +124,9 @@ export default function BookDetailsPage() {
 
         {/* Right column: details + reviews */}
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold text-stone-800 dark:text-stone-100">{book.title}</h1>
+          <h1 className="font-serif text-3xl font-semibold leading-tight text-stone-800 dark:text-stone-100">
+            {book.title}
+          </h1>
           <p className="mt-1 text-lg text-stone-500 dark:text-stone-400">{authors}</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-500 dark:text-stone-400">
