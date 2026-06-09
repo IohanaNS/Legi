@@ -1,4 +1,14 @@
 ﻿{
+    "finishDate": {
+        "label": "When did you finish?",
+        "unknown": "I don't remember",
+        "confirm": "Confirm",
+        "markAsRead": "Mark as read",
+        "finishedOn": "Finished on {{date}}",
+        "finishedUnknown": "Finished (date not recorded)",
+        "edit": "Edit",
+        "error": "Couldn't save the finish date. Please try again."
+    },
     "common": {
         "search": "Search...",
         "logout": "Log out",

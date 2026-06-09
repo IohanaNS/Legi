@@ -8,5 +8,6 @@ public record UpdateUserBookResponse(
     string? ProgressType,
     bool Wishlist,
     decimal? RatingStars,
+    DateOnly? FinishedReadingAt,
     DateTime UpdatedAt
 );

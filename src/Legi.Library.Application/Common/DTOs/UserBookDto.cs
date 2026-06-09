@@ -8,6 +8,7 @@ public record UserBookDto(
     string? ProgressType,
     bool Wishlist,
     decimal? RatingStars,
+    DateOnly? FinishedReadingAt,
     BookSnapshotDto Book,
     DateTime CreatedAt,
     DateTime UpdatedAt

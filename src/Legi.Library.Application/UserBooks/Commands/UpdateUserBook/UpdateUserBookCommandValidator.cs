@@ -34,5 +34,11 @@ public class UpdateUserBookCommandValidator : AbstractValidator<UpdateUserBookCo
             .LessThanOrEqualTo(100)
             .When(x => x.ProgressValue.HasValue && x.ProgressType == ProgressType.Percentage)
             .WithMessage("Percentage progress cannot exceed 100.");
+
+        // Allow one day of timezone skew (client sends its local "today").
+        RuleFor(x => x.FinishedReadingAt)
+            .LessThanOrEqualTo(_ => DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1))
+            .When(x => x.FinishedReadingAt.HasValue)
+            .WithMessage("Finish date cannot be in the future.");
     }
 }

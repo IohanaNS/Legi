@@ -65,4 +65,7 @@ test-curls.sh
 
 # Claude Code — local only (keep .claude/agents/ tracked)
 .claude/settings.local.json
-.claude/agent-memory/
+# Agent memory at any level (root, src/, web/legi-web/)
+**/.claude/agent-memory/
+# Claude memory index files anywhere
+**/MEMORY.md

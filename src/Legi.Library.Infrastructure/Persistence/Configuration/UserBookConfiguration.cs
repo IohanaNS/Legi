@@ -34,6 +34,9 @@ public class UserBookConfiguration : IEntityTypeConfiguration<UserBook>
             .HasColumnName("wishlist")
             .HasDefaultValue(false);
 
+        builder.Property(ub => ub.FinishedReadingAt)
+            .HasColumnName("finished_reading_at");
+
         builder.Property(ub => ub.DeletedAt)
             .HasColumnName("deleted_at");
 

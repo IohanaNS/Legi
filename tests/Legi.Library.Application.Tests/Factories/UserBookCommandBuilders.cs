@@ -44,6 +44,7 @@ public sealed class UpdateUserBookCommandBuilder
     private bool? _wishlist;
     private int? _progressValue;
     private ProgressType? _progressType;
+    private DateOnly? _finishedReadingAt;
 
     public static UpdateUserBookCommandBuilder Valid() => new();
 
@@ -78,6 +79,12 @@ public sealed class UpdateUserBookCommandBuilder
         return this;
     }
 
+    public UpdateUserBookCommandBuilder WithFinishedReadingAt(DateOnly? finishedReadingAt)
+    {
+        _finishedReadingAt = finishedReadingAt;
+        return this;
+    }
+
     public UpdateUserBookCommand Build()
     {
         return new UpdateUserBookCommand(
@@ -86,7 +93,8 @@ public sealed class UpdateUserBookCommandBuilder
             _status,
             _wishlist,
             _progressValue,
-            _progressType);
+            _progressType,
+            _finishedReadingAt);
     }
 }
 

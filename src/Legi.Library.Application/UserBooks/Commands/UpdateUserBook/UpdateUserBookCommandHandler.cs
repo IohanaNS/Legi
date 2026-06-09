@@ -24,8 +24,16 @@ public class UpdateUserBookCommandHandler : IRequestHandler<UpdateUserBookComman
         if(userBook.UserId != request.UserId)
             throw new UnauthorizedAccessException("You do not have permission to update this UserBook");
         
-        if(request.Status.HasValue)
-            userBook.ChangeReadingStatus(request.Status.Value);
+        if (request.Status.HasValue)
+        {
+            // Editing the finish date of an already-finished book (status unchanged):
+            // ChangeReadingStatus short-circuits on a no-op transition, so route the
+            // date edit through SetFinishedReadingDate instead.
+            if (request.Status.Value == ReadingStatus.Finished && userBook.Status == ReadingStatus.Finished)
+                userBook.SetFinishedReadingDate(request.FinishedReadingAt);
+            else
+                userBook.ChangeReadingStatus(request.Status.Value, request.FinishedReadingAt);
+        }
         
         if(request.Wishlist.HasValue)
             userBook.SetWishList(request.Wishlist.Value);
@@ -67,6 +75,7 @@ public class UpdateUserBookCommandHandler : IRequestHandler<UpdateUserBookComman
             userBook.CurrentProgress?.Type.ToString(),
             userBook.WishList,
             userBook.CurrentRating?.Stars,
+            userBook.FinishedReadingAt,
             userBook.UpdatedAt);
     }
 }

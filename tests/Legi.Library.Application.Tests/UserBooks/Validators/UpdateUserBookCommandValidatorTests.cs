@@ -98,4 +98,31 @@ public class UpdateUserBookCommandValidatorTests
 
         Assert.True(result.IsValid);
     }
+
+    [Fact]
+    public void Validate_FutureFinishDate_Fails()
+    {
+        var command = UpdateUserBookCommandBuilder.Valid()
+            .WithStatus(ReadingStatus.Finished)
+            .WithFinishedReadingAt(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3))
+            .Build();
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Finish date cannot be in the future.");
+    }
+
+    [Fact]
+    public void Validate_PastFinishDate_Passes()
+    {
+        var command = UpdateUserBookCommandBuilder.Valid()
+            .WithStatus(ReadingStatus.Finished)
+            .WithFinishedReadingAt(DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-1))
+            .Build();
+
+        var result = _validator.Validate(command);
+
+        Assert.True(result.IsValid);
+    }
 }

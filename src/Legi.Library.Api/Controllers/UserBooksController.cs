@@ -93,7 +93,8 @@ public class UserBooksController : ControllerBase
             request.Status,
             request.Wishlist,
             request.ProgressValue,
-            request.ProgressType);
+            request.ProgressType,
+            request.FinishedReadingAt);
 
         var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
@@ -149,6 +150,7 @@ public record UpdateUserBookRequest(
     ReadingStatus? Status = null,
     bool? Wishlist = null,
     int? ProgressValue = null,
-    ProgressType? ProgressType = null);
+    ProgressType? ProgressType = null,
+    DateOnly? FinishedReadingAt = null);
 
 public record RateUserBookRequest(decimal Stars);

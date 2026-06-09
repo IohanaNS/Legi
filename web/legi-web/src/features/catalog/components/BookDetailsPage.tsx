@@ -12,18 +12,28 @@ import {
   useRateBook,
 } from "../../library/hooks/useBookLibraryState";
 import { useAddToLibrary } from "../hooks/useAddToLibrary";
+import {
+  useMarkBookAsRead,
+  useUpdateBookStatus,
+} from "../../library/hooks/useBookLifecycle";
+import { FinishDatePicker } from "../../library/components/FinishDatePicker";
 import { UpdateProgressModal } from "../../library/components/UpdateProgressModal";
 import { ReviewForm } from "../../library/components/ReviewForm";
 import { useBookReviews } from "../../social/hooks/useBookReviews";
 import { ReviewCard } from "../../social/components/ReviewCard";
 import { feedKeys } from "../../social/queryKeys";
-import { progressPercent, statusI18nKey, statusVariant } from "../../library/lib/mappers";
+import {
+  formatFinishDate,
+  progressPercent,
+  statusI18nKey,
+  statusVariant,
+} from "../../library/lib/mappers";
 
 const SYNOPSIS_CLAMP = 280;
 
 export default function BookDetailsPage() {
   const { bookId } = useParams<{ bookId: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const { data: book, isLoading, isError } = useBookDetails(bookId);
@@ -32,10 +42,14 @@ export default function BookDetailsPage() {
 
   const addToLibrary = useAddToLibrary();
   const rateBook = useRateBook(bookId ?? "", userBook?.userBookId);
+  const markAsRead = useMarkBookAsRead();
+  const updateStatus = useUpdateBookStatus();
 
   const [showProgress, setShowProgress] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
+  const [finishMode, setFinishMode] = useState<"edit" | "mark" | null>(null);
+  const [finishError, setFinishError] = useState(false);
 
   if (isLoading) {
     return <p className="p-8 text-center text-stone-400">{t("common.loadMore")}…</p>;
@@ -56,6 +70,31 @@ export default function BookDetailsPage() {
     userBook != null
       ? progressPercent(userBook.progressValue, userBook.progressType, book.pageCount)
       : null;
+
+  const handleMarkAsRead = async (finishedReadingAt: string | null) => {
+    setFinishError(false);
+    try {
+      await markAsRead.mutateAsync({ bookId: book.id, finishedReadingAt });
+      setFinishMode(null);
+    } catch {
+      setFinishError(true);
+    }
+  };
+
+  const handleEditFinishDate = async (finishedReadingAt: string | null) => {
+    if (!userBook) return;
+    setFinishError(false);
+    try {
+      await updateStatus.mutateAsync({
+        userBookId: userBook.userBookId,
+        status: "Finished",
+        finishedReadingAt,
+      });
+      setFinishMode(null);
+    } catch {
+      setFinishError(true);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -94,15 +133,61 @@ export default function BookDetailsPage() {
                 {t("bookDetails.updateProgress")}
                 {percent != null ? ` (${percent}%)` : ""}
               </button>
+
+              {userBook.status === "Finished" &&
+                (finishMode === "edit" ? (
+                  <FinishDatePicker
+                    initialDate={userBook.finishedReadingAt ?? null}
+                    isPending={updateStatus.isPending}
+                    errorText={finishError ? t("finishDate.error") : null}
+                    onConfirm={handleEditFinishDate}
+                    onCancel={() => setFinishMode(null)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-between gap-2 text-xs text-stone-500 dark:text-stone-400">
+                    <span>
+                      {userBook.finishedReadingAt
+                        ? t("finishDate.finishedOn", {
+                            date: formatFinishDate(userBook.finishedReadingAt, i18n.language),
+                          })
+                        : t("finishDate.finishedUnknown")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFinishMode("edit")}
+                      className="font-medium text-green-700 hover:underline"
+                    >
+                      {t("finishDate.edit")}
+                    </button>
+                  </div>
+                ))}
             </>
+          ) : finishMode === "mark" ? (
+            <FinishDatePicker
+              defaultUnknown
+              isPending={markAsRead.isPending}
+              errorText={finishError ? t("finishDate.error") : null}
+              onConfirm={handleMarkAsRead}
+              onCancel={() => setFinishMode(null)}
+            />
           ) : (
-            <Button
-              className="w-full"
-              disabled={addToLibrary.isPending}
-              onClick={() => addToLibrary.mutate({ bookId: book.id, wishlist: false })}
-            >
-              {t("explore.addToLibrary")}
-            </Button>
+            <>
+              <Button
+                className="w-full"
+                disabled={addToLibrary.isPending}
+                onClick={() => addToLibrary.mutate({ bookId: book.id, wishlist: false })}
+              >
+                {t("explore.addToLibrary")}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={markAsRead.isPending}
+                onClick={() => setFinishMode("mark")}
+              >
+                {t("finishDate.markAsRead")}
+              </Button>
+            </>
           )}
 
           {/* Your rating */}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, BookOpen, BookPlus, Check, Gift, LoaderCircle } from "lucide-react";
+import { AlertCircle, BookCheck, BookOpen, BookPlus, Check, Gift, LoaderCircle } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { StarRating } from "../../../components/ui/StarRating";
@@ -10,6 +10,8 @@ import {
   isMissingLibrarySnapshot,
   useAddToLibrary,
 } from "../hooks/useAddToLibrary";
+import { useMarkBookAsRead } from "../../library/hooks/useBookLifecycle";
+import { FinishDatePicker } from "../../library/components/FinishDatePicker";
 import type { BookSummaryDto } from "../types";
 
 interface BookSummaryCardProps {
@@ -22,12 +24,15 @@ type ActionTarget = "library" | "wishlist";
 export function BookSummaryCard({ book }: BookSummaryCardProps) {
   const { t } = useTranslation();
   const addToLibrary = useAddToLibrary();
+  const markAsRead = useMarkBookAsRead();
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingTarget, setPendingTarget] = useState<ActionTarget | null>(null);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [markMode, setMarkMode] = useState(false);
 
   const authors = book.authors.map((author) => author.name).join(", ") || t("explore.unknownAuthor");
   const isKnownPresent = feedback === "added" || feedback === "alreadyInLibrary";
+  const isBusy = addToLibrary.isPending || markAsRead.isPending;
 
   const handleAdd = async (target: ActionTarget) => {
     setPendingTarget(target);
@@ -49,6 +54,24 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
       }
     } finally {
       setPendingTarget(null);
+    }
+  };
+
+  const handleMarkAsRead = async (finishedReadingAt: string | null) => {
+    setFeedback(null);
+    try {
+      await markAsRead.mutateAsync({ bookId: book.id, finishedReadingAt });
+      setFeedback("added");
+    } catch (error) {
+      if (isAlreadyInLibrary(error)) {
+        setFeedback("alreadyInLibrary");
+      } else if (isMissingLibrarySnapshot(error)) {
+        setFeedback("missingSnapshot");
+      } else {
+        setFeedback("addError");
+      }
+    } finally {
+      setMarkMode(false);
     }
   };
 
@@ -99,33 +122,54 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
         )}
 
         <div className="mt-3 grid gap-2">
-          <Button
-            size="sm"
-            onClick={() => handleAdd("library")}
-            disabled={addToLibrary.isPending || isKnownPresent}
-            className="w-full"
-          >
-            {pendingTarget === "library" ? (
-              <LoaderCircle size={14} className="animate-spin" />
-            ) : (
-              <BookPlus size={14} />
-            )}
-            {t("explore.addToLibrary")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAdd("wishlist")}
-            disabled={addToLibrary.isPending || isKnownPresent}
-            className="w-full"
-          >
-            {pendingTarget === "wishlist" ? (
-              <LoaderCircle size={14} className="animate-spin" />
-            ) : (
-              <Gift size={14} />
-            )}
-            {t("explore.addToWishlist")}
-          </Button>
+          {markMode ? (
+            <FinishDatePicker
+              defaultUnknown
+              isPending={markAsRead.isPending}
+              onConfirm={handleMarkAsRead}
+              onCancel={() => setMarkMode(false)}
+            />
+          ) : (
+            <>
+              <Button
+                size="sm"
+                onClick={() => handleAdd("library")}
+                disabled={isBusy || isKnownPresent}
+                className="w-full"
+              >
+                {pendingTarget === "library" ? (
+                  <LoaderCircle size={14} className="animate-spin" />
+                ) : (
+                  <BookPlus size={14} />
+                )}
+                {t("explore.addToLibrary")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleAdd("wishlist")}
+                disabled={isBusy || isKnownPresent}
+                className="w-full"
+              >
+                {pendingTarget === "wishlist" ? (
+                  <LoaderCircle size={14} className="animate-spin" />
+                ) : (
+                  <Gift size={14} />
+                )}
+                {t("explore.addToWishlist")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMarkMode(true)}
+                disabled={isBusy || isKnownPresent}
+                className="w-full"
+              >
+                <BookCheck size={14} />
+                {t("finishDate.markAsRead")}
+              </Button>
+            </>
+          )}
         </div>
 
         {feedback && (

@@ -104,4 +104,77 @@ public class UpdateUserBookCommandHandlerTests
             r => r.UpdateAsync(It.IsAny<UserBook>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_StatusFinishedWithDate_SetsFinishedReadingAtAndReturnsIt()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+        var finishedOn = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-3);
+        var command = UpdateUserBookCommandBuilder.Valid()
+            .WithUserBookId(userBook.Id)
+            .WithStatus(ReadingStatus.Finished)
+            .WithFinishedReadingAt(finishedOn)
+            .Build();
+
+        _userBookRepository
+            .Setup(r => r.GetByIdAsync(userBook.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userBook);
+        _userBookRepository
+            .Setup(r => r.UpdateAsync(userBook, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal(ReadingStatus.Finished, userBook.Status);
+        Assert.Equal(finishedOn, userBook.FinishedReadingAt);
+        Assert.Equal(finishedOn, response.FinishedReadingAt);
+    }
+
+    [Fact]
+    public async Task Handle_AlreadyFinishedWithNewDate_EditsFinishedReadingAt()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Finished).Build();
+        var newDate = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-2);
+        var command = UpdateUserBookCommandBuilder.Valid()
+            .WithUserBookId(userBook.Id)
+            .WithStatus(ReadingStatus.Finished)
+            .WithFinishedReadingAt(newDate)
+            .Build();
+
+        _userBookRepository
+            .Setup(r => r.GetByIdAsync(userBook.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userBook);
+        _userBookRepository
+            .Setup(r => r.UpdateAsync(userBook, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal(newDate, userBook.FinishedReadingAt);
+        Assert.Equal(newDate, response.FinishedReadingAt);
+    }
+
+    [Fact]
+    public async Task Handle_AlreadyFinishedWithNullDate_ResetsFinishedReadingAtToUnknown()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Finished).Build();
+        userBook.SetFinishedReadingDate(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-5));
+        var command = UpdateUserBookCommandBuilder.Valid()
+            .WithUserBookId(userBook.Id)
+            .WithStatus(ReadingStatus.Finished)
+            .WithFinishedReadingAt(null)
+            .Build();
+
+        _userBookRepository
+            .Setup(r => r.GetByIdAsync(userBook.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userBook);
+        _userBookRepository
+            .Setup(r => r.UpdateAsync(userBook, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.Null(userBook.FinishedReadingAt);
+        Assert.Null(response.FinishedReadingAt);
+    }
 }

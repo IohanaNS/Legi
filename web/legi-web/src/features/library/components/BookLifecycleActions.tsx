@@ -10,6 +10,7 @@ import {
   useUpdateBookStatus,
 } from "../hooks/useBookLifecycle";
 import { statusI18nKey } from "../lib/mappers";
+import { FinishDatePicker } from "./FinishDatePicker";
 import type { BackendReadingStatus, UserBookDto } from "../types";
 
 const STATUSES: BackendReadingStatus[] = [
@@ -33,6 +34,7 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [ratingValue, setRatingValue] = useState(userBook.ratingStars ?? 0);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [showFinishDate, setShowFinishDate] = useState(false);
 
   const isPending =
     updateStatus.isPending || rateBook.isPending || removeRating.isPending || removeBook.isPending;
@@ -41,8 +43,31 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
     if (status === userBook.status) return;
 
     setErrorKey(null);
+
+    // Finishing needs a date — defer to the picker (defaults to today since the
+    // book was already in the library) instead of firing immediately.
+    if (status === "Finished") {
+      setShowFinishDate(true);
+      return;
+    }
+
     try {
       await updateStatus.mutateAsync({ userBookId: userBook.userBookId, status });
+      setIsOpen(false);
+    } catch {
+      setErrorKey("libraryActions.statusError");
+    }
+  };
+
+  const handleConfirmFinish = async (finishedReadingAt: string | null) => {
+    setErrorKey(null);
+    try {
+      await updateStatus.mutateAsync({
+        userBookId: userBook.userBookId,
+        status: "Finished",
+        finishedReadingAt,
+      });
+      setShowFinishDate(false);
       setIsOpen(false);
     } catch {
       setErrorKey("libraryActions.statusError");
@@ -93,6 +118,7 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
         aria-label={t("libraryActions.openMenu")}
         onClick={() => {
           setErrorKey(null);
+          setShowFinishDate(false);
           if (!isOpen) setRatingValue(userBook.ratingStars ?? 0);
           setIsOpen(!isOpen);
         }}
@@ -108,24 +134,33 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
             <p className="mb-2 text-xs font-semibold uppercase text-stone-500 dark:text-stone-400">
               {t("libraryActions.changeStatus")}
             </p>
-            <div className="space-y-1">
-              {STATUSES.map((status) => {
-                const isCurrent = status === userBook.status;
+            {showFinishDate ? (
+              <FinishDatePicker
+                isPending={isPending}
+                errorText={errorKey === "libraryActions.statusError" ? t(errorKey) : null}
+                onConfirm={handleConfirmFinish}
+                onCancel={() => setShowFinishDate(false)}
+              />
+            ) : (
+              <div className="space-y-1">
+                {STATUSES.map((status) => {
+                  const isCurrent = status === userBook.status;
 
-                return (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => handleStatusChange(status)}
-                    disabled={isPending || isCurrent}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-dark-raised disabled:cursor-default disabled:text-stone-400 dark:disabled:text-stone-600"
-                  >
-                    {t(`profile.status.${statusI18nKey(status)}`)}
-                    {isCurrent && <Check size={14} />}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => handleStatusChange(status)}
+                      disabled={isPending || isCurrent}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-dark-raised disabled:cursor-default disabled:text-stone-400 dark:disabled:text-stone-600"
+                    >
+                      {t(`profile.status.${statusI18nKey(status)}`)}
+                      {isCurrent && <Check size={14} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <section className="mt-3 border-t border-stone-100 dark:border-dark-raised pt-3">
@@ -185,7 +220,9 @@ export function BookLifecycleActions({ userBook }: BookLifecycleActionsProps) {
             </Button>
           </section>
 
-          {errorKey && <p className="mt-2 text-xs text-red-600">{t(errorKey)}</p>}
+          {errorKey && !showFinishDate && (
+            <p className="mt-2 text-xs text-red-600">{t(errorKey)}</p>
+          )}
         </div>
       )}
     </div>

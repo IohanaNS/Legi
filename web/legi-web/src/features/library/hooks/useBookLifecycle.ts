@@ -16,8 +16,39 @@ function useLibraryMutation<TArgs>(mutationFn: (args: TArgs) => Promise<unknown>
 
 export function useUpdateBookStatus() {
   return useLibraryMutation(
-    ({ userBookId, status }: { userBookId: string; status: BackendReadingStatus }) =>
-      libraryApi.updateUserBook(userBookId, { status }),
+    ({
+      userBookId,
+      status,
+      finishedReadingAt,
+    }: {
+      userBookId: string;
+      status: BackendReadingStatus;
+      // Only meaningful for status "Finished": yyyy-MM-dd, or null = date unknown.
+      finishedReadingAt?: string | null;
+    }) => libraryApi.updateUserBook(userBookId, { status, finishedReadingAt }),
+  );
+}
+
+/**
+ * Marks a book the user already read as Finished in one go: adds it to the library,
+ * then sets status Finished with an (optional) finish date. Used from Explore and
+ * the book details page when the book isn't in the library yet.
+ */
+export function useMarkBookAsRead() {
+  return useLibraryMutation(
+    async ({
+      bookId,
+      finishedReadingAt,
+    }: {
+      bookId: string;
+      finishedReadingAt?: string | null;
+    }) => {
+      const added = await libraryApi.addBookToLibrary(bookId, false);
+      await libraryApi.updateUserBook(added.userBookId, {
+        status: "Finished",
+        finishedReadingAt,
+      });
+    },
   );
 }
 

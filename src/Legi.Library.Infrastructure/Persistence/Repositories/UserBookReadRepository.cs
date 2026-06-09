@@ -66,6 +66,7 @@ public class UserBookReadRepository : IUserBookReadRepository
                 x.UserBook.CurrentProgress != null ? x.UserBook.CurrentProgress.Type.ToString() : null,
                 x.UserBook.WishList,
                 x.UserBook.CurrentRating != null ? x.UserBook.CurrentRating.Stars : null,
+                x.UserBook.FinishedReadingAt,
                 new BookSnapshotDto(
                     x.Snapshot.BookId,
                     x.Snapshot.Title,
@@ -102,6 +103,7 @@ public class UserBookReadRepository : IUserBookReadRepository
                     ub.CurrentProgress != null ? ub.CurrentProgress.Type.ToString() : null,
                     ub.WishList,
                     ub.CurrentRating != null ? ub.CurrentRating.Stars : null,
+                    ub.FinishedReadingAt,
                     new BookSnapshotDto(
                         bs.BookId,
                         bs.Title,

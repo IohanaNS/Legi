@@ -32,6 +32,9 @@ export interface UpdateUserBookBody {
   wishlist?: boolean;
   progressValue?: number;
   progressType?: ProgressType;
+  // yyyy-MM-dd when the book was finished; null = "finished, date unknown".
+  // Omit (undefined) to leave it untouched.
+  finishedReadingAt?: string | null;
 }
 
 // POST /library/{userBookId}/reviews request body.
@@ -84,6 +87,8 @@ export const libraryApi = {
       progressValue: body.progressValue,
       progressType:
         body.progressType !== undefined ? PROGRESS_TYPE_WIRE[body.progressType] : undefined,
+      // DateOnly is serialized as a string; null explicitly resets to "unknown".
+      finishedReadingAt: body.finishedReadingAt,
     }),
   createBookReview: (userBookId: string, body: CreateBookReviewBody) =>
     http.post(`/library/${userBookId}/reviews`, {

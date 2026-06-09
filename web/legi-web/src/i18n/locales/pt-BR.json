@@ -1,4 +1,14 @@
 ﻿{
+    "finishDate": {
+        "label": "Quando você terminou?",
+        "unknown": "Não me lembro",
+        "confirm": "Confirmar",
+        "markAsRead": "Marcar como lido",
+        "finishedOn": "Terminado em {{date}}",
+        "finishedUnknown": "Terminado (data não registrada)",
+        "edit": "Editar",
+        "error": "Não foi possível salvar a data de término. Tente novamente."
+    },
     "common": {
         "search": "Buscar...",
         "logout": "Sair",

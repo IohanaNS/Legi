@@ -33,6 +33,7 @@ export interface UserBookDto {
   progressType?: ProgressType | null;
   wishlist: boolean;
   ratingStars?: number | null; // 0.5–5.0, half-star steps
+  finishedReadingAt?: string | null; // yyyy-MM-dd, null = finished but date unknown
   book: BookSnapshotDto;
   createdAt: string;
   updatedAt: string;

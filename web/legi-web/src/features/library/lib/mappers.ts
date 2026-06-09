@@ -46,3 +46,21 @@ export function progressPercent(
   if (type === "Page" && pageCount) return Math.round((value / pageCount) * 100);
   return null;
 }
+
+// Local-timezone "today" as yyyy-MM-dd. Used as the default finish date; computed
+// on the client so an evening finish doesn't slip into the next UTC day (or year).
+const pad = (n: number) => String(n).padStart(2, "0");
+
+export function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// yyyy-MM-dd -> localized date string, anchored at local midnight to avoid a shift.
+export function formatFinishDate(iso: string, locale?: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

@@ -9,5 +9,6 @@ public record UpdateUserBookCommand(
     ReadingStatus? Status = null,
     bool? Wishlist = null,
     int? ProgressValue = null,
-    ProgressType? ProgressType = null
+    ProgressType? ProgressType = null,
+    DateOnly? FinishedReadingAt = null
 ) : IRequest<UpdateUserBookResponse>;

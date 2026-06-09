@@ -177,4 +177,109 @@ public class UserBookTests
 
         Assert.Throws<DomainException>(() => userBook.Remove());
     }
+
+    [Fact]
+    public void ChangeReadingStatus_FinishedWithDate_SetsFinishedReadingAt()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+        var finishedOn = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-1);
+
+        userBook.ChangeReadingStatus(ReadingStatus.Finished, finishedOn);
+
+        Assert.Equal(ReadingStatus.Finished, userBook.Status);
+        Assert.Equal(finishedOn, userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void ChangeReadingStatus_FinishedWithoutDate_LeavesFinishedReadingAtNull()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+
+        userBook.ChangeReadingStatus(ReadingStatus.Finished);
+
+        Assert.Equal(ReadingStatus.Finished, userBook.Status);
+        Assert.Null(userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void ChangeReadingStatus_FutureDate_ThrowsDomainException()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+        var future = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3);
+
+        Assert.Throws<DomainException>(
+            () => userBook.ChangeReadingStatus(ReadingStatus.Finished, future));
+    }
+
+    [Fact]
+    public void ChangeReadingStatus_MovingAwayFromFinished_ClearsFinishedReadingAt()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+        userBook.ChangeReadingStatus(
+            ReadingStatus.Finished, DateOnly.FromDateTime(DateTime.UtcNow));
+
+        userBook.ChangeReadingStatus(ReadingStatus.Reading);
+
+        Assert.Null(userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void ChangeReadingStatus_Abandoned_DoesNotSetFinishedReadingAt()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+
+        userBook.ChangeReadingStatus(ReadingStatus.Abandoned);
+
+        Assert.Null(userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void UpdateProgress_PercentageComplete_SetsFinishedReadingAtToToday()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+
+        userBook.UpdateProgress(Progress.Completed());
+
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void SetFinishedReadingDate_BookFinished_UpdatesDate()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Finished).Build();
+        var newDate = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-2);
+
+        userBook.SetFinishedReadingDate(newDate);
+
+        Assert.Equal(newDate, userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void SetFinishedReadingDate_Null_ResetsToUnknown()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Finished).Build();
+        userBook.SetFinishedReadingDate(DateOnly.FromDateTime(DateTime.UtcNow));
+
+        userBook.SetFinishedReadingDate(null);
+
+        Assert.Null(userBook.FinishedReadingAt);
+    }
+
+    [Fact]
+    public void SetFinishedReadingDate_BookNotFinished_ThrowsDomainException()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Reading).Build();
+
+        Assert.Throws<DomainException>(
+            () => userBook.SetFinishedReadingDate(DateOnly.FromDateTime(DateTime.UtcNow)));
+    }
+
+    [Fact]
+    public void SetFinishedReadingDate_FutureDate_ThrowsDomainException()
+    {
+        var userBook = UserBookBuilder.Valid().WithStatus(ReadingStatus.Finished).Build();
+        var future = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3);
+
+        Assert.Throws<DomainException>(() => userBook.SetFinishedReadingDate(future));
+    }
 }
