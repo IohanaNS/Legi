@@ -98,6 +98,8 @@
         "updateProgress": "Update progress",
         "deletePost": "Delete post",
         "confirmDeletePost": "Are you sure you want to delete this post?",
+        "deleteActivity": "Delete activity",
+        "confirmDeleteActivity": "Remove this activity from your feed?",
         "empty": "You're not following anyone yet",
         "emptyHint": "Find people to follow and your feed will fill up.",
         "activityTitle": "Activity",

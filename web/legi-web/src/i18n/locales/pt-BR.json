@@ -98,6 +98,8 @@
         "updateProgress": "Atualizar progresso",
         "deletePost": "Excluir publicação",
         "confirmDeletePost": "Tem certeza que deseja excluir esta publicação?",
+        "deleteActivity": "Excluir atividade",
+        "confirmDeleteActivity": "Remover esta atividade do seu mural?",
         "empty": "Você ainda não segue ninguém",
         "emptyHint": "Encontre pessoas para seguir e seu mural vai se encher.",
         "activityTitle": "Atividade",

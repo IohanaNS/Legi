@@ -5,7 +5,9 @@ namespace Legi.Social.Domain.Repositories;
 
 public interface IFeedItemRepository
 {
+    Task<FeedItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task AddAsync(FeedItem feedItem, CancellationToken cancellationToken = default);
+    Task DeleteAsync(FeedItem feedItem, CancellationToken cancellationToken = default);
     Task DeleteByReferenceAsync(Guid referenceId, CancellationToken cancellationToken = default);
     Task DeleteByActorAsync(Guid actorId, CancellationToken cancellationToken = default);
 

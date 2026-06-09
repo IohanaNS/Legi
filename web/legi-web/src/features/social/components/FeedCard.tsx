@@ -8,14 +8,17 @@ import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StarRating } from "../../../components/ui/StarRating";
 import { SpoilerContent } from "../../../components/ui/SpoilerContent";
 import { InteractionBar } from "./InteractionBar";
-import { parseActivityData, feedProgressPercent, isInteractable } from "../lib/feed";
+import {
+  feedProgressPercent,
+  isDeletableByActor,
+  isFeedItemOnlyDeletable,
+  isInteractable,
+  parseActivityData,
+} from "../lib/feed";
 import { relativeTime } from "../lib/time";
-import { useDeletePost } from "../hooks/useDeletePost";
+import { useDeleteFeedItem } from "../hooks/useDeletePost";
 import { useAuth } from "../../auth/useAuth";
 import type { ActivityType, FeedItemDto } from "../types";
-
-// Activities backed by a ReadingProgress row the author can delete.
-const DELETABLE: ReadonlySet<ActivityType> = new Set(["ProgressPosted", "ReviewCreated"]);
 
 interface FeedCardProps {
   item: FeedItemDto;
@@ -42,16 +45,26 @@ const ACTIVITY_I18N: Record<ActivityType, string> = {
   ListCreated: "activity.listCreated",
 };
 
+const BOOK_REFERENCE_ACTIVITIES: ReadonlySet<ActivityType> = new Set([
+  "BookAdded",
+  "BookFinished",
+  "BookStarted",
+  "BookRated",
+]);
+
 export function FeedCard({ item, listKey }: FeedCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const deletePost = useDeletePost(listKey);
+  const deleteFeedItem = useDeleteFeedItem(listKey);
   const data = parseActivityData(item);
-  const canDelete = user?.userId === item.actorId && DELETABLE.has(item.activityType);
+  const canDelete = isDeletableByActor(item, user?.userId);
+  const bookRouteId = item.bookId ?? (BOOK_REFERENCE_ACTIVITIES.has(item.activityType) ? item.referenceId : null);
+  const deleteLabelKey = isFeedItemOnlyDeletable(item) ? "feed.deleteActivity" : "feed.deletePost";
+  const deleteConfirmKey = isFeedItemOnlyDeletable(item) ? "feed.confirmDeleteActivity" : "feed.confirmDeletePost";
 
   const handleDelete = () => {
-    if (deletePost.isPending) return;
-    if (window.confirm(t("feed.confirmDeletePost"))) deletePost.mutate(item);
+    if (deleteFeedItem.isPending) return;
+    if (window.confirm(t(deleteConfirmKey))) deleteFeedItem.mutate(item);
   };
 
   return (
@@ -82,9 +95,9 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
                 <span className="font-semibold text-stone-800 dark:text-stone-100">{data.name}</span>
               ) : (
                 item.bookTitle &&
-                (item.bookId ? (
+                (bookRouteId ? (
                   <Link
-                    to={`/books/${item.bookId}`}
+                    to={`/books/${bookRouteId}`}
                     className="font-semibold text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
                   >
                     {item.bookTitle}
@@ -101,9 +114,9 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             <button
               type="button"
               onClick={handleDelete}
-              disabled={deletePost.isPending}
-              aria-label={t("feed.deletePost")}
-              title={t("feed.deletePost")}
+              disabled={deleteFeedItem.isPending}
+              aria-label={t(deleteLabelKey)}
+              title={t(deleteLabelKey)}
               className="ml-auto self-start text-stone-400 hover:text-red-600 transition-colors disabled:opacity-50"
             >
               <Trash2 size={15} />
@@ -114,8 +127,8 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
         {/* Body */}
         <div className="mt-3 flex gap-3">
           {item.bookCoverUrl ? (
-            item.bookId ? (
-              <Link to={`/books/${item.bookId}`} className="flex-shrink-0">
+            bookRouteId ? (
+              <Link to={`/books/${bookRouteId}`} className="flex-shrink-0">
                 <img
                   src={item.bookCoverUrl}
                   alt={item.bookTitle ?? ""}

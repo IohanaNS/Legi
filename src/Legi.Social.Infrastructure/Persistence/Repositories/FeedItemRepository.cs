@@ -6,9 +6,21 @@ namespace Legi.Social.Infrastructure.Persistence.Repositories;
 
 public class FeedItemRepository(SocialDbContext context) : IFeedItemRepository
 {
+    public Task<FeedItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return context.FeedItems
+            .FirstOrDefaultAsync(fi => fi.Id == id, cancellationToken);
+    }
+
     public async Task AddAsync(FeedItem feedItem, CancellationToken cancellationToken = default)
     {
         await context.FeedItems.AddAsync(feedItem, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(FeedItem feedItem, CancellationToken cancellationToken = default)
+    {
+        context.FeedItems.Remove(feedItem);
         await context.SaveChangesAsync(cancellationToken);
     }
 

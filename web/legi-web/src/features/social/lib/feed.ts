@@ -1,5 +1,17 @@
 import type { Resource } from "../api";
-import type { ActivityData, FeedItemDto, TargetType } from "../types";
+import type { ActivityData, ActivityType, FeedItemDto, TargetType } from "../types";
+
+const CONTENT_BACKED_DELETABLE: ReadonlySet<ActivityType> = new Set([
+  "ProgressPosted",
+  "ReviewCreated",
+]);
+
+const FEED_ITEM_ONLY_DELETABLE: ReadonlySet<ActivityType> = new Set([
+  "BookAdded",
+  "BookFinished",
+  "BookStarted",
+  "BookRated",
+]);
 
 /**
  * REST resource for like/comment routes, or null if non-interactable.
@@ -15,6 +27,18 @@ export function interactionResource(targetType?: TargetType | null): Resource | 
 
 export const isInteractable = (item: FeedItemDto): boolean =>
   interactionResource(item.targetType) !== null;
+
+export const isContentBackedDeletable = (item: FeedItemDto): boolean =>
+  CONTENT_BACKED_DELETABLE.has(item.activityType);
+
+export const isFeedItemOnlyDeletable = (item: FeedItemDto): boolean =>
+  item.targetType == null && FEED_ITEM_ONLY_DELETABLE.has(item.activityType);
+
+export const isDeletableByActor = (
+  item: FeedItemDto,
+  actorId?: string | null,
+): boolean => !!actorId && item.actorId === actorId &&
+  (isContentBackedDeletable(item) || isFeedItemOnlyDeletable(item));
 
 /** Safely parses FeedItemDto.data and discriminates it by activityType. */
 export function parseActivityData(item: FeedItemDto): ActivityData {

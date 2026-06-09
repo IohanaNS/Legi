@@ -37,6 +37,8 @@ export const socialApi = {
       })
       .then((r) => r.data),
 
+  deleteFeedItem: (feedItemId: string) => http.delete(`/social/feed/${feedItemId}`),
+
   like: (resource: Resource, id: string) => http.post(`/social/${resource}/${id}/likes`),
   unlike: (resource: Resource, id: string) => http.delete(`/social/${resource}/${id}/likes`),
 

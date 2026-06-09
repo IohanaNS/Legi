@@ -6,20 +6,24 @@ import {
 } from "@tanstack/react-query";
 import { libraryApi } from "../../library/api";
 import { catalogKeys } from "../../catalog/queryKeys";
+import { socialApi } from "../api";
+import { isContentBackedDeletable } from "../lib/feed";
 import type { FeedItemDto, SocialPaginatedList } from "../types";
 
 type FeedCache = InfiniteData<SocialPaginatedList<FeedItemDto>>;
 
 /**
- * Deletes a reading post or review (both are ReadingProgress rows; the feed
- * item's referenceId is the postId/reviewId). The Social purge of the FeedItem
- * fans out asynchronously, so we optimistically drop the item from the displayed
- * list (feed or a book's reviews) instead of refetching it back.
+ * Deletes manual post/review content through Library, or owner-only automatic
+ * activity rows directly through Social. Both paths optimistically drop the
+ * displayed feed item.
  */
-export function useDeletePost(listKey: QueryKey) {
+export function useDeleteFeedItem(listKey: QueryKey) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item: FeedItemDto) => libraryApi.deleteReadingPost(item.referenceId),
+    mutationFn: (item: FeedItemDto) =>
+      isContentBackedDeletable(item)
+        ? libraryApi.deleteReadingPost(item.referenceId)
+        : socialApi.deleteFeedItem(item.id),
     onSuccess: (_data, item) => {
       qc.setQueryData<FeedCache>(listKey, (data) =>
         data && {
@@ -32,7 +36,7 @@ export function useDeletePost(listKey: QueryKey) {
         },
       );
       // Reviews count on the book details page is recomputed by Catalog (async).
-      if (item.bookId) {
+      if (isContentBackedDeletable(item) && item.bookId) {
         qc.invalidateQueries({ queryKey: catalogKeys.bookDetails(item.bookId) });
       }
     },

@@ -8,7 +8,7 @@ import { SpoilerContent } from "../../../components/ui/SpoilerContent";
 import { InteractionBar } from "./InteractionBar";
 import { parseActivityData } from "../lib/feed";
 import { relativeTime } from "../lib/time";
-import { useDeletePost } from "../hooks/useDeletePost";
+import { useDeleteFeedItem } from "../hooks/useDeletePost";
 import { useAuth } from "../../auth/useAuth";
 import type { FeedItemDto } from "../types";
 
@@ -25,14 +25,14 @@ interface ReviewCardProps {
 export function ReviewCard({ item, listKey }: ReviewCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const deletePost = useDeletePost(listKey);
+  const deleteFeedItem = useDeleteFeedItem(listKey);
   const data = parseActivityData(item);
   const review = data.kind === "ReviewCreated" ? data : null;
   const isOwner = user?.userId === item.actorId;
 
   const handleDelete = () => {
-    if (deletePost.isPending) return;
-    if (window.confirm(t("bookDetails.confirmDeleteReview"))) deletePost.mutate(item);
+    if (deleteFeedItem.isPending) return;
+    if (window.confirm(t("bookDetails.confirmDeleteReview"))) deleteFeedItem.mutate(item);
   };
 
   return (
@@ -56,7 +56,7 @@ export function ReviewCard({ item, listKey }: ReviewCardProps) {
               <button
                 type="button"
                 onClick={handleDelete}
-                disabled={deletePost.isPending}
+                disabled={deleteFeedItem.isPending}
                 aria-label={t("bookDetails.deleteReview")}
                 title={t("bookDetails.deleteReview")}
                 className="ml-auto text-stone-400 hover:text-red-600 transition-colors disabled:opacity-50"

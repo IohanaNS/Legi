@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
+using Legi.Social.Application.Feed.Commands.DeleteFeedItem;
 using Legi.Social.Application.Feed.Queries.GetBookReviews;
 using Legi.Social.Application.Feed.Queries.GetFeed;
 using Legi.Social.Application.Feed.Queries.GetUserActivity;
@@ -30,6 +31,16 @@ public class FeedController : ControllerBase
         var query = new GetFeedQuery(userId, page, pageSize);
         var result = await _mediator.Send(query);
         return Ok(result);
+    }
+
+    [HttpDelete("feed/{feedItemId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteFeedItem(Guid feedItemId)
+    {
+        var userId = GetUserId();
+        var command = new DeleteFeedItemCommand(userId, feedItemId);
+        await _mediator.Send(command);
+        return NoContent();
     }
 
     [HttpGet("users/{userId:guid}/activity")]
