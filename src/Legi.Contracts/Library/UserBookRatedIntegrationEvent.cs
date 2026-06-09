@@ -9,10 +9,16 @@ namespace Legi.Contracts.Library;
 ///
 /// Rating values are integers in [1, 10] (half-stars). <see cref="PreviousRating"/>
 /// is null when this is the first rating the user has set for the book.
+///
+/// <see cref="IsPartOfReview"/> is true when the rating was set as part of
+/// writing a review. Catalog ignores the flag (it always recomputes the average),
+/// but Social uses it to suppress the standalone <c>BookRated</c> feed item so a
+/// review produces a single <c>ReviewCreated</c> activity instead of two.
 /// </summary>
 public sealed record UserBookRatedIntegrationEvent(
     Guid BookId,
     Guid UserId,
     int Rating,
-    int? PreviousRating
+    int? PreviousRating,
+    bool IsPartOfReview = false
 ) : IIntegrationEvent;

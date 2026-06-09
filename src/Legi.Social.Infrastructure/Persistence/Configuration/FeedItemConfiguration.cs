@@ -56,6 +56,9 @@ public class FeedItemConfiguration : IEntityTypeConfiguration<FeedItem>
             .HasColumnName("book_cover_url")
             .HasMaxLength(500);
 
+        builder.Property(fi => fi.BookId)
+            .HasColumnName("book_id");
+
         builder.Property(fi => fi.Data)
             .HasColumnName("data")
             .HasColumnType("jsonb");
@@ -73,5 +76,10 @@ public class FeedItemConfiguration : IEntityTypeConfiguration<FeedItem>
 
         builder.HasIndex(fi => fi.ReferenceId)
             .HasDatabaseName("ix_feed_items_reference_id");
+
+        // Reviews-by-book query: filter by (BookId, ActivityType), newest first.
+        builder.HasIndex(fi => new { fi.BookId, fi.ActivityType, fi.CreatedAt })
+            .HasDatabaseName("ix_feed_items_book_activity_created")
+            .IsDescending(false, false, true);
     }
 }

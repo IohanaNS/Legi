@@ -79,7 +79,8 @@ public sealed class ReadingPostCreatedIntegrationEventHandler(
             bookTitle: book.Title,
             bookAuthor: book.AuthorDisplay,
             bookCoverUrl: book.CoverUrl,
-            data: data);
+            data: data,
+            bookId: integrationEvent.BookId);
 
         await feedItemRepository.StageAddAsync(feedItem, cancellationToken);
 

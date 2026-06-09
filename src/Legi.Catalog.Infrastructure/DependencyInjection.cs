@@ -38,6 +38,11 @@ public static class DependencyInjection
         services.AddIntegrationEventConsumer<UserBookRatedIntegrationEvent, CatalogDbContext>();
         services.AddIntegrationEventConsumer<UserBookRatingRemovedIntegrationEvent, CatalogDbContext>();
 
+        // Library → Catalog reviews count (created/deleted). Independent queues on
+        // the ReviewCreated / ReadingPostDeleted fanout exchanges.
+        services.AddIntegrationEventConsumer<ReviewCreatedIntegrationEvent, CatalogDbContext>();
+        services.AddIntegrationEventConsumer<ReadingPostDeletedIntegrationEvent, CatalogDbContext>();
+
         // Repositories
         services.AddScoped<IBookRepository, BookRepository>();
         services.AddScoped<IBookRatingRepository, BookRatingRepository>();

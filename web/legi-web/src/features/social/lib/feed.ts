@@ -1,12 +1,14 @@
+import type { Resource } from "../api";
 import type { ActivityData, FeedItemDto, TargetType } from "../types";
 
 /**
  * REST resource for like/comment routes, or null if non-interactable.
  * Driven by targetType at runtime (never hardcoded by activityType):
- *   Post -> posts, List -> lists, Review/null -> non-interactable (no route in v1).
+ *   Post -> posts, Review -> reviews, List -> lists, null -> non-interactable.
  */
-export function interactionResource(targetType?: TargetType | null): "posts" | "lists" | null {
+export function interactionResource(targetType?: TargetType | null): Resource | null {
   if (targetType === "Post") return "posts";
+  if (targetType === "Review") return "reviews";
   if (targetType === "List") return "lists";
   return null;
 }

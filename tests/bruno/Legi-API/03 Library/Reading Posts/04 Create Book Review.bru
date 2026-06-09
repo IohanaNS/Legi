@@ -1,0 +1,44 @@
+meta {
+  name: Create Book Review
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{libraryBaseUrl}}/api/v1/library/{{userBookId}}/reviews
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "content": "A genuinely thoughtful review of this book — the prose and pacing are excellent.",
+    "stars": 4.5,
+    "isSpoiler": true
+  }
+}
+
+docs {
+  Writes a book review (rating + content + spoiler). Sets the UserBook rating
+  (flagged IsPartOfReview so Social suppresses the standalone BookRated activity)
+  and creates a ReviewCreated activity. Chains after a request that set
+  {{userBookId}}. Saves {{reviewId}} for the Social Review Interactions folder.
+}
+
+script:post-response {
+  const raw = res.getBody();
+  let data = {};
+  if (typeof raw === "string" && raw.length) data = JSON.parse(raw);
+  else if (raw && raw.parsedBody) data = raw.parsedBody;
+  else if (raw) data = raw;
+  if (data.reviewId) bru.setEnvVar("reviewId", data.reviewId);
+}

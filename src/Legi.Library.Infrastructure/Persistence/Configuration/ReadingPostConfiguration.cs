@@ -36,6 +36,10 @@ public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingProgress
             .HasColumnName("is_spoiler")
             .HasDefaultValue(false);
 
+        builder.Property(rp => rp.IsReview)
+            .HasColumnName("is_review")
+            .HasDefaultValue(false);
+
         builder.Property(rp => rp.ReadingDate)
             .HasColumnName("reading_date")
             .IsRequired();
@@ -66,6 +70,17 @@ public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingProgress
                 .HasColumnName("progress_type")
                 .HasConversion<string>()
                 .HasMaxLength(20);
+        });
+
+        // Value Object: Rating (owned, stored as column in same table). Set only
+        // for reviews (null for progress posts).
+        builder.OwnsOne(rp => rp.Rating, rating =>
+        {
+            rating.Property(r => r.Value)
+                .HasColumnName("rating_value")
+                .HasColumnType("smallint");
+
+            rating.Ignore(r => r.Stars); // Computed property, not persisted
         });
 
         // Indexes

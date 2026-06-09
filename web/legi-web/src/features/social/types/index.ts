@@ -55,6 +55,7 @@ export interface FeedItemDto {
   activityType: ActivityType;
   targetType?: TargetType | null;
   referenceId: string;
+  bookId?: string | null;
   bookTitle?: string | null;
   bookAuthor?: string | null;
   bookCoverUrl?: string | null;
@@ -100,5 +101,5 @@ export type ActivityData =
   | { kind: "BookRated"; rating?: number }
   | { kind: "BookStarted"; content?: string }
   | { kind: "BookAdded" }
-  | { kind: "ReviewCreated"; rating?: number; content?: string }
+  | { kind: "ReviewCreated"; rating?: number; content?: string; isSpoiler?: boolean }
   | { kind: "ListCreated"; name?: string; description?: string };

@@ -18,6 +18,7 @@ export BOOK_ID="00000000-0000-0000-0000-000000000000"
 export AUTHOR_SLUG=""
 export TAG_SLUG=""
 export USER_BOOK_ID="00000000-0000-0000-0000-000000000000"
+export REVIEW_ID="00000000-0000-0000-0000-000000000000"
 export LIST_ID="00000000-0000-0000-0000-000000000000"
 export POST_ID="00000000-0000-0000-0000-000000000000"
 export LIST_COMMENT_ID="00000000-0000-0000-0000-000000000000"
@@ -117,6 +118,10 @@ curl -i "$LIBRARY_URL/api/v1/library?status=Reading&wishlist=false&page=1&pageSi
 curl -i "$LIBRARY_URL/api/v1/library?search=clean%20code&page=1&pageSize=20" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
+# My UserBook for a book (200) or 204 if not in library
+curl -i "$LIBRARY_URL/api/v1/library/by-book/$BOOK_ID" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
 curl -i -X POST "$LIBRARY_URL/api/v1/library" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -153,6 +158,12 @@ curl -i -X PUT "$LIBRARY_URL/api/v1/library/posts/$POST_ID" \
 
 curl -i -X DELETE "$LIBRARY_URL/api/v1/library/posts/$POST_ID" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Write a book review (sets rating + creates a ReviewCreated activity). Returns reviewId.
+curl -i -X POST "$LIBRARY_URL/api/v1/library/$USER_BOOK_ID/reviews" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"A genuinely thoughtful review from curl.","stars":4.5,"isSpoiler":true}'
 
 curl -i "$LIBRARY_URL/api/v1/library/lists" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
@@ -193,6 +204,10 @@ curl -i "$SOCIAL_URL/api/v1/social/feed?page=1&pageSize=20" \
 
 curl -i "$SOCIAL_URL/api/v1/social/users/$PUBLIC_USER_ID/activity?page=1&pageSize=20"
 
+# Reviews written for a book (ReviewCreated activities) — book details page
+curl -i "$SOCIAL_URL/api/v1/social/books/$BOOK_ID/reviews?page=1&pageSize=20" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
 curl -i -X POST "$SOCIAL_URL/api/v1/social/follows" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -229,6 +244,20 @@ curl -i -X POST "$SOCIAL_URL/api/v1/social/posts/$POST_ID/comments" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"content":"Post comment created from curl."}'
+
+# Review interactions (InteractableType.Review)
+curl -i -X POST "$SOCIAL_URL/api/v1/social/reviews/$REVIEW_ID/likes" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+curl -i -X DELETE "$SOCIAL_URL/api/v1/social/reviews/$REVIEW_ID/likes" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+curl -i "$SOCIAL_URL/api/v1/social/reviews/$REVIEW_ID/comments?page=1&pageSize=20"
+
+curl -i -X POST "$SOCIAL_URL/api/v1/social/reviews/$REVIEW_ID/comments" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"Review comment created from curl."}'
 
 curl -i -X DELETE "$SOCIAL_URL/api/v1/social/comments/$LIST_COMMENT_ID" \
   -H "Authorization: Bearer $ACCESS_TOKEN"

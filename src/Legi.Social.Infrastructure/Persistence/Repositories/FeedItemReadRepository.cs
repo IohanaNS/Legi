@@ -36,6 +36,7 @@ public class FeedItemReadRepository(SocialDbContext context) : IFeedItemReadRepo
                 ActivityType = fi.ActivityType.ToString(),
                 TargetType = fi.TargetType != null ? fi.TargetType.Value.ToString() : null,
                 ReferenceId = fi.ReferenceId,
+                BookId = fi.BookId,
                 BookTitle = fi.BookTitle,
                 BookAuthor = fi.BookAuthor,
                 BookCoverUrl = fi.BookCoverUrl,
@@ -54,6 +55,61 @@ public class FeedItemReadRepository(SocialDbContext context) : IFeedItemReadRepo
                 IsLikedByMe = fi.TargetType != null &&
                     context.Likes.Any(l =>
                         l.UserId == viewerUserId &&
+                        l.TargetType == fi.TargetType.Value &&
+                        l.TargetId == fi.ReferenceId),
+                CreatedAt = fi.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PaginatedList<FeedItemDto>(items, totalCount, page, pageSize);
+    }
+
+    public async Task<PaginatedList<FeedItemDto>> GetBookReviewsAsync(
+        Guid bookId,
+        Guid? viewerUserId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.FeedItems
+            .AsNoTracking()
+            .Where(fi =>
+                fi.BookId == bookId &&
+                fi.ActivityType == Domain.Enums.ActivityType.ReviewCreated);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(fi => fi.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(fi => new FeedItemDto
+            {
+                Id = fi.Id,
+                ActorId = fi.ActorId,
+                ActorUsername = fi.ActorUsername,
+                ActorAvatarUrl = fi.ActorAvatarUrl,
+                ActivityType = fi.ActivityType.ToString(),
+                TargetType = fi.TargetType != null ? fi.TargetType.Value.ToString() : null,
+                ReferenceId = fi.ReferenceId,
+                BookId = fi.BookId,
+                BookTitle = fi.BookTitle,
+                BookAuthor = fi.BookAuthor,
+                BookCoverUrl = fi.BookCoverUrl,
+                Data = fi.Data,
+                LikesCount = fi.TargetType != null
+                    ? context.Likes.Count(l =>
+                        l.TargetType == fi.TargetType.Value &&
+                        l.TargetId == fi.ReferenceId)
+                    : 0,
+                CommentsCount = fi.TargetType != null
+                    ? context.Comments.Count(c =>
+                        c.TargetType == fi.TargetType.Value &&
+                        c.TargetId == fi.ReferenceId)
+                    : 0,
+                IsLikedByMe = viewerUserId.HasValue && fi.TargetType != null &&
+                    context.Likes.Any(l =>
+                        l.UserId == viewerUserId.Value &&
                         l.TargetType == fi.TargetType.Value &&
                         l.TargetId == fi.ReferenceId),
                 CreatedAt = fi.CreatedAt
@@ -89,6 +145,7 @@ public class FeedItemReadRepository(SocialDbContext context) : IFeedItemReadRepo
                 ActivityType = fi.ActivityType.ToString(),
                 TargetType = fi.TargetType != null ? fi.TargetType.Value.ToString() : null,
                 ReferenceId = fi.ReferenceId,
+                BookId = fi.BookId,
                 BookTitle = fi.BookTitle,
                 BookAuthor = fi.BookAuthor,
                 BookCoverUrl = fi.BookCoverUrl,

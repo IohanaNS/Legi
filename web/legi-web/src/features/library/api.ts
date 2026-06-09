@@ -34,6 +34,13 @@ export interface UpdateUserBookBody {
   progressType?: ProgressType;
 }
 
+// POST /library/{userBookId}/reviews request body.
+export interface CreateBookReviewBody {
+  content: string;
+  stars: number; // 0.5–5.0, half-star steps
+  isSpoiler?: boolean;
+}
+
 const PROGRESS_TYPE_WIRE: Record<ProgressType, number> = {
   Page: 0,
   Percentage: 1,
@@ -50,6 +57,11 @@ const READING_STATUS_WIRE: Record<BackendReadingStatus, number> = {
 export const libraryApi = {
   getUserBooks: (q: LibraryQuery) =>
     http.get<PaginatedList<UserBookDto>>("/library", { params: q }).then((r) => r.data),
+  // GET /library/by-book/{bookId} returns 200 with the UserBook or 204 (not in library).
+  getMyUserBookByBook: (bookId: string) =>
+    http
+      .get<UserBookDto | "">(`/library/by-book/${bookId}`)
+      .then((r) => (r.status === 204 || !r.data ? null : (r.data as UserBookDto))),
   // GET /library/lists returns a plain array (IReadOnlyList<UserListSummaryDto>).
   getLists: () =>
     http.get<UserListSummaryDto[]>("/library/lists").then((r) => r.data),
@@ -72,6 +84,12 @@ export const libraryApi = {
       progressValue: body.progressValue,
       progressType:
         body.progressType !== undefined ? PROGRESS_TYPE_WIRE[body.progressType] : undefined,
+    }),
+  createBookReview: (userBookId: string, body: CreateBookReviewBody) =>
+    http.post(`/library/${userBookId}/reviews`, {
+      content: body.content,
+      stars: body.stars,
+      isSpoiler: body.isSpoiler ?? false,
     }),
   rateUserBook: (userBookId: string, stars: number) =>
     http.put(`/library/${userBookId}/rating`, { stars }),

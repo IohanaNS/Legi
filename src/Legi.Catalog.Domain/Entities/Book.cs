@@ -335,5 +335,25 @@ public class Book : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Increments the review count when a review is created in the Library service.
+    /// </summary>
+    public void IncrementReviewsCount()
+    {
+        ReviewsCount++;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Decrements the review count when a review is deleted in the Library service.
+    /// Never goes below zero.
+    /// </summary>
+    public void DecrementReviewsCount()
+    {
+        if (ReviewsCount > 0)
+            ReviewsCount--;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     #endregion
 }

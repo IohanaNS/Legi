@@ -26,4 +26,16 @@ public interface IFeedItemReadRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the reviews written for a book (ReviewCreated activities), newest first,
+    /// for the book details page. Same DTO shape as the feed (real-time
+    /// likes/comments counts + IsLikedByMe). ViewerUserId is optional.
+    /// </summary>
+    Task<PaginatedList<FeedItemDto>> GetBookReviewsAsync(
+        Guid bookId,
+        Guid? viewerUserId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

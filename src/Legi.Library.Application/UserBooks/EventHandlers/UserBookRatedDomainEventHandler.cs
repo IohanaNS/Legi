@@ -42,7 +42,8 @@ public sealed class UserBookRatedDomainEventHandler
             BookId: domainEvent.BookId,
             UserId: domainEvent.UserId,
             Rating: domainEvent.NewRating.Value,
-            PreviousRating: domainEvent.OldRating?.Value);
+            PreviousRating: domainEvent.OldRating?.Value,
+            IsPartOfReview: domainEvent.IsPartOfReview);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

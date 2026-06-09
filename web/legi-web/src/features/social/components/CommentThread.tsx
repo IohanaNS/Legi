@@ -6,10 +6,11 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { useComments, useAddComment } from "../hooks/useComments";
 import { relativeTime } from "../lib/time";
+import type { Resource } from "../api";
 import type { CommentDto } from "../types";
 
 interface CommentThreadProps {
-  resource: "posts" | "lists";
+  resource: Resource;
   id: string;
   listKey: QueryKey;
 }

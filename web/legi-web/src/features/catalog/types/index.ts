@@ -29,6 +29,25 @@ export interface BookSummaryDto {
   tags: TagDto[];
 }
 
+// Mirrors Legi.Catalog.Application.Books.Queries.GetBookDetails.GetBookDetailsResponse.
+export interface BookDetailsDto {
+  id: string;
+  isbn: string;
+  title: string;
+  authors: AuthorDto[];
+  synopsis?: string | null;
+  pageCount?: number | null;
+  publisher?: string | null;
+  coverUrl?: string | null;
+  averageRating: number;
+  ratingsCount: number;
+  reviewsCount: number;
+  tags: TagDto[];
+  createdByUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PaginationMetadata {
   currentPage: number;
   pageSize: number;

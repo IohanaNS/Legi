@@ -184,7 +184,7 @@ Shared abstractions with zero external dependencies:
 Integration event records shared between bounded contexts (the only cross-context coupling allowed). All implement `IIntegrationEvent`. Organized by source context:
 - Identity: `UserRegisteredIntegrationEvent`, `UserDeletedIntegrationEvent`
 - Catalog: `BookCreatedIntegrationEvent`, `BookUpdatedIntegrationEvent`
-- Library: `BookAddedToLibraryIntegrationEvent`, `ReadingStatusChangedIntegrationEvent`, `ReadingPostCreatedIntegrationEvent`, `ReadingPostDeletedIntegrationEvent`, `UserBookRatedIntegrationEvent`, `UserBookRatingRemovedIntegrationEvent`
+- Library: `BookAddedToLibraryIntegrationEvent`, `ReadingStatusChangedIntegrationEvent`, `ReadingPostCreatedIntegrationEvent`, `ReadingPostDeletedIntegrationEvent` (carries `BookId` + `IsReview`), `ReviewCreatedIntegrationEvent`, `UserBookRatedIntegrationEvent` (carries `IsPartOfReview`), `UserBookRatingRemovedIntegrationEvent`
 - Social: `ContentLikedIntegrationEvent`, `ContentUnlikedIntegrationEvent`, `ContentCommentedIntegrationEvent`, `CommentDeletedIntegrationEvent`
 - Diagnostics: `PingIntegrationEvent`
 
@@ -200,9 +200,9 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - **DependencyInjection**: `MessagingExtensions` (wires outbox/inbox/consumers), `ModelBuilderExtensions` (adds outbox/inbox tables to a `DbContext`)
 
 **Pattern**: services publish via the outbox (write-side, same transaction as the aggregate), and consume via RabbitMQ into the inbox (idempotent). Integration event handlers live in each service's Application layer under `*/IntegrationEventHandlers/`. Cross-context consumers currently wired:
-- Catalog ← `UserBookRated` (recompute book average rating)
-- Library ← `BookCreated`/`BookUpdated` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted` (post interaction counters)
-- Social ← `UserRegistered` (create `UserProfile`), `BookCreated`/`BookUpdated` (maintain `ContentSnapshot`), `BookAddedToLibrary` (feed fan-out)
+- Catalog ← `UserBookRated` (recompute book average rating), `ReviewCreated`/`ReadingPostDeleted` (maintain `Book.ReviewsCount`)
+- Library ← `BookCreated`/`BookUpdated` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeleted` (post **and review** interaction counters — resolver accepts `TargetType ∈ {Post, Review}`)
+- Social ← `UserRegistered` (create `UserProfile`), `BookCreated`/`BookUpdated` (maintain `ContentSnapshot`), `BookAddedToLibrary`/`ReadingStatusChanged`/`ReadingPostCreated`/`ReadingPostDeleted`/`UserBookRated`/`ReviewCreated` (feed fan-out; `ReviewCreated` → `ContentSnapshot(Review)` + `FeedItem(ReviewCreated)`, `UserBookRated` with `IsPartOfReview` skips the `BookRated` item)
 
 ### Identity Service
 
@@ -252,7 +252,7 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - Author Queries: `SearchAuthorsQuery` (autocomplete), `GetPopularAuthorsQuery`
 - Tag Queries: `SearchTagsQuery` (autocomplete), `GetPopularTagsQuery`
 - DTOs: `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `AuthorResult`, `TagResult`
-- Integration Event Handlers: `UserBookRatedIntegrationEventHandler` (idempotent recompute of book average rating via `IBookRatingRepository`)
+- Integration Event Handlers: `UserBookRatedIntegrationEventHandler` (idempotent recompute of book average rating via `IBookRatingRepository`), `ReviewCreatedIntegrationEventHandler` (increment `Book.ReviewsCount`), `ReadingPostDeletedIntegrationEventHandler` (decrement `Book.ReviewsCount` when `IsReview`)
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
 - Exceptions: `ConflictException`, `NotFoundException`
 
@@ -278,14 +278,15 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - Value Objects: `Rating` (half-stars 1-10, `Stars` property for 0.5-5.0 display), `Progress` (value + type with `Completed()` factory)
 - Enums: `ReadingStatus` (NotStarted, Reading, Finished, Abandoned, Paused), `ProgressType` (Page, Percentage)
 - Repository interfaces: `IUserBookRepository`, `IReadingPostRepository`, `IUserListRepository`, `IBookSnapshotRepository`
-- Domain events (8 total): `BookAddedToLibraryDomainEvent`, `BookRemovedFromLibraryDomainEvent`, `ReadingStatusChangedDomainEvent`, `UserBookRatedDomainEvent`, `UserBookRatingRemovedDomainEvent`, `ReadingPostCreatedDomainEvent`, `ReadingPostDeletedDomainEvent`, `UserListDeletedDomainEvent`
+- Domain events (9 total): `BookAddedToLibraryDomainEvent`, `BookRemovedFromLibraryDomainEvent`, `ReadingStatusChangedDomainEvent`, `UserBookRatedDomainEvent` (carries `IsPartOfReview`), `UserBookRatingRemovedDomainEvent`, `ReadingProgressCreatedDomainEvent`, `ReviewCreatedDomainEvent`, `ReadingPostDeletedDomainEvent` (carries `IsReview`), `UserListDeletedDomainEvent`
+- A **review** is a `ReadingProgress` with `IsReview = true` + a `Rating` snapshot, no progress (factory `ReadingProgress.CreateReview`). Same aggregate reused for progress posts and reviews.
 
 **Legi.Library.Application**
 - UserBook Commands: `AddBookToLibraryCommand` (requires an existing `BookSnapshot` — populated from Catalog `BookCreated`/`BookUpdated` integration events; throws `NotFoundException` if the book hasn't been projected yet), `UpdateUserBookCommand`, `RemoveBookFromLibraryCommand`, `RateUserBookCommand`, `RemoveUserBookRatingCommand`
-- Integration Event Handlers: `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeletedIntegrationEventHandler` (reading post interaction counters)
-- ReadingPost Commands: `CreateReadingPostCommand`, `UpdateReadingPostCommand`, `DeleteReadingPostCommand`
+- Integration Event Handlers: `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `BookSnapshot`), `ContentLiked`/`ContentUnliked`/`ContentCommented`/`CommentDeletedIntegrationEventHandler` (reading post **and review** interaction counters; `InteractionTargetResolver` accepts `TargetType ∈ {Post, Review}`)
+- ReadingPost Commands: `CreateReadingPostCommand`, `CreateBookReviewCommand` (rates the UserBook with `isPartOfReview: true` + creates a review post in one transaction), `UpdateReadingPostCommand`, `DeleteReadingPostCommand`
 - UserList Commands: `CreateUserListCommand`, `UpdateUserListCommand`, `DeleteUserListCommand`, `AddBookToListCommand`, `RemoveBookFromListCommand`
-- Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `GetUserBookPostsQuery`, `GetMyListsQuery`, `GetListDetailsQuery`, `GetListBooksQuery`, `SearchPublicListsQuery`
+- Queries: `GetMyLibraryQuery` (with status/wishlist/search filters + pagination), `GetMyUserBookByBookQuery` (the viewer's UserBook for a book, or null), `GetUserBookPostsQuery`, `GetMyListsQuery`, `GetListDetailsQuery`, `GetListBooksQuery`, `SearchPublicListsQuery`
 - Read Repository Interfaces: `IUserBookReadRepository`, `IReadingPostReadRepository`, `IUserListReadRepository`
 - DTOs: `UserBookDto`, `BookSnapshotDto`, `ReadingPostDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
@@ -298,8 +299,8 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - Read repositories: `UserBookReadRepository`, `ReadingPostReadRepository`, `UserListReadRepository`
 
 **Legi.Library.Api**
-- `UserBooksController`: `/api/v1/library` — library CRUD, rating management
-- `ReadingPostsController`: `/api/v1/library` — reading posts CRUD
+- `UserBooksController`: `/api/v1/library` — library CRUD, rating management, `GET /by-book/{bookId}` (viewer's UserBook for a book or 204)
+- `ReadingPostsController`: `/api/v1/library` — reading posts CRUD, `POST /{userBookId}/reviews` (write a review)
 - `UserListsController`: `/api/v1/library/lists` — list management, book-to-list operations, public search
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
@@ -321,11 +322,12 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - Follow Queries: `GetFollowersQuery`, `GetFollowingQuery`
 - Comment Queries: `GetContentCommentsQuery`
 - Like Queries: `GetContentLikesQuery`
-- Feed Queries: `GetFeedQuery`, `GetUserActivityQuery`
+- Feed Queries: `GetFeedQuery`, `GetUserActivityQuery`, `GetBookReviewsQuery` (reviews for a book — `ReviewCreated` feed items filtered by `BookId`)
 - Profile Queries: `GetUserProfileQuery` (with IsFollowing contextual flag)
 - Content Queries: `GetContentContextQuery` (header for comments/likes pages)
 - Domain Event Handlers: `FollowCreated/RemovedDomainEventHandler` (UserProfile counters), `CommentCreated/DeletedDomainEventHandler`, `ContentLiked/UnlikedDomainEventHandler`
-- Integration Event Handlers: `UserRegisteredIntegrationEventHandler` (create `UserProfile`), `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `ContentSnapshot`), `BookAddedToLibraryIntegrationEventHandler` (feed fan-out)
+- Integration Event Handlers: `UserRegisteredIntegrationEventHandler` (create `UserProfile`), `BookCreated`/`BookUpdatedIntegrationEventHandler` (maintain `ContentSnapshot`), and the Library feed projectors incl. `ReviewCreatedIntegrationEventHandler` (`ContentSnapshot(Review)` + `FeedItem(ReviewCreated)` with `BookId`) and `UserBookRatedIntegrationEventHandler` (skips `BookRated` when `IsPartOfReview`)
+- `FeedItem` carries `BookId` (nullable) so reviews can be queried by book
 - Read Repository Interfaces: `IFollowReadRepository`, `ICommentReadRepository`, `ILikeReadRepository`, `IFeedItemReadRepository`
 - DTOs: `FollowUserDto`, `CommentDto`, `FeedItemDto`, `UserProfileDto`, `ContentContextDto`, `LikeUserDto`, `PaginatedList<T>`, response DTOs
 - Behaviors: `ValidationBehavior`, `LoggingBehavior`
@@ -341,8 +343,10 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - `FollowsController`: `/api/v1/social/follows` — follow/unfollow; `/api/v1/social/users/{userId}/followers|following` — list followers/following
 - `UserProfilesController`: `/api/v1/social/users/{userId}` — public profile with IsFollowing contextual flag
 - `FeedController`: `/api/v1/social/feed` — personal feed (auth); `/api/v1/social/users/{userId}/activity` — user activity
+- `FeedController` also serves `/api/v1/social/books/{bookId}/reviews` — reviews for a book (book details page)
 - `PostInteractionsController`: `/api/v1/social/posts/{postId}/likes|comments` — like/unlike/comment on posts
 - `ListInteractionsController`: `/api/v1/social/lists/{listId}/likes|comments` — like/unlike/comment on lists
+- `ReviewInteractionsController`: `/api/v1/social/reviews/{reviewId}/likes|comments` — like/unlike/comment on reviews
 - `CommentsController`: `/api/v1/social/comments/{commentId}` — delete comment (cross-type)
 - JWT Bearer authentication (shared `JwtSettings` from Identity Infrastructure)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails (ValidationException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, DomainException → 400)
@@ -401,6 +405,7 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - Title required, max 500 characters
 - ISBN validated with checksum (ISBN-10 or ISBN-13), unique
 - AverageRating: 0-5, rounded to 2 decimal places
+- ReviewsCount maintained via `IncrementReviewsCount()`/`DecrementReviewsCount()` from Library `ReviewCreated`/`ReadingPostDeleted` events (the Catalog-owned review model was abandoned — reviews live in Library/Social)
 - Authors and Tags are Value Objects identified by slug (kebab-case)
 
 ### UserBook Entity (Library)
@@ -408,13 +413,14 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - Re-adding same book creates new UserBook (new reading cycle)
 - WishList auto-resets to `false` when status changes away from `NotStarted`
 - Finishing sets progress to `Progress.Completed()` (100%); reverting from Finished resets progress to `null`
-- Rating is independent of status (nullable, add/remove anytime via `Rate(Rating)` / `RemoveRating()`)
+- Rating is independent of status (nullable, add/remove anytime via `Rate(Rating, isPartOfReview)` / `RemoveRating()`); `isPartOfReview: true` is used by the review flow to suppress the duplicate Social `BookRated` activity
 - Progress at 100% (Percentage) auto-transitions to Finished
 
-### ReadingPost Entity (Library)
-- Must have Content OR Progress (or both)
-- Content max 2000 characters (`MaxContentLength` constant)
-- Creating a post with progress updates `UserBook.CurrentProgress` in same transaction
+### ReadingProgress / ReadingPost Entity (Library)
+- Progress post: must have Content OR Progress (or both); content max 2000 chars (`MaxContentLength`)
+- Review (`IsReview = true`): requires Content (min `MinReviewContentLength = 20`) + a `Rating` snapshot, no progress; created via `ReadingProgress.CreateReview(...)` which raises `ReviewCreatedDomainEvent`
+- Creating a progress post with progress updates `UserBook.CurrentProgress` in same transaction
+- Likes/comments counters apply to both posts and reviews (interactable as `Post`/`Review`)
 - Desnormalized `UserId` and `BookId` for feed/query efficiency
 
 ### UserList Entity (Library)
@@ -529,4 +535,4 @@ Jwt__RefreshTokenExpirationDays=7
 - Mock repositories and infrastructure services in Application tests
 - Test factories provide reusable test data builders
 - Integration tests (`*.Integration.Tests`) use `Xunit.SkippableFact` and require a Postgres connection via env vars (`CATALOG_TEST_DB`, `LIBRARY_TEST_DB`, `SOCIAL_TEST_DB`) — they skip otherwise
-- **Current unit test counts**: Identity Domain (35), Identity Application (38), Catalog Domain (66), Catalog Application (90), Library Domain (1), Library Application (23), Social Application (21), Messaging (14) — Total: 288 tests (plus the skippable integration suites)
+- **Current unit test counts**: Identity Domain (35), Identity Application (38), Catalog Domain (69), Catalog Application (100), Library Domain (61), Library Application (88), Social Domain (25), Social Application (53), Messaging (14) — plus the skippable integration suites. (Counts grow as features land; run `dotnet test Legi.sln --settings tests/.runsettings` for the current totals.)

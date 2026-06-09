@@ -4,6 +4,7 @@ using Legi.Library.Application.UserBooks.Commands.RemoveBookFromLibrary;
 using Legi.Library.Application.UserBooks.Commands.RemoveUserBookRating;
 using Legi.Library.Application.UserBooks.Commands.UpdateUserBook;
 using Legi.Library.Application.UserBooks.Queries.GetMyLibrary;
+using Legi.Library.Application.UserBooks.Queries.GetMyUserBookByBook;
 using Legi.Library.Domain.Enums;
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
@@ -44,6 +45,22 @@ public class UserBooksController : ControllerBase
 
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Get the authenticated user's UserBook for a given book (status, rating,
+    /// progress), or 204 if the book is not in their library. Drives the book
+    /// details page header.
+    /// </summary>
+    [HttpGet("by-book/{bookId:guid}")]
+    public async Task<IActionResult> GetMyUserBookByBook(
+        Guid bookId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(
+            new GetMyUserBookByBookQuery(GetUserId(), bookId), cancellationToken);
+
+        return result is null ? NoContent() : Ok(result);
     }
 
     /// <summary>

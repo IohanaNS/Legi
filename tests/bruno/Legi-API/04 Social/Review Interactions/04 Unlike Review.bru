@@ -1,0 +1,23 @@
+meta {
+  name: Unlike Review
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{socialBaseUrl}}/api/v1/social/reviews/{{reviewId}}/likes
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Removes the current user's like from a review.
+}

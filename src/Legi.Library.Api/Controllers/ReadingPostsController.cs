@@ -1,3 +1,4 @@
+using Legi.Library.Application.ReadingPosts.Commands.CreateBookReview;
 using Legi.Library.Application.ReadingPosts.Commands.CreateReadingPost;
 using Legi.Library.Application.ReadingPosts.Commands.DeleteReadingPost;
 using Legi.Library.Application.ReadingPosts.Commands.UpdateReadingPost;
@@ -66,6 +67,30 @@ public class ReadingPostsController : ControllerBase
     }
 
     /// <summary>
+    /// Write a book review (rating + content) for a user book. Sets the rating and
+    /// creates a rated, content-only post that fans out as a ReviewCreated activity.
+    /// </summary>
+    [HttpPost("{userBookId:guid}/reviews")]
+    public async Task<IActionResult> CreateBookReview(
+        Guid userBookId,
+        [FromBody] CreateBookReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new CreateBookReviewCommand(
+            userBookId,
+            GetUserId(),
+            request.Content,
+            request.Stars,
+            request.IsSpoiler);
+
+        var result = await _mediator.Send(command, cancellationToken);
+        return CreatedAtAction(
+            nameof(GetUserBookPosts),
+            new { userBookId },
+            result);
+    }
+
+    /// <summary>
     /// Update a reading post.
     /// </summary>
     [HttpPut("posts/{postId:guid}")]
@@ -112,4 +137,9 @@ public record UpdateReadingPostRequest(
     string? Content,
     int? ProgressValue = null,
     ProgressType? ProgressType = null,
+    bool IsSpoiler = false);
+
+public record CreateBookReviewRequest(
+    string Content,
+    decimal Stars,
     bool IsSpoiler = false);

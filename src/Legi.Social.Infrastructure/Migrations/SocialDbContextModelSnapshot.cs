@@ -262,6 +262,10 @@ namespace Legi.Social.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("book_cover_url");
 
+                    b.Property<Guid?>("BookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("book_id");
+
                     b.Property<string>("BookTitle")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -295,6 +299,10 @@ namespace Legi.Social.Infrastructure.Migrations
 
                     b.HasIndex("ReferenceId")
                         .HasDatabaseName("ix_feed_items_reference_id");
+
+                    b.HasIndex("BookId", "ActivityType", "CreatedAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_feed_items_book_activity_created");
 
                     b.ToTable("feed_items", (string)null);
                 });

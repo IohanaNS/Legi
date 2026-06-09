@@ -1,12 +1,12 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { QueryKey } from "@tanstack/react-query";
-import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine, Eye, EyeOff } from "lucide-react";
+import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Avatar } from "../../../components/ui/Avatar";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StarRating } from "../../../components/ui/StarRating";
+import { SpoilerContent } from "../../../components/ui/SpoilerContent";
 import { InteractionBar } from "./InteractionBar";
 import { parseActivityData, feedProgressPercent, isInteractable } from "../lib/feed";
 import { relativeTime } from "../lib/time";
@@ -39,7 +39,6 @@ const ACTIVITY_I18N: Record<ActivityType, string> = {
 
 export function FeedCard({ item, listKey }: FeedCardProps) {
   const { t } = useTranslation();
-  const [isSpoilerRevealed, setIsSpoilerRevealed] = useState(false);
   const data = parseActivityData(item);
 
   return (
@@ -69,9 +68,17 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
               {data.kind === "ListCreated" ? (
                 <span className="font-semibold text-stone-800 dark:text-stone-100">{data.name}</span>
               ) : (
-                item.bookTitle && (
+                item.bookTitle &&
+                (item.bookId ? (
+                  <Link
+                    to={`/books/${item.bookId}`}
+                    className="font-semibold text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
+                  >
+                    {item.bookTitle}
+                  </Link>
+                ) : (
                   <span className="font-semibold text-stone-800 dark:text-stone-100">{item.bookTitle}</span>
-                )
+                ))
               )}
             </p>
             <p className="text-xs text-stone-400 dark:text-stone-500">{relativeTime(item.createdAt, t)}</p>
@@ -81,11 +88,21 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
         {/* Body */}
         <div className="mt-3 flex gap-3">
           {item.bookCoverUrl ? (
-            <img
-              src={item.bookCoverUrl}
-              alt={item.bookTitle ?? ""}
-              className="w-16 h-24 rounded-lg object-cover flex-shrink-0 bg-stone-200"
-            />
+            item.bookId ? (
+              <Link to={`/books/${item.bookId}`} className="flex-shrink-0">
+                <img
+                  src={item.bookCoverUrl}
+                  alt={item.bookTitle ?? ""}
+                  className="w-16 h-24 rounded-lg object-cover bg-stone-200"
+                />
+              </Link>
+            ) : (
+              <img
+                src={item.bookCoverUrl}
+                alt={item.bookTitle ?? ""}
+                className="w-16 h-24 rounded-lg object-cover flex-shrink-0 bg-stone-200"
+              />
+            )
           ) : (
             item.activityType !== "ListCreated" && (
               <div className="w-16 h-24 bg-stone-200 rounded-lg flex-shrink-0" />
@@ -115,12 +132,8 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             )}
 
             {"content" in data && data.content && (
-              data.kind === "ProgressPosted" && data.isSpoiler ? (
-                <SpoilerContent
-                  content={data.content}
-                  isRevealed={isSpoilerRevealed}
-                  onToggle={() => setIsSpoilerRevealed((current) => !current)}
-                />
+              (data.kind === "ProgressPosted" || data.kind === "ReviewCreated") && data.isSpoiler ? (
+                <SpoilerContent content={data.content} />
               ) : (
                 <ContentQuote content={data.content} />
               )
@@ -140,50 +153,6 @@ function ContentQuote({ content }: { content: string }) {
     <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-600 dark:text-stone-300">
       "{content}"
     </p>
-  );
-}
-
-function SpoilerContent({
-  content,
-  isRevealed,
-  onToggle,
-}: {
-  content: string;
-  isRevealed: boolean;
-  onToggle: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`mt-1 block w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-green-600 ${
-        isRevealed
-          ? "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-dark-raised dark:bg-dark-raised/50 dark:text-stone-300 dark:hover:bg-dark-raised"
-          : "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
-      }`}
-    >
-      {isRevealed ? (
-        <>
-          <span className="whitespace-pre-wrap break-words leading-relaxed">"{content}"</span>
-          <span className="mt-2 flex items-center gap-1 text-xs font-medium text-stone-500 dark:text-stone-400">
-            <Eye size={13} />
-            {t("feed.spoilerHide")}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="flex items-center gap-2 font-medium">
-            <EyeOff size={14} />
-            {t("feed.spoilerWarning")}
-          </span>
-          <span className="mt-1 block text-xs text-amber-800 dark:text-amber-300">
-            {t("feed.spoilerReveal")}
-          </span>
-        </>
-      )}
-    </button>
   );
 }
 

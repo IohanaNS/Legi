@@ -31,6 +31,16 @@ public sealed class UserBookRatedIntegrationEventHandler(
         UserBookRatedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken)
     {
+        // A rating set while writing a review emits its own ReviewCreated activity;
+        // suppress the standalone BookRated item so the review is a single activity.
+        if (integrationEvent.IsPartOfReview)
+        {
+            logger.LogDebug(
+                "Skipping BookRated FeedItem for user {UserId} book {BookId}; rating is part of a review.",
+                integrationEvent.UserId, integrationEvent.BookId);
+            return;
+        }
+
         var profile = await FeedLookups.GetProfileOrThrowAsync(
             userProfileRepository, integrationEvent.UserId, logger, cancellationToken);
         var book = await FeedLookups.GetBookOrThrowAsync(
@@ -49,7 +59,8 @@ public sealed class UserBookRatedIntegrationEventHandler(
             bookTitle: book.Title,
             bookAuthor: book.AuthorDisplay,
             bookCoverUrl: book.CoverUrl,
-            data: data);
+            data: data,
+            bookId: integrationEvent.BookId);
 
         await feedItemRepository.StageAddAsync(feedItem, cancellationToken);
 

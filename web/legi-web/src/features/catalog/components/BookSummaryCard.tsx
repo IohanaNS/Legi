@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, BookOpen, BookPlus, Check, Gift, LoaderCircle } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
@@ -53,7 +54,10 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
 
   return (
     <article className="flex h-full flex-col rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3">
-      <div className="mb-3 aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised">
+      <Link
+        to={`/books/${book.id}`}
+        className="mb-3 block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised"
+      >
         {book.coverUrl && !coverFailed ? (
           <img
             src={book.coverUrl}
@@ -66,12 +70,15 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
             <BookOpen size={34} />
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col">
-        <h3 className="line-clamp-2 min-h-10 text-sm font-medium text-stone-800 dark:text-stone-100">
+        <Link
+          to={`/books/${book.id}`}
+          className="line-clamp-2 min-h-10 text-sm font-medium text-stone-800 dark:text-stone-100 hover:text-green-700 transition-colors"
+        >
           {book.title}
-        </h3>
+        </Link>
         <p className="mt-1 truncate text-xs text-stone-500 dark:text-stone-400">{authors}</p>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">

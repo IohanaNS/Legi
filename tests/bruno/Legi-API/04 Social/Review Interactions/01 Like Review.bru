@@ -1,0 +1,25 @@
+meta {
+  name: Like Review
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{socialBaseUrl}}/api/v1/social/reviews/{{reviewId}}/likes
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Likes a review (InteractableType.Review). Requires {{reviewId}} set by
+  "Library/Reading Posts/04 Create Book Review" and the ContentSnapshot(Review)
+  fanned out to Social.
+}

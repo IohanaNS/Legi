@@ -78,4 +78,38 @@ public class UserBookReadRepository : IUserBookReadRepository
 
         return new PaginatedList<UserBookDto>(items, totalCount, pageNumber, pageSize);
     }
+
+    public async Task<UserBookDto?> GetByUserAndBookAsync(
+        Guid userId,
+        Guid bookId,
+        CancellationToken cancellationToken = default)
+    {
+        // The global query filter already excludes soft-deleted rows; pick the
+        // most-recent active reading cycle if more than one ever exists.
+        return await _context.UserBooks
+            .AsNoTracking()
+            .Where(ub => ub.UserId == userId && ub.BookId == bookId)
+            .OrderByDescending(ub => ub.UpdatedAt)
+            .Join(
+                _context.BookSnapshots,
+                ub => ub.BookId,
+                bs => bs.BookId,
+                (ub, bs) => new UserBookDto(
+                    ub.Id,
+                    ub.BookId,
+                    ub.Status.ToString(),
+                    ub.CurrentProgress != null ? ub.CurrentProgress.Value : null,
+                    ub.CurrentProgress != null ? ub.CurrentProgress.Type.ToString() : null,
+                    ub.WishList,
+                    ub.CurrentRating != null ? ub.CurrentRating.Stars : null,
+                    new BookSnapshotDto(
+                        bs.BookId,
+                        bs.Title,
+                        bs.AuthorDisplay,
+                        bs.CoverUrl,
+                        bs.PageCount),
+                    ub.CreatedAt,
+                    ub.UpdatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

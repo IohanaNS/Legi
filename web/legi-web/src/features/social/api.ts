@@ -8,7 +8,7 @@ import type {
   UserProfileDto,
 } from "./types";
 
-type Resource = "posts" | "lists";
+export type Resource = "posts" | "lists" | "reviews";
 
 export const socialApi = {
   getUserProfile: (userId: string) =>
@@ -26,6 +26,13 @@ export const socialApi = {
   getUserActivity: (userId: string, page: number, pageSize: number) =>
     http
       .get<SocialPaginatedList<FeedItemDto>>(`/social/users/${userId}/activity`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
+
+  getBookReviews: (bookId: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FeedItemDto>>(`/social/books/${bookId}/reviews`, {
         params: { page, pageSize },
       })
       .then((r) => r.data),

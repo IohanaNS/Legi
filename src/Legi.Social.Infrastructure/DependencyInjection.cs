@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddIntegrationEventConsumer<ReadingStatusChangedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<ReadingPostCreatedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<ReadingPostDeletedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<ReviewCreatedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<UserBookRatedIntegrationEvent, SocialDbContext>();
 
         // Write repositories (Domain interfaces)

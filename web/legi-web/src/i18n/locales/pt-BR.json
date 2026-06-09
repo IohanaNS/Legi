@@ -7,7 +7,30 @@
         "share": "Compartilhar",
         "retry": "Tentar novamente",
         "loadMore": "Carregar mais",
-        "couldNotLoad": "Não foi possível carregar"
+        "couldNotLoad": "Não foi possível carregar",
+        "cancel": "Cancelar"
+    },
+    "bookDetails": {
+        "back": "Voltar",
+        "updateProgress": "Atualizar progresso",
+        "yourRating": "Sua avaliação",
+        "ratingNeedsLibrary": "Adicione à biblioteca para avaliar",
+        "pages": "{{count}} páginas",
+        "publisher": "Editora",
+        "synopsis": "Sinopse",
+        "readMore": "Ler mais",
+        "readLess": "Ler menos",
+        "reviews": "Resenhas",
+        "writeReview": "Escrever resenha",
+        "noReviews": "Ainda não há resenhas. Seja o primeiro!",
+        "reviewLabel": "Resenha",
+        "reviewMinChars": "(mínimo {{count}} caracteres)",
+        "reviewPlaceholder": "Compartilhe sua opinião sobre o livro. O que você achou da história, dos personagens, da escrita?",
+        "reviewCharCount": "{{count}}/{{max}} caracteres",
+        "reviewRemaining": "Faltam {{count}}",
+        "reviewSpoiler": "Minha resenha contém spoilers",
+        "reviewError": "Não foi possível publicar a resenha. Tente novamente.",
+        "publishReview": "Publicar resenha"
     },
     "globalSearch": {
         "title": "Busca",

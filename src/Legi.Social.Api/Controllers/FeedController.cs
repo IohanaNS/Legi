@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
+using Legi.Social.Application.Feed.Queries.GetBookReviews;
 using Legi.Social.Application.Feed.Queries.GetFeed;
 using Legi.Social.Application.Feed.Queries.GetUserActivity;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +38,16 @@ public class FeedController : ControllerBase
     {
         Guid? viewerUserId = User.Identity?.IsAuthenticated == true ? GetUserId() : null;
         var query = new GetUserActivityQuery(userId, viewerUserId, page, pageSize);
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    [HttpGet("books/{bookId:guid}/reviews")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetBookReviews(Guid bookId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        Guid? viewerUserId = User.Identity?.IsAuthenticated == true ? GetUserId() : null;
+        var query = new GetBookReviewsQuery(bookId, viewerUserId, page, pageSize);
         var result = await _mediator.Send(query);
         return Ok(result);
     }

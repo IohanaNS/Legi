@@ -1,0 +1,31 @@
+meta {
+  name: Get Book Reviews
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{socialBaseUrl}}/api/v1/social/books/{{bookId}}/reviews?page=1&pageSize=20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  pageSize: 20
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Reviews written for a book (ReviewCreated feed items), newest first — powers the
+  book details page reviews list. Public (auth optional; the bearer drives
+  isLikedByMe). Run after "Library/Reading Posts/04 Create Book Review" and allow
+  a short delay for the RabbitMQ fan-out to land.
+}

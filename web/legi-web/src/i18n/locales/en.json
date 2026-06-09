@@ -7,7 +7,30 @@
         "share": "Share",
         "retry": "Retry",
         "loadMore": "Load more",
-        "couldNotLoad": "Couldn't load"
+        "couldNotLoad": "Couldn't load",
+        "cancel": "Cancel"
+    },
+    "bookDetails": {
+        "back": "Back",
+        "updateProgress": "Update progress",
+        "yourRating": "Your rating",
+        "ratingNeedsLibrary": "Add to library to rate",
+        "pages": "{{count}} pages",
+        "publisher": "Publisher",
+        "synopsis": "Synopsis",
+        "readMore": "Read more",
+        "readLess": "Read less",
+        "reviews": "Reviews",
+        "writeReview": "Write review",
+        "noReviews": "No reviews yet. Be the first!",
+        "reviewLabel": "Review",
+        "reviewMinChars": "(minimum {{count}} characters)",
+        "reviewPlaceholder": "Share your opinion about the book. What did you think of the story, the characters, the writing?",
+        "reviewCharCount": "{{count}}/{{max}} characters",
+        "reviewRemaining": "{{count}} to go",
+        "reviewSpoiler": "My review contains spoilers",
+        "reviewError": "Couldn't publish the review. Please try again.",
+        "publishReview": "Publish review"
     },
     "globalSearch": {
         "title": "Search",

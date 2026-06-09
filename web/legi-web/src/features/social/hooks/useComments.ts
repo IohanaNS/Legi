@@ -4,10 +4,8 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { socialApi } from "../api";
+import { socialApi, type Resource } from "../api";
 import { interactionKeys } from "../queryKeys";
-
-type Resource = "posts" | "lists";
 
 const PAGE_SIZE = 20;
 

@@ -83,6 +83,12 @@ namespace Legi.Library.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<bool>("IsReview")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_review");
+
                     b.Property<bool>("IsSpoiler")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -364,7 +370,26 @@ namespace Legi.Library.Infrastructure.Migrations
                                 .HasForeignKey("ReadingProgressId");
                         });
 
+                    b.OwnsOne("Legi.Library.Domain.ValueObjects.Rating", "Rating", b1 =>
+                        {
+                            b1.Property<Guid>("ReadingProgressId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<short>("Value")
+                                .HasColumnType("smallint")
+                                .HasColumnName("rating_value");
+
+                            b1.HasKey("ReadingProgressId");
+
+                            b1.ToTable("reading_posts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReadingProgressId");
+                        });
+
                     b.Navigation("CurrentProgress");
+
+                    b.Navigation("Rating");
                 });
 
             modelBuilder.Entity("Legi.Library.Domain.Entities.UserBook", b =>

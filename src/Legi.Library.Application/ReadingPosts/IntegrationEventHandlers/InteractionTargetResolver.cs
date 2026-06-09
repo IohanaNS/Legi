@@ -13,16 +13,19 @@ namespace Legi.Library.Application.ReadingPosts.IntegrationEventHandlers;
 internal static class InteractionTargetResolver
 {
     private const string PostTargetType = "Post";
+    private const string ReviewTargetType = "Review";
 
     /// <summary>
     /// Returns the tracked post for the event, or <c>null</c> to no-op-and-ack:
     /// <list type="bullet">
-    ///   <item><b>TargetType != "Post"</b> (List/Review): non-interactable in v1,
-    ///   cannot legitimately occur — log a warning and ack (do not throw).</item>
+    ///   <item><b>TargetType is neither "Post" nor "Review"</b> (List): non-interactable
+    ///   in Library, cannot legitimately occur — log a warning and ack (do not throw).</item>
     ///   <item><b>Post not found</b>: a <i>terminal</i> no-op. A missing post was
     ///   deleted (permanent), not a propagation race like 4C's missing snapshot —
     ///   throwing here would redeliver forever on a deleted post's stray like.</item>
     /// </list>
+    /// Reviews are stored as <see cref="ReadingProgress"/> rows too (the review's id
+    /// is the post id), so both target types resolve through the same repository.
     /// </summary>
     public static async Task<ReadingProgress?> ResolveTrackedPostAsync(
         IReadingPostRepository repository,
@@ -31,11 +34,12 @@ internal static class InteractionTargetResolver
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(targetType, PostTargetType, StringComparison.Ordinal))
+        if (!string.Equals(targetType, PostTargetType, StringComparison.Ordinal)
+            && !string.Equals(targetType, ReviewTargetType, StringComparison.Ordinal))
         {
             logger.LogWarning(
                 "Ignoring interaction event for non-interactable TargetType {TargetType} (target {TargetId}); " +
-                "only posts carry counters in v1.",
+                "only posts and reviews carry counters in Library.",
                 targetType, targetId);
             return null;
         }

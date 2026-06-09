@@ -89,12 +89,12 @@ public class UserBook : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void Rate(Rating rating)
+    public void Rate(Rating rating, bool isPartOfReview = false)
     {
         var oldRating = CurrentRating;
         CurrentRating = rating;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new UserBookRatedDomainEvent(UserId, BookId, oldRating, CurrentRating));
+        AddDomainEvent(new UserBookRatedDomainEvent(UserId, BookId, oldRating, CurrentRating, isPartOfReview));
     }
 
     public void RemoveRating()

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { StarRating } from "../../../components/ui/StarRating";
 import { Badge } from "../../../components/ui/Badge";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
@@ -23,7 +24,10 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
   return (
     <div className="group">
       <div className="relative mb-2">
-        <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-stone-200">
+        <Link
+          to={`/books/${book.bookId}`}
+          className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200"
+        >
           {book.coverUrl && (
             <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
           )}
@@ -40,7 +44,7 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
               <ProgressBar value={percent} size="sm" className="mt-1" />
             </div>
           )}
-        </div>
+        </Link>
 
         {editable && (
           <div className="absolute right-2 top-2">
@@ -49,9 +53,12 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
         )}
       </div>
 
-      <h3 className="truncate text-sm font-medium text-stone-800 transition-colors group-hover:text-green-700">
+      <Link
+        to={`/books/${book.bookId}`}
+        className="block truncate text-sm font-medium text-stone-800 transition-colors group-hover:text-green-700"
+      >
         {book.title}
-      </h3>
+      </Link>
       <p className="text-xs text-stone-500">{book.authorDisplay}</p>
       {ratingStars != null && <StarRating rating={ratingStars} size={12} className="mt-1" />}
     </div>

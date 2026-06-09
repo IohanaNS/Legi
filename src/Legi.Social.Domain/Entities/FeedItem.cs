@@ -38,6 +38,13 @@ public class FeedItem
     public string? BookCoverUrl { get; private set; }
 
     /// <summary>
+    /// The book this activity is about, when applicable. Enables querying activity
+    /// by book (e.g. the reviews list on a book details page). Null for
+    /// book-agnostic activities such as ListCreated.
+    /// </summary>
+    public Guid? BookId { get; private set; }
+
+    /// <summary>
     /// Flexible JSON payload for type-specific data.
     /// Examples:
     ///   ProgressPosted: { "progress": 67, "currentPage": 443, "totalPages": 662, "content": "Great chapter!" }
@@ -58,7 +65,8 @@ public class FeedItem
         string? bookTitle,
         string? bookAuthor,
         string? bookCoverUrl,
-        string? data)
+        string? data,
+        Guid? bookId = null)
     {
         return new FeedItem
         {
@@ -73,6 +81,7 @@ public class FeedItem
             BookAuthor = bookAuthor,
             BookCoverUrl = bookCoverUrl,
             Data = data,
+            BookId = bookId,
             CreatedAt = DateTime.UtcNow
         };
     }

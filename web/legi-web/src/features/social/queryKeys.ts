@@ -10,6 +10,7 @@ export const feedKeys = {
   all: ["feed"] as const,
   list: () => [...feedKeys.all, "list"] as const,
   activity: (userId: string) => [...feedKeys.all, "activity", userId] as const,
+  bookReviews: (bookId: string) => [...feedKeys.all, "bookReviews", bookId] as const,
 };
 
 export const interactionKeys = {

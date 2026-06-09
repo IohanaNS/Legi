@@ -14,6 +14,12 @@ public class FeedItemDto
     public string? TargetType { get; init; }
     
     public Guid ReferenceId { get; init; }
+
+    /// <summary>
+    /// The book this activity is about, when applicable (null for book-agnostic
+    /// activities such as ListCreated). Lets the UI link to the book details page.
+    /// </summary>
+    public Guid? BookId { get; init; }
     public string? BookTitle { get; init; }
     public string? BookAuthor { get; init; }
     public string? BookCoverUrl { get; init; }

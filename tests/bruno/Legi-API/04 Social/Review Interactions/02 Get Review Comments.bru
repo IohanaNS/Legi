@@ -1,0 +1,28 @@
+meta {
+  name: Get Review Comments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{socialBaseUrl}}/api/v1/social/reviews/{{reviewId}}/comments?page=1&pageSize=20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  pageSize: 20
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Lists comments on a review. Public (auth optional).
+}
