@@ -30,7 +30,9 @@
         "reviewRemaining": "Faltam {{count}}",
         "reviewSpoiler": "Minha resenha contém spoilers",
         "reviewError": "Não foi possível publicar a resenha. Tente novamente.",
-        "publishReview": "Publicar resenha"
+        "publishReview": "Publicar resenha",
+        "deleteReview": "Excluir resenha",
+        "confirmDeleteReview": "Tem certeza que deseja excluir esta resenha?"
     },
     "globalSearch": {
         "title": "Busca",
@@ -84,6 +86,8 @@
         "pageN": "página {{page}}",
         "pagesOf": "{{read}} de {{total}} páginas",
         "updateProgress": "Atualizar progresso",
+        "deletePost": "Excluir publicação",
+        "confirmDeletePost": "Tem certeza que deseja excluir esta publicação?",
         "empty": "Você ainda não segue ninguém",
         "emptyHint": "Encontre pessoas para seguir e seu mural vai se encher.",
         "activityTitle": "Atividade",

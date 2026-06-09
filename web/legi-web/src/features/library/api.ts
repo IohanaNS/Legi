@@ -97,4 +97,7 @@ export const libraryApi = {
     http.delete(`/library/${userBookId}/rating`),
   removeBookFromLibrary: (userBookId: string) =>
     http.delete(`/library/${userBookId}`),
+  // Deletes a reading post OR a review (a review is a ReadingProgress; reviewId == postId).
+  deleteReadingPost: (postId: string) =>
+    http.delete(`/library/posts/${postId}`),
 };

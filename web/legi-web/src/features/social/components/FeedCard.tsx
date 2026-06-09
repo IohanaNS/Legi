@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { QueryKey } from "@tanstack/react-query";
-import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine } from "lucide-react";
+import { BarChart3, CheckCircle, BookOpen, BookPlus, Star, ListPlus, PenLine, Trash2 } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Avatar } from "../../../components/ui/Avatar";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
@@ -10,7 +10,12 @@ import { SpoilerContent } from "../../../components/ui/SpoilerContent";
 import { InteractionBar } from "./InteractionBar";
 import { parseActivityData, feedProgressPercent, isInteractable } from "../lib/feed";
 import { relativeTime } from "../lib/time";
+import { useDeletePost } from "../hooks/useDeletePost";
+import { useAuth } from "../../auth/useAuth";
 import type { ActivityType, FeedItemDto } from "../types";
+
+// Activities backed by a ReadingProgress row the author can delete.
+const DELETABLE: ReadonlySet<ActivityType> = new Set(["ProgressPosted", "ReviewCreated"]);
 
 interface FeedCardProps {
   item: FeedItemDto;
@@ -39,7 +44,15 @@ const ACTIVITY_I18N: Record<ActivityType, string> = {
 
 export function FeedCard({ item, listKey }: FeedCardProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const deletePost = useDeletePost(listKey);
   const data = parseActivityData(item);
+  const canDelete = user?.userId === item.actorId && DELETABLE.has(item.activityType);
+
+  const handleDelete = () => {
+    if (deletePost.isPending) return;
+    if (window.confirm(t("feed.confirmDeletePost"))) deletePost.mutate(item);
+  };
 
   return (
     <Card>
@@ -83,6 +96,19 @@ export function FeedCard({ item, listKey }: FeedCardProps) {
             </p>
             <p className="text-xs text-stone-400 dark:text-stone-500">{relativeTime(item.createdAt, t)}</p>
           </div>
+
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deletePost.isPending}
+              aria-label={t("feed.deletePost")}
+              title={t("feed.deletePost")}
+              className="ml-auto self-start text-stone-400 hover:text-red-600 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
 
         {/* Body */}
