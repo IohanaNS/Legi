@@ -1,6 +1,8 @@
 using FluentValidation;
 using Legi.Library.Application;
 using Legi.Library.Application.Common.Behaviors;
+using Legi.Library.Application.Common.Interfaces;
+using Legi.Library.Application.Common.Policies;
 using Legi.Library.Application.ReadingPosts.Commands.CreateReadingPost;
 using Legi.Library.Application.ReadingPosts.EventHandlers;
 using Legi.Library.Application.UserBooks.Commands.AddBookToLibrary;
@@ -25,6 +27,11 @@ public class DependencyInjectionTests
         Assert.Contains(services, d =>
             d.ServiceType == typeof(IMediator) &&
             d.ImplementationType == typeof(Mediator) &&
+            d.Lifetime == ServiceLifetime.Scoped);
+
+        Assert.Contains(services, d =>
+            d.ServiceType == typeof(IUserListVisibilityPolicy) &&
+            d.ImplementationType == typeof(UserListVisibilityPolicy) &&
             d.Lifetime == ServiceLifetime.Scoped);
 
         Assert.Contains(services, d =>

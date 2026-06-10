@@ -57,6 +57,15 @@ export interface UserListSummaryDto {
   createdAt: string;
 }
 
+export interface UserLibraryStatsDto {
+  reading: number;
+  finished: number;
+  paused: number;
+  abandoned: number;
+  notStarted: number;
+  lists: number;
+}
+
 // UI tab keys (i18n)
 export type ProfileTab =
   | "activity"

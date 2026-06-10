@@ -80,6 +80,18 @@ public class UserBookReadRepository : IUserBookReadRepository
         return new PaginatedList<UserBookDto>(items, totalCount, pageNumber, pageSize);
     }
 
+    public async Task<IReadOnlyDictionary<ReadingStatus, int>> GetStatusCountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.UserBooks
+            .AsNoTracking()
+            .Where(ub => ub.UserId == userId)
+            .GroupBy(ub => ub.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status, x => x.Count, cancellationToken);
+    }
+
     public async Task<UserBookDto?> GetByUserAndBookAsync(
         Guid userId,
         Guid bookId,

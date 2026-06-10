@@ -1,6 +1,7 @@
 using Legi.Library.Application.Common.DTOs;
 using Legi.Library.Application.Common.Exceptions;
 using Legi.Library.Application.Common.Interfaces;
+using Legi.Library.Application.Common.Policies;
 using Legi.Library.Application.Tests.Factories;
 using Legi.Library.Application.UserLists.Queries.GetListDetails;
 using Moq;
@@ -14,7 +15,9 @@ public class GetListDetailsQueryHandlerTests
 
     public GetListDetailsQueryHandlerTests()
     {
-        _handler = new GetListDetailsQueryHandler(_readRepository.Object);
+        _handler = new GetListDetailsQueryHandler(
+            _readRepository.Object,
+            new UserListVisibilityPolicy());
     }
 
     [Fact]

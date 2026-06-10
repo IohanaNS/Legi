@@ -6,6 +6,8 @@ using Legi.Library.Application.UserBooks.Commands.UpdateUserBook;
 using Legi.Library.Application.UserBooks.Queries.GetMyLibrary;
 using Legi.Library.Application.UserBooks.Queries.GetMyUserBookByBook;
 using Legi.Library.Application.UserBooks.Queries.GetUserLibrary;
+using Legi.Library.Application.UserBooks.Queries.GetUserLibraryStats;
+using Legi.Library.Application.UserLists.Queries.GetUserLists;
 using Legi.Library.Domain.Enums;
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
@@ -62,6 +64,34 @@ public class UserBooksController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetUserLibraryQuery(userId, GetUserId(), status, page, pageSize);
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get another user's library stats for profile tabs.
+    /// </summary>
+    [HttpGet("users/{userId:guid}/stats")]
+    public async Task<IActionResult> GetUserLibraryStats(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserLibraryStatsQuery(userId, GetUserId());
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get the lists visible to the current viewer for a target user.
+    /// </summary>
+    [HttpGet("users/{userId:guid}/lists")]
+    public async Task<IActionResult> GetUserLists(
+        Guid userId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserListsQuery(userId, GetUserId(), page, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

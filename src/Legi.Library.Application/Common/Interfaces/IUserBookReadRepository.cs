@@ -14,6 +14,10 @@ public interface IUserBookReadRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyDictionary<ReadingStatus, int>> GetStatusCountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// The viewer's active (non-deleted) UserBook for a given book, or null when
     /// the book is not in their library. Drives the book details page header.

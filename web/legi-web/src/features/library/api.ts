@@ -5,6 +5,7 @@ import type {
   PaginatedList,
   ProgressType,
   UserBookDto,
+  UserLibraryStatsDto,
   UserListSummaryDto,
 } from "./types";
 
@@ -65,6 +66,14 @@ export const libraryApi = {
     http
       .get<PaginatedList<UserBookDto>>(`/library/users/${userId}/books`, {
         params: { status, page, pageSize },
+      })
+      .then((r) => r.data),
+  getUserLibraryStats: (userId: string) =>
+    http.get<UserLibraryStatsDto>(`/library/users/${userId}/stats`).then((r) => r.data),
+  getUserLists: (userId: string, page: number, pageSize: number) =>
+    http
+      .get<PaginatedList<UserListSummaryDto>>(`/library/users/${userId}/lists`, {
+        params: { page, pageSize },
       })
       .then((r) => r.data),
   // GET /library/by-book/{bookId} returns 200 with the UserBook or 204 (not in library).

@@ -1,6 +1,8 @@
 using System.Reflection;
 using FluentValidation;
 using Legi.Library.Application.Common.Behaviors;
+using Legi.Library.Application.Common.Interfaces;
+using Legi.Library.Application.Common.Policies;
 using Legi.SharedKernel.Mediator;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +16,7 @@ public static class DependencyInjection
 
         // Register custom mediator
         services.AddScoped<IMediator, Mediator>();
+        services.AddScoped<IUserListVisibilityPolicy, UserListVisibilityPolicy>();
 
         // Register all handlers automatically
         RegisterHandlers(services, assembly);

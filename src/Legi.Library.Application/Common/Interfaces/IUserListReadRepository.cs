@@ -8,6 +8,18 @@ public interface IUserListReadRepository
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<PaginatedList<UserListSummaryDto>> GetVisibleByUserIdAsync(
+        Guid targetUserId,
+        Guid viewerUserId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<int> CountVisibleByUserIdAsync(
+        Guid targetUserId,
+        Guid viewerUserId,
+        CancellationToken cancellationToken = default);
+
     Task<UserListDetailDto?> GetDetailByIdAsync(
         Guid listId,
         CancellationToken cancellationToken = default);

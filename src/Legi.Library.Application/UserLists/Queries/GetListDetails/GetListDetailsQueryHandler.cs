@@ -5,28 +5,23 @@ using Legi.SharedKernel.Mediator;
 
 namespace Legi.Library.Application.UserLists.Queries.GetListDetails;
 
-public class GetListDetailsQueryHandler
+public class GetListDetailsQueryHandler(
+    IUserListReadRepository readRepository,
+    IUserListVisibilityPolicy visibilityPolicy)
     : IRequestHandler<GetListDetailsQuery, UserListDetailDto>
 {
-    private readonly IUserListReadRepository _readRepository;
-
-    public GetListDetailsQueryHandler(IUserListReadRepository readRepository)
-    {
-        _readRepository = readRepository;
-    }
-
     public async Task<UserListDetailDto> Handle(
         GetListDetailsQuery request,
         CancellationToken cancellationToken)
     {
-        var list = await _readRepository.GetDetailByIdAsync(
+        var list = await readRepository.GetDetailByIdAsync(
             request.ListId,
             cancellationToken);
 
         if (list is null)
             throw new NotFoundException("UserList", request.ListId);
 
-        if (!list.IsPublic && list.UserId != request.ViewerUserId)
+        if (!visibilityPolicy.CanView(list.UserId, list.IsPublic, request.ViewerUserId))
             throw new NotFoundException("UserList", request.ListId);
 
         return list;
