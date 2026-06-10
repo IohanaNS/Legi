@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { UserListRow } from "./UserListRow";
 import { useFollowers, useFollowing } from "../hooks/useFollowList";
+import { useAuth } from "../../auth/useAuth";
 
 interface FollowListPageProps {
   mode: "followers" | "following";
@@ -17,6 +18,8 @@ interface FollowListPageProps {
 export default function FollowListPage({ mode }: FollowListPageProps) {
   const { t } = useTranslation();
   const { userId } = useParams<{ userId: string }>();
+  const { user } = useAuth();
+  const isSelf = !!userId && user?.userId === userId;
 
   const followers = useFollowers(userId, mode === "followers");
   const following = useFollowing(userId, mode === "following");
@@ -27,7 +30,7 @@ export default function FollowListPage({ mode }: FollowListPageProps) {
   return (
     <div className="mx-auto max-w-2xl">
       <Link
-        to={`/users/${userId}`}
+        to={isSelf ? "/profile" : `/users/${userId}`}
         className="mb-6 inline-flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
       >
         <ArrowLeft size={16} />
