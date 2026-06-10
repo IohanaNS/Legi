@@ -4,5 +4,6 @@ using Legi.SharedKernel.Mediator;
 namespace Legi.Library.Application.UserLists.Queries.GetListDetails;
 
 public record GetListDetailsQuery(
-    Guid ListId
+    Guid ListId,
+    Guid ViewerUserId
 ) : IRequest<UserListDetailDto>;

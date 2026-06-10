@@ -1,4 +1,5 @@
 using Legi.Library.Application.Common.DTOs;
+using Legi.Library.Application.Common.Exceptions;
 using Legi.Library.Application.Common.Interfaces;
 using Legi.SharedKernel.Mediator;
 
@@ -18,6 +19,16 @@ public class GetListBooksQueryHandler
         GetListBooksQuery request,
         CancellationToken cancellationToken)
     {
+        var list = await _readRepository.GetDetailByIdAsync(
+            request.ListId,
+            cancellationToken);
+
+        if (list is null)
+            throw new NotFoundException("UserList", request.ListId);
+
+        if (!list.IsPublic && list.UserId != request.ViewerUserId)
+            throw new NotFoundException("UserList", request.ListId);
+
         return await _readRepository.GetListBooksAsync(
             request.ListId,
             request.PageNumber,

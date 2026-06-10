@@ -44,12 +44,11 @@ public class UserListsController : ControllerBase
     /// Get list details by ID.
     /// </summary>
     [HttpGet("{listId:guid}")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetListDetails(
         Guid listId,
         CancellationToken cancellationToken)
     {
-        var query = new GetListDetailsQuery(listId);
+        var query = new GetListDetailsQuery(listId, GetUserId());
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }
@@ -58,14 +57,13 @@ public class UserListsController : ControllerBase
     /// Get books in a list.
     /// </summary>
     [HttpGet("{listId:guid}/books")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetListBooks(
         Guid listId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetListBooksQuery(listId, page, pageSize);
+        var query = new GetListBooksQuery(listId, GetUserId(), page, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

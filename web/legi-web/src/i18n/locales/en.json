@@ -170,6 +170,7 @@
         "empty": "No books found",
         "searchingExternal": "Searching external sources...",
         "searchingExternalHint": "We're looking this up on Open Library and Google Books. Results will appear here shortly.",
+        "searchingMore": "Still searching external sources — more results may appear here shortly.",
         "error": "Couldn't load books",
         "loadingMore": "Loading more...",
         "unknownAuthor": "Unknown author",

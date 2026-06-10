@@ -5,6 +5,7 @@ namespace Legi.Library.Application.UserLists.Queries.GetListBooks;
 
 public record GetListBooksQuery(
     Guid ListId,
+    Guid ViewerUserId,
     int PageNumber = 1,
     int PageSize = 20
 ) : IRequest<PaginatedList<UserListBookDto>>;

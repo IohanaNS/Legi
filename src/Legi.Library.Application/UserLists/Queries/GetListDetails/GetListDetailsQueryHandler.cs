@@ -26,6 +26,9 @@ public class GetListDetailsQueryHandler
         if (list is null)
             throw new NotFoundException("UserList", request.ListId);
 
+        if (!list.IsPublic && list.UserId != request.ViewerUserId)
+            throw new NotFoundException("UserList", request.ListId);
+
         return list;
     }
 }
