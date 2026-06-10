@@ -1,11 +1,13 @@
 import { Avatar } from "../../../components/ui/Avatar";
 import type { UserProfileDto } from "../../social/types";
+import type { ReactNode } from "react";
 
 interface ProfileHeaderProps {
   profile: UserProfileDto;
+  action?: ReactNode;
 }
 
-export function ProfileHeader({ profile }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, action }: ProfileHeaderProps) {
   return (
     <div>
       {/* Banner */}
@@ -17,13 +19,14 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
 
       {/* Avatar + Info */}
       <div className="relative px-4">
-        <div className="-mt-12">
+        <div className="-mt-12 flex items-end justify-between">
           <Avatar
             src={profile.avatarUrl ?? undefined}
             fallback={profile.username}
             size="xl"
             className="ring-4 ring-white dark:ring-dark-bg"
           />
+          {action && <div className="mb-1">{action}</div>}
         </div>
 
         <div className="mt-3">
