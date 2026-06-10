@@ -244,6 +244,7 @@
             "abandoned": "Abandoned",
             "paused": "Paused"
         },
+        "readBooksTitle": "Books read",
         "emptyTab": "No books here yet",
         "errorLoading": "Couldn't load",
         "loadMore": "Load more"

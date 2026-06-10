@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { FeedCard } from "./FeedCard";
 import { FollowButton } from "./FollowButton";
-import { FollowListModal } from "./FollowListModal";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useUserActivity } from "../hooks/useFeed";
 import { feedKeys } from "../queryKeys";
@@ -18,7 +16,6 @@ export default function UserProfilePage() {
 
   const profileQuery = useUserProfile(userId);
   const activity = useUserActivity(userId);
-  const [followModal, setFollowModal] = useState<"followers" | "following" | null>(null);
 
   const isSelf = !!userId && currentUser?.userId === userId;
   const items = activity.data?.pages.flatMap((p) => p.items) ?? [];
@@ -70,22 +67,14 @@ export default function UserProfilePage() {
           )}
 
           <div className="mt-3 flex gap-6 text-sm">
-            <button
-              type="button"
-              onClick={() => setFollowModal("followers")}
-              className="hover:text-green-700"
-            >
+            <Link to={`/users/${profile.userId}/followers`} className="hover:text-green-700">
               <span className="font-semibold text-stone-800">{profile.followersCount}</span>{" "}
               <span className="text-stone-500">{t("profile.stats.followers")}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFollowModal("following")}
-              className="hover:text-green-700"
-            >
+            </Link>
+            <Link to={`/users/${profile.userId}/following`} className="hover:text-green-700">
               <span className="font-semibold text-stone-800">{profile.followingCount}</span>{" "}
               <span className="text-stone-500">{t("profile.stats.following")}</span>
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -124,10 +113,6 @@ export default function UserProfilePage() {
           </>
         )}
       </div>
-
-      {followModal && userId && (
-        <FollowListModal userId={userId} mode={followModal} onClose={() => setFollowModal(null)} />
-      )}
     </div>
   );
 }

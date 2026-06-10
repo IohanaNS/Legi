@@ -66,6 +66,7 @@ export default function ProfilePage() {
         <>
           <ProfileHeader profile={profileQuery.data} />
           <ProfileStats
+            userId={profileQuery.data.userId}
             booksRead={counts.Finished ?? 0}
             followers={profileQuery.data.followersCount}
             following={profileQuery.data.followingCount}

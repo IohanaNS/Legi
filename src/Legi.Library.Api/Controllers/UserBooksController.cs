@@ -5,6 +5,7 @@ using Legi.Library.Application.UserBooks.Commands.RemoveUserBookRating;
 using Legi.Library.Application.UserBooks.Commands.UpdateUserBook;
 using Legi.Library.Application.UserBooks.Queries.GetMyLibrary;
 using Legi.Library.Application.UserBooks.Queries.GetMyUserBookByBook;
+using Legi.Library.Application.UserBooks.Queries.GetUserLibrary;
 using Legi.Library.Domain.Enums;
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
@@ -43,6 +44,24 @@ public class UserBooksController : ControllerBase
         var query = new GetMyLibraryQuery(
             GetUserId(), status, wishlist, search, page, pageSize);
 
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get another user's library (paginated), optionally filtered by status —
+    /// e.g. <c>?status=Finished</c> for the books they have read. Drives the
+    /// profile "Read" page.
+    /// </summary>
+    [HttpGet("users/{userId:guid}/books")]
+    public async Task<IActionResult> GetUserLibrary(
+        Guid userId,
+        [FromQuery] ReadingStatus? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserLibraryQuery(userId, GetUserId(), status, page, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

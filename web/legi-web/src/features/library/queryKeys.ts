@@ -7,4 +7,6 @@ export const libraryKeys = {
   count: (status: BackendReadingStatus) => [...libraryKeys.all, "count", status] as const,
   lists: () => [...libraryKeys.all, "lists"] as const,
   userBookByBook: (bookId: string) => [...libraryKeys.all, "byBook", bookId] as const,
+  userBooks: (userId: string, status: string) =>
+    [...libraryKeys.all, "userBooks", userId, status] as const,
 };

@@ -15,3 +15,14 @@ export function useLibraryBooks(status: BackendReadingStatus, enabled = true) {
     enabled,
   });
 }
+
+// Any user's library filtered by status (e.g. the profile "Read" page).
+export function useUserLibrary(userId: string | undefined, status: BackendReadingStatus) {
+  return useInfiniteQuery({
+    queryKey: libraryKeys.userBooks(userId ?? "", status),
+    queryFn: ({ pageParam }) => libraryApi.getUserLibrary(userId!, status, pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.hasNextPage ? last.pageNumber + 1 : undefined),
+    enabled: !!userId,
+  });
+}

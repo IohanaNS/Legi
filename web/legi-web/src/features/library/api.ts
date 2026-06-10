@@ -60,6 +60,13 @@ const READING_STATUS_WIRE: Record<BackendReadingStatus, number> = {
 export const libraryApi = {
   getUserBooks: (q: LibraryQuery) =>
     http.get<PaginatedList<UserBookDto>>("/library", { params: q }).then((r) => r.data),
+  // Another user's library, filtered by status (e.g. "Finished" for read books).
+  getUserLibrary: (userId: string, status: BackendReadingStatus, page: number, pageSize: number) =>
+    http
+      .get<PaginatedList<UserBookDto>>(`/library/users/${userId}/books`, {
+        params: { status, page, pageSize },
+      })
+      .then((r) => r.data),
   // GET /library/by-book/{bookId} returns 200 with the UserBook or 204 (not in library).
   getMyUserBookByBook: (bookId: string) =>
     http
