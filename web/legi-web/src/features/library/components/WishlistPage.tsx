@@ -28,7 +28,7 @@ export default function WishlistPage() {
         <EmptyState label={t("wishlist.empty")} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,150px))] justify-start gap-4">
             {books.map((userBook) => (
               <BookGridItem key={userBook.userBookId} userBook={userBook} editable />
             ))}
@@ -53,7 +53,7 @@ export default function WishlistPage() {
 
 function BookGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,150px))] justify-start gap-4">
       {Array.from({ length: 10 }).map((_, index) => (
         <div key={index} className="animate-pulse">
           <div className="mb-2 aspect-[2/3] rounded-lg bg-stone-200 dark:bg-dark-raised" />

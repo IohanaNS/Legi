@@ -26,7 +26,7 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
       <div className="relative mb-2">
         <Link
           to={`/books/${book.bookId}`}
-          className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200"
+          className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised"
         >
           {book.coverUrl && (
             <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
@@ -55,11 +55,11 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
 
       <Link
         to={`/books/${book.bookId}`}
-        className="block truncate text-sm font-medium text-stone-800 transition-colors group-hover:text-green-700"
+        className="block truncate text-sm font-medium text-stone-800 transition-colors group-hover:text-green-700 dark:text-stone-100 dark:group-hover:text-green-400"
       >
         {book.title}
       </Link>
-      <p className="text-xs text-stone-500">{book.authorDisplay}</p>
+      <p className="truncate text-xs text-stone-500 dark:text-stone-400">{book.authorDisplay}</p>
       {ratingStars != null && <StarRating rating={ratingStars} size={12} className="mt-1" />}
     </div>
   );
