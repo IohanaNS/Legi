@@ -7,4 +7,6 @@ export const catalogKeys = {
   popularTags: () => [...catalogKeys.all, "tags", "popular"] as const,
   authorSearch: (searchTerm: string, limit: number) =>
     [...catalogKeys.all, "authors", "search", searchTerm, limit] as const,
+  tagSearch: (searchTerm: string, limit: number) =>
+    [...catalogKeys.all, "tags", "search", searchTerm, limit] as const,
 };

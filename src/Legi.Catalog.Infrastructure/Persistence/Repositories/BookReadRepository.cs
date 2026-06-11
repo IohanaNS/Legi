@@ -8,7 +8,7 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
     public async Task<(List<BookSearchResult> Books, int TotalCount)> SearchAsync(
         string? searchTerm,
         string? authorSlug,
-        string? tagSlug,
+        IReadOnlyList<string>? tagSlugs,
         decimal? minRating,
         int pageNumber,
         int pageSize,
@@ -55,17 +55,23 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             );
         }
 
-        if (!string.IsNullOrWhiteSpace(tagSlug))
+        if (tagSlugs is not null)
         {
-            query = query.Where(b =>
-                context.BookTags
-                    .Where(bt => bt.BookId == b.Id)
-                    .Join(context.Tags,
-                        bt => bt.TagId,
-                        t => t.Id,
-                        (bt, t) => t)
-                    .Any(t => t.Slug == tagSlug)
-            );
+            // AND semantics: each selected tag adds a separate filter, so a book
+            // must carry every requested tag to survive (narrowing, not widening).
+            foreach (var slug in tagSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct())
+            {
+                var tagSlug = slug;
+                query = query.Where(b =>
+                    context.BookTags
+                        .Where(bt => bt.BookId == b.Id)
+                        .Join(context.Tags,
+                            bt => bt.TagId,
+                            t => t.Id,
+                            (bt, t) => t)
+                        .Any(t => t.Slug == tagSlug)
+                );
+            }
         }
 
         if (minRating.HasValue)

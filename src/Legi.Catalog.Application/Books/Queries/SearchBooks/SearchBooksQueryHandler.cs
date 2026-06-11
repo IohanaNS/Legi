@@ -24,7 +24,7 @@ public class SearchBooksQueryHandler(
         var (books, totalCount) = await bookReadRepository.SearchAsync(
             request.SearchTerm,
             request.AuthorSlug,
-            request.TagSlug,
+            request.TagSlugs,
             request.MinRating,
             request.PageNumber,
             request.PageSize,
@@ -89,7 +89,7 @@ public class SearchBooksQueryHandler(
         return !string.IsNullOrWhiteSpace(request.SearchTerm)
                && request.PageNumber == 1
                && string.IsNullOrWhiteSpace(request.AuthorSlug)
-               && string.IsNullOrWhiteSpace(request.TagSlug)
+               && (request.TagSlugs is null || request.TagSlugs.Count == 0)
                && !request.MinRating.HasValue;
     }
 }

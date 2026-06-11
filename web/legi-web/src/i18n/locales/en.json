@@ -176,6 +176,8 @@
         "searchPlaceholder": "Search by title, author, or ISBN",
         "authorFilter": "Author: {{author}}",
         "filterByTag": "Filter by tag",
+        "searchTagPlaceholder": "Search tag...",
+        "noTagsFound": "No tags found for \"{{search}}\"",
         "tagsError": "Couldn't load tags",
         "booksFound": "{{count}} books found",
         "sortLabel": "Sort by",

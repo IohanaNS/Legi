@@ -33,7 +33,7 @@ public class BooksController : ControllerBase
     public async Task<ActionResult<SearchBooksResponse>> SearchBooks(
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? authorSlug = null,
-        [FromQuery] string? tagSlug = null,
+        [FromQuery] string[]? tagSlugs = null,
         [FromQuery] decimal? minRating = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
@@ -45,7 +45,7 @@ public class BooksController : ControllerBase
             GetAuthenticatedUserId(),
             searchTerm,
             authorSlug,
-            tagSlug,
+            tagSlugs,
             minRating,
             pageNumber,
             pageSize,

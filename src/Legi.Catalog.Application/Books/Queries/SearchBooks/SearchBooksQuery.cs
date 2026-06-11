@@ -7,7 +7,7 @@ public record SearchBooksQuery(
     Guid AuthenticatedUserId,
     string? SearchTerm = null,
     string? AuthorSlug = null,
-    string? TagSlug = null,
+    IReadOnlyList<string>? TagSlugs = null,
     decimal? MinRating = null,
     int PageNumber = 1,
     int PageSize = 20,

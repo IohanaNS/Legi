@@ -8,7 +8,7 @@ import { SearchBar } from "./SearchBar";
 import { TagFilter } from "./TagFilter";
 import { usePopularTags } from "../hooks/usePopularTags";
 import { useSearchBooks } from "../hooks/useSearchBooks";
-import type { SortOption } from "../types";
+import type { SortOption, TagResult } from "../types";
 
 export default function ExplorePage() {
   const { t } = useTranslation();
@@ -19,7 +19,7 @@ export default function ExplorePage() {
   const authorSlug = searchParams.get("authorSlug") ?? undefined;
   const authorName = searchParams.get("authorName");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedTagSlug, setSelectedTagSlug] = useState<string | undefined>();
+  const [selectedTags, setSelectedTags] = useState<TagResult[]>([]);
   const [sort, setSort] = useState<SortOption>("mostPopular");
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function ExplorePage() {
   const booksQuery = useSearchBooks({
     searchTerm: debouncedSearch,
     authorSlug,
-    tagSlug: selectedTagSlug,
+    tagSlugs: selectedTags.map((tag) => tag.slug),
     sort,
   });
 
@@ -44,8 +44,12 @@ export default function ExplorePage() {
   const isSearchingExternal =
     enrichmentStatus === "Queued" || enrichmentStatus === "AlreadyQueued";
 
-  const handleToggleTag = (tagSlug: string) => {
-    setSelectedTagSlug((current) => (current === tagSlug ? undefined : tagSlug));
+  const handleToggleTag = (tag: TagResult) => {
+    setSelectedTags((current) =>
+      current.some((t) => t.slug === tag.slug)
+        ? current.filter((t) => t.slug !== tag.slug)
+        : [...current, tag],
+    );
   };
 
   const handleSearchChange = (value: string) => {
@@ -104,7 +108,7 @@ export default function ExplorePage() {
 
       <TagFilter
         tags={tagsQuery.data ?? []}
-        selectedTagSlug={selectedTagSlug}
+        selectedTags={selectedTags}
         isLoading={tagsQuery.isLoading}
         isError={tagsQuery.isError}
         onRetry={() => {

@@ -57,7 +57,7 @@ public class SearchBooksQueryHandlerTests
             .Setup(x => x.SearchAsync(
                 query.SearchTerm,
                 query.AuthorSlug,
-                query.TagSlug,
+                query.TagSlugs,
                 query.MinRating,
                 query.PageNumber,
                 query.PageSize,
@@ -95,7 +95,7 @@ public class SearchBooksQueryHandlerTests
             x => x.SearchAsync(
                 query.SearchTerm,
                 query.AuthorSlug,
-                query.TagSlug,
+                query.TagSlugs,
                 query.MinRating,
                 query.PageNumber,
                 query.PageSize,
@@ -116,7 +116,7 @@ public class SearchBooksQueryHandlerTests
             .Setup(x => x.SearchAsync(
                 query.SearchTerm,
                 query.AuthorSlug,
-                query.TagSlug,
+                query.TagSlugs,
                 query.MinRating,
                 query.PageNumber,
                 query.PageSize,
@@ -168,7 +168,7 @@ public class SearchBooksQueryHandlerTests
             .Setup(x => x.SearchAsync(
                 query.SearchTerm,
                 query.AuthorSlug,
-                query.TagSlug,
+                query.TagSlugs,
                 query.MinRating,
                 query.PageNumber,
                 query.PageSize,
@@ -193,13 +193,13 @@ public class SearchBooksQueryHandlerTests
     public async Task Handle_ShouldNotQueueEnrichment_WhenSearchHasAdditionalFilters()
     {
         // Arrange
-        var query = SearchBooksQueryFactory.Create(tagSlug: "fantasy", minRating: null);
+        var query = SearchBooksQueryFactory.Create(tagSlugs: ["fantasy"], minRating: null);
 
         _bookReadRepositoryMock
             .Setup(x => x.SearchAsync(
                 query.SearchTerm,
                 query.AuthorSlug,
-                query.TagSlug,
+                query.TagSlugs,
                 query.MinRating,
                 query.PageNumber,
                 query.PageSize,

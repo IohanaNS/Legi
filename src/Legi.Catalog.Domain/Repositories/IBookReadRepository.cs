@@ -9,7 +9,7 @@ public interface IBookReadRepository
     Task<(List<BookSearchResult> Books, int TotalCount)> SearchAsync(
         string? searchTerm,
         string? authorSlug,
-        string? tagSlug,
+        IReadOnlyList<string>? tagSlugs,
         decimal? minRating,
         int pageNumber,
         int pageSize,

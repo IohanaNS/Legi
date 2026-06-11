@@ -88,7 +88,7 @@ export interface SearchAuthorsResponse {
 export interface SearchBooksParams {
   searchTerm?: string;
   authorSlug?: string;
-  tagSlug?: string;
+  tagSlugs?: string[];
   minRating?: number;
   pageNumber?: number;
   pageSize?: number;

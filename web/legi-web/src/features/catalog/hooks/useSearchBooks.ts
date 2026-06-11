@@ -9,7 +9,7 @@ const PAGE_SIZE = 20;
 interface UseSearchBooksArgs {
   searchTerm?: string;
   authorSlug?: string;
-  tagSlug?: string;
+  tagSlugs?: string[];
   sort: SortOption;
   pageSize?: number;
   enabled?: boolean;
@@ -18,7 +18,7 @@ interface UseSearchBooksArgs {
 export function useSearchBooks({
   searchTerm,
   authorSlug,
-  tagSlug,
+  tagSlugs,
   sort,
   pageSize = PAGE_SIZE,
   enabled = true,
@@ -27,7 +27,7 @@ export function useSearchBooks({
   const params: SearchBooksParams = {
     searchTerm: searchTerm?.trim() || undefined,
     authorSlug,
-    tagSlug,
+    tagSlugs: tagSlugs && tagSlugs.length > 0 ? tagSlugs : undefined,
     sortBy,
     sortDescending,
     pageSize,
