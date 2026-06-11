@@ -30,18 +30,18 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">
       <Card className="w-full max-w-sm p-6 space-y-4">
-        <h1 className="font-serif text-xl font-semibold text-stone-800">{t("auth.registerTitle")}</h1>
+        <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">{t("auth.registerTitle")}</h1>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
           <input
             type="email"
-            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
             placeholder={t("auth.email")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
           />
           <input
-            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
             placeholder={t("auth.username")}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -49,20 +49,20 @@ export default function RegisterPage() {
           />
           <input
             type="password"
-            className="w-full rounded-md border border-stone-300 px-3 py-2"
+            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
             placeholder={t("auth.password")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
           />
-          {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+          {errorMessage && <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>}
           <Button type="submit" disabled={mutation.isPending} className="w-full">
             {t("auth.signUp")}
           </Button>
         </form>
-        <p className="text-sm text-center text-stone-600">
+        <p className="text-sm text-center text-stone-600 dark:text-stone-400">
           {t("auth.haveAccount")}{" "}
-          <Link to="/login" className="text-green-700">{t("auth.signIn")}</Link>
+          <Link to="/login" className="text-green-700 dark:text-green-400">{t("auth.signIn")}</Link>
         </p>
       </Card>
     </div>
