@@ -15,6 +15,7 @@ import ListDetailPage from "../features/library/components/ListDetailPage";
 import WishlistPage from "../features/library/components/WishlistPage";
 import ProfilePage from "../features/library/components/ProfilePage";
 import ReadBooksPage from "../features/library/components/ReadBooksPage";
+import SettingsPage from "../features/settings/components/SettingsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: "lists/:listId/edit", element: <ListEditorPage /> },
       { path: "wishlist", element: <WishlistPage /> },
       { path: "profile", element: <ProfilePage /> },
+      { path: "settings", element: <SettingsPage /> },
       { path: "users/:userId", element: <UserProfilePage /> },
       { path: "users/:userId/read", element: <ReadBooksPage /> },
       { path: "users/:userId/followers", element: <FollowListPage mode="followers" /> },

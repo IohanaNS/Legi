@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Newspaper,
@@ -7,6 +7,7 @@ import {
   List,
   Gift,
   User,
+  Settings,
   LogOut,
   Sun,
   Moon,
@@ -30,6 +31,7 @@ export default function Layout() {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { mode, setMode } = useTheme();
+  const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +140,18 @@ export default function Layout() {
                   ))}
                 </div>
               </div>
+
+              {/* Settings */}
+              <button
+                onClick={() => {
+                  navigate("/settings");
+                  setUserMenuOpen(false);
+                }}
+                className="flex w-full items-center gap-3 border-t border-white/10 px-4 py-3 text-sm text-green-200 transition-colors hover:bg-white/10"
+              >
+                <Settings size={16} />
+                {t("settings.title")}
+              </button>
 
               {/* Logout */}
               <button

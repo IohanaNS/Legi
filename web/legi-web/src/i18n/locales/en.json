@@ -355,6 +355,21 @@
         "dark": "Dark",
         "system": "System"
     },
+    "settings": {
+        "title": "Settings",
+        "subtitle": "Manage your account.",
+        "account": "Account",
+        "accountSubtitle": "Basic account actions for your BukiHub profile.",
+        "deleteSectionTitle": "Account deletion",
+        "deleteDescription": "You can delete your account and BukiHub data from here.",
+        "deleteAccount": "Delete account",
+        "confirmTitle": "Delete account?",
+        "confirmWarning": "This action cannot be undone. You will lose all your data related to BukiHub.",
+        "confirmDelete": "Delete account",
+        "deletePending": "Deleting...",
+        "deleteError": "Couldn't delete your account. Please try again.",
+        "closeDialog": "Close delete account confirmation"
+    },
     "auth": {
         "loginTitle": "Sign in",
         "registerTitle": "Create account",

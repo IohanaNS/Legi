@@ -355,6 +355,21 @@
         "dark": "Escuro",
         "system": "Sistema"
     },
+    "settings": {
+        "title": "Configurações",
+        "subtitle": "Gerencie sua conta.",
+        "account": "Conta",
+        "accountSubtitle": "Ações básicas da conta para o seu perfil no BukiHub.",
+        "deleteSectionTitle": "Exclusão da conta",
+        "deleteDescription": "Você pode excluir sua conta e seus dados do BukiHub por aqui.",
+        "deleteAccount": "Excluir conta",
+        "confirmTitle": "Excluir conta?",
+        "confirmWarning": "Esta ação não pode ser desfeita. Você perderá todos os seus dados relacionados ao BukiHub.",
+        "confirmDelete": "Excluir conta",
+        "deletePending": "Excluindo...",
+        "deleteError": "Não foi possível excluir sua conta. Tente novamente.",
+        "closeDialog": "Fechar confirmação de exclusão de conta"
+    },
     "auth": {
         "loginTitle": "Entrar",
         "registerTitle": "Criar conta",

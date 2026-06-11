@@ -8,4 +8,6 @@ export const authApi = {
     http.post<AuthResponse>("/identity/auth/register", body).then((r) => r.data),
   logout: (refreshToken: string) =>
     http.post("/identity/auth/logout", { refreshToken }),
+  deleteAccount: () =>
+    http.delete("/identity/users/me"),
 };

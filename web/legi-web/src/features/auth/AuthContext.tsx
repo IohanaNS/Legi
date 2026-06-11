@@ -16,6 +16,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StoredUser | null>(() => authStorage.getUser());
   const queryClient = useQueryClient();
 
+  const clearLocalSession = () => {
+    authStorage.clear();
+    setUser(null);
+    queryClient.clear();
+  };
+
   useEffect(() => {
     // When refresh fails inside the interceptor, drop the session.
     setOnUnauthorized(() => setUser(null));
@@ -37,13 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* best-effort: the local session is dropped regardless */
     }
-    authStorage.clear();
-    setUser(null);
-    queryClient.clear();
+    clearLocalSession();
+  };
+
+  const deleteAccount = async () => {
+    await authApi.deleteAccount();
+    clearLocalSession();
   };
 
   // React Compiler memoizes this; manual useMemo is redundant here.
-  const value: AuthContextValue = { user, isAuthenticated: !!user, login, register, logout };
+  const value: AuthContextValue = {
+    user,
+    isAuthenticated: !!user,
+    login,
+    register,
+    logout,
+    deleteAccount,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
