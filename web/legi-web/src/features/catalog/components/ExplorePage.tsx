@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
-import { Loader2, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { BookSummaryCard } from "./BookSummaryCard";
 import { SearchBar } from "./SearchBar";
@@ -12,6 +12,7 @@ import type { SortOption } from "../types";
 
 export default function ExplorePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const searchInput = searchParams.get("search") ?? "";
@@ -67,11 +68,19 @@ export default function ExplorePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
-          {t("explore.title")}
-        </h1>
-        <p className="mt-1 text-stone-500 dark:text-stone-400">{t("explore.subtitle")}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
+            {t("explore.title")}
+          </h1>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{t("explore.subtitle")}</p>
+        </div>
+        <Button onClick={() => navigate("/books/new")} className="shrink-0">
+          <span className="flex items-center gap-1.5">
+            <Plus size={16} />
+            {t("explore.registerNewBook")}
+          </span>
+        </Button>
       </header>
 
       <SearchBar value={searchInput} onChange={handleSearchChange} />

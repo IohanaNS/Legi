@@ -1,3 +1,4 @@
+using Legi.Catalog.Application.Books;
 using Legi.Catalog.Application.Books.Commands.CreateBook;
 using Legi.Catalog.Application.Common.Exceptions;
 using Legi.Catalog.Application.Common.Interfaces;
@@ -5,6 +6,7 @@ using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
 using Legi.SharedKernel;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Legi.Catalog.Application.Tests.Books.Commands.CreateBook;
@@ -13,21 +15,37 @@ public class CreateBookCommandHandlerTests
 {
     private readonly Mock<IBookRepository> _bookRepositoryMock;
     private readonly Mock<IBookDataProvider> _bookDataProviderMock;
+    private readonly Mock<IBookCoverUrlResolver> _bookCoverUrlResolverMock;
     private readonly CreateBookCommandHandler _handler;
 
     public CreateBookCommandHandlerTests()
     {
         _bookRepositoryMock = new Mock<IBookRepository>();
         _bookDataProviderMock = new Mock<IBookDataProvider>();
+        _bookCoverUrlResolverMock = new Mock<IBookCoverUrlResolver>();
 
         _bookDataProviderMock
             .Setup(x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ExternalBookData?)null);
 
-        _handler = new CreateBookCommandHandler(
+        _bookRepositoryMock
+            .Setup(x => x.FindByTitleAndFirstAuthorAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookCoverUrlResolverMock
+            .Setup(x => x.ResolveByIsbn(It.IsAny<string>()))
+            .Returns((string?)null);
+
+        var bookImportService = new BookImportService(
             _bookRepositoryMock.Object,
-            _bookDataProviderMock.Object
-        );
+            _bookDataProviderMock.Object,
+            _bookCoverUrlResolverMock.Object,
+            NullLogger<BookImportService>.Instance);
+
+        _handler = new CreateBookCommandHandler(bookImportService);
     }
 
     [Fact]
@@ -312,6 +330,7 @@ public class CreateBookCommandHandlerTests
         // Assert
         var exception = await Assert.ThrowsAsync<ConflictException>(act);
         Assert.Equal($"A book with ISBN '{command.Isbn}' already exists.", exception.Message);
+        Assert.Equal(existingBook.Id, exception.Extensions["existingBookId"]);
 
         _bookRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
@@ -321,6 +340,42 @@ public class CreateBookCommandHandlerTests
         _bookDataProviderMock.Verify(
             x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowConflictExceptionWithExistingBookId_WhenTitleAndFirstAuthorAlreadyExist()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(isbn: "9780321125217");
+        var existingBook = DomainBookFactory.Create();
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+
+        _bookRepositoryMock
+            .Setup(x => x.FindByTitleAndFirstAuthorAsync(
+                command.Title,
+                command.Authors![0],
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingBook);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<ConflictException>(act);
+        Assert.Equal(existingBook.Id, exception.Extensions["existingBookId"]);
+
+        _bookRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+
+        _bookDataProviderMock.Verify(
+            x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()),
+            Times.Once
         );
     }
 

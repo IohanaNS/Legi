@@ -48,7 +48,11 @@
         "reviewError": "Couldn't publish the review. Please try again.",
         "publishReview": "Publish review",
         "deleteReview": "Delete review",
-        "confirmDeleteReview": "Are you sure you want to delete this review?"
+        "confirmDeleteReview": "Are you sure you want to delete this review?",
+        "notice": {
+            "created": "Book registered successfully.",
+            "alreadyExists": "This book is already in the catalog."
+        }
     },
     "globalSearch": {
         "title": "Search",
@@ -185,6 +189,7 @@
         "ratingsCount": "{{count}} ratings",
         "addToLibrary": "Add to library",
         "addToWishlist": "Add to wishlist",
+        "registerNewBook": "Register new book",
         "added": "Added!",
         "alreadyInLibrary": "Already in your library",
         "missingSnapshot": "This book is not synced to Library yet",
@@ -193,6 +198,46 @@
             "bestRated": "Best rated",
             "mostRecent": "Most recent",
             "mostPopular": "Most popular"
+        }
+    },
+    "registerBook": {
+        "title": "Register new book",
+        "subtitle": "Add the catalog details for a book you could not find.",
+        "isbn": "ISBN",
+        "isbnPlaceholder": "9780132350884",
+        "bookTitle": "Book title",
+        "titlePlaceholder": "e.g. Clean Code",
+        "publisher": "Publisher",
+        "publisherPlaceholder": "e.g. Mariner Books",
+        "pageCount": "Number of pages",
+        "pageCountPlaceholder": "300",
+        "coverUrl": "Cover URL",
+        "coverUrlPlaceholder": "https://example.com/cover.jpg",
+        "authors": "Authors",
+        "authorPlaceholder": "Author {{number}}",
+        "addAuthor": "Add author",
+        "removeAuthor": "Remove author",
+        "tags": "Tags",
+        "tagPlaceholder": "Tag {{number}}",
+        "addTag": "Add tag",
+        "removeTag": "Remove tag",
+        "synopsis": "Synopsis",
+        "synopsisPlaceholder": "Write a short synopsis for the book...",
+        "save": "Register book",
+        "errors": {
+            "isbnRequired": "ISBN is required",
+            "isbnInvalid": "Enter a valid ISBN-10 or ISBN-13",
+            "titleRequired": "Book title is required",
+            "authorRequired": "Author name is required",
+            "publisherRequired": "Publisher is required",
+            "pageCountRequired": "Number of pages is required",
+            "pageCountInvalid": "Enter a positive whole number",
+            "coverUrlRequired": "Cover URL is required",
+            "coverUrlInvalid": "Enter a valid http or https URL",
+            "tagRequired": "Tag name is required",
+            "synopsisRequired": "Synopsis is required",
+            "duplicate": "This book is already in the catalog.",
+            "saveFailed": "Couldn't register the book. Please try again."
         }
     },
     "genres": {

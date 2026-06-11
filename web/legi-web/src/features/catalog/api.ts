@@ -1,6 +1,8 @@
 import { http } from "../../services/http";
 import type {
   BookDetailsDto,
+  CreateBookRequest,
+  CreateBookResponse,
   SearchAuthorsResponse,
   SearchBooksParams,
   SearchBooksResponse,
@@ -13,6 +15,9 @@ export const catalogApi = {
 
   getBookDetails: (bookId: string) =>
     http.get<BookDetailsDto>(`/catalog/books/${bookId}`).then((r) => r.data),
+
+  createBook: (body: CreateBookRequest) =>
+    http.post<CreateBookResponse>("/catalog/books", body).then((r) => r.data),
 
   getPopularTags: () =>
     http

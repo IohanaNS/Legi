@@ -1,3 +1,4 @@
+using Legi.Catalog.Application.Books;
 using Legi.Catalog.Application.Books.Commands.ProcessExternalBookSearchJob;
 using Legi.Catalog.Application.Common.Interfaces;
 using Legi.Catalog.Application.Tests.Factories;
@@ -24,12 +25,16 @@ public class ProcessExternalBookSearchJobCommandHandlerTests
             .Setup(r => r.ResolveByIsbn(It.IsAny<string>()))
             .Returns(IsbnCoverUrl);
 
+        var bookImportService = new BookImportService(
+            _bookRepositoryMock.Object,
+            _bookDataProviderMock.Object,
+            _coverUrlResolverMock.Object,
+            NullLogger<BookImportService>.Instance);
+
         _handler = new ProcessExternalBookSearchJobCommandHandler(
             _bookDataProviderMock.Object,
-            _bookRepositoryMock.Object,
-            _searchAliasWriterMock.Object,
-            _coverUrlResolverMock.Object,
-            NullLogger<ProcessExternalBookSearchJobCommandHandler>.Instance);
+            bookImportService,
+            _searchAliasWriterMock.Object);
     }
 
     [Fact]

@@ -8,9 +8,9 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 |---------|--------|------------|
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
 | **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
-| **Catalog** | ✅ Implementado | CRUD de livros, busca/autocomplete de autores e tags, JWT auth integrado |
+| **Catalog** | ✅ Implementado | CRUD de livros, cadastro manual protegido, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
-| **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, Docker/Nginx, páginas com mock data |
+| **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, Docker/Nginx, integração API progressiva |
 | **Social** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 
 ## Stack Tecnológica
@@ -336,7 +336,7 @@ O repositório `BookRepository` sincroniza:
 ### 2.2 Application
 
 **Commands implementados:**
-- `CreateBookCommand` ✅ — Cria livro com ISBN, título, autores e tags (com enriquecimento opcional via APIs externas)
+- `CreateBookCommand` ✅ — Cadastro manual protegido de livro com ISBN, título, autores, sinopse, editora, capa, páginas e tags obrigatórios
 - `UpdateBookCommand` ✅ — Atualiza dados básicos, autores e tags de um livro
 - `DeleteBookCommand` ✅ — Remove livro do catálogo
 
@@ -348,9 +348,9 @@ O repositório `BookRepository` sincroniza:
 - `SearchTagsQuery` ✅ — Busca de tags por prefixo (autocomplete)
 - `GetPopularTagsQuery` ✅ — Tags mais populares por contagem de uso
 
-**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`, `AuthorResult`, `TagResult`
+**DTOs:** `BookSummaryDto`, `AuthorDto`, `TagDto`, `PaginationMetadata`, `CreateBookRequest`, `CreateBookResponse`, `UpdateBookResponse`, `GetBookDetailsResponse`, `AuthorResult`, `TagResult`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
-**Exceptions:** `ConflictException`, `NotFoundException`
+**Exceptions:** `ConflictException` (com extensões para `ProblemDetails`), `NotFoundException`
 **Porta externa (Application):** `IBookDataProvider` (retorna `ExternalBookData`)
 
 **Repositories (Domain interfaces):**
@@ -359,10 +359,17 @@ O repositório `BookRepository` sincroniza:
 - `IAuthorReadRepository` ✅ (Search, GetPopular, GetBySlug)
 - `ITagReadRepository` ✅ (Search, GetPopular)
 
-**Integração externa de metadados (CreateBook):**
-- `CreateBookCommandHandler` usa `IBookDataProvider` para buscar dados por ISBN antes da criação.
+**Criação/importação compartilhada de livros:**
+- `BookImportService` centraliza a criação de livros para o cadastro manual (`CreateBookCommandHandler`) e para a importação de candidatos externos (`ProcessExternalBookSearchJobCommandHandler`).
+- Cadastro manual exige ISBN válido, título, pelo menos um autor, sinopse, editora, URL de capa HTTP/HTTPS, número de páginas positivo e pelo menos uma tag.
+- Duplicidade manual por ISBN ou por título + primeiro autor retorna `409 Conflict` com `existingBookId` nas extensões do `ProblemDetails`, permitindo que o frontend navegue para o livro existente.
+- Importação externa mantém o comportamento de reaproveitar/enriquecer livros existentes e criar aliases para candidatos externos, sem duplicar a persistência.
+- Ambos os caminhos criam/atualizam pelo aggregate `Book`, preservando domain events, outbox e projeções consumidoras como Library/Social snapshots via `BookCreatedIntegrationEvent`.
+
+**Integração externa de metadados:**
+- `BookImportService` usa `IBookDataProvider` para enriquecer dados por ISBN quando o fluxo é de importação externa ou quando há metadados externos úteis.
 - Cadeia de fallback na Infrastructure: `OpenLibrary` (prioridade 1) → `GoogleBooks` (prioridade 2).
-- Regra de merge: dados enviados pelo usuário têm prioridade; APIs externas preenchem campos faltantes.
+- Regra de merge: dados explícitos do request/candidato têm prioridade; APIs externas preenchem lacunas apenas nos fluxos em que lacunas são permitidas.
 - Falhas de provedores externos não interrompem o fluxo (logging + fallback); só falha quando título/autores continuam ausentes após merge.
 - Componentes de infraestrutura:
     - `BookDataProvider` (orquestrador da cadeia de provedores)
@@ -425,13 +432,26 @@ O repositório `BookRepository` sincroniza:
   "isbn": "9780451524935",
   "title": "1984",
   "authors": ["George Orwell"],
+  "publisher": "Secker & Warburg",
+  "coverUrl": "https://example.com/covers/1984.jpg",
+  "pageCount": 328,
   "tags": ["dystopia", "classic"],
-  "synopsis": "...",
-  "pageCount": 328
+  "synopsis": "..."
 }
 ```
 
-Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) podem ser complementados por provedores externos quando enviados vazios/insuficientes.
+Obs.: no cadastro manual, todos os campos acima são obrigatórios. Strings em branco, ISBN inválido, URL de capa inválida, `pageCount <= 0` e listas vazias de autores/tags são rejeitados pela validação da Application/API.
+
+**Formato de Response (Create Book - duplicado 409):**
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "A book with this ISBN already exists.",
+  "existingBookId": "..."
+}
+```
 
 **Formato de Request (Update Book):**
 ```json
@@ -468,7 +488,7 @@ Obs.: no fluxo atual, campos obrigatórios de negócio (`title`, `authors`) pode
 
 **Autenticação:** JWT Bearer (mesma config do Identity Service — `JwtSettings` compartilhado). Endpoints de escrita (POST, PUT, DELETE) requerem `[Authorize]`. Endpoints de leitura (GET) são públicos. UserId extraído do claim `sub` do JWT.
 
-**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 422, NotFoundException → 404, ConflictException → 409, DomainException → 400, UnauthorizedAccessException → 401)
+**Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 422, NotFoundException → 404, ConflictException → 409 com extensões em `ProblemDetails`, DomainException → 400, UnauthorizedAccessException → 401)
 
 ### 2.4 Database Schema
 
@@ -1007,7 +1027,7 @@ web/legi-web/src/
 │   ├── ProgressBar.tsx
 │   └── StarRating.tsx
 ├── features/
-│   ├── catalog/             (ExplorePage, GenreFilter, SearchBar + mock data)
+│   ├── catalog/             (ExplorePage, RegisterBookPage, BookDetailsPage, API hooks, ISBN validation)
 │   ├── library/             (ProfilePage, ListsPage, WishlistPage + mock data)
 │   └── social/              (FeedPage, CurrentlyReading, FeedSidebar + mock data)
 ├── i18n/
@@ -1028,6 +1048,7 @@ web/legi-web/src/
 | `/` | `Navigate → /feed` | Redirect para feed |
 | `/feed` | `FeedPage` | Feed social (currently reading) |
 | `/explore` | `ExplorePage` | Busca e navegação do catálogo |
+| `/books/new` | `RegisterBookPage` | Cadastro manual protegido de livro com metadados obrigatórios |
 | `/books/:bookId` | `BookDetailsPage` | Detalhes do livro: info, média, status/progresso, resenhas (escrever/curtir/comentar) |
 | `/lists` | `ListsPage` | Listas do usuário (grid de cards com mosaico 2×2 de capas) |
 | `/lists/new` | `ListEditorPage` | Criar lista (nome, descrição, visibilidade, busca + seleção de livros) |
@@ -1037,7 +1058,7 @@ web/legi-web/src/
 | `/profile` | `ProfilePage` | Perfil do usuário |
 | `/users/:userId` | `UserProfilePage` | Perfil público de outro usuário |
 
-> **Nota:** O frontend está dockerizado e roteia `/api/v1/*` via Nginx, mas as páginas ainda utilizam dados mock (`mockCatalogData.ts`, `mockProfileData.ts`, `mockFeedData.ts`). A integração de telas com as APIs backend ainda não foi implementada.
+> **Nota:** O frontend está dockerizado e roteia `/api/v1/*` via Nginx. A integração é progressiva: o fluxo `RegisterBookPage`/`useCreateBook` usa a API do Catalog e `BookDetailsPage` renderiza avisos de rota para livro criado ou já existente; alguns módulos ainda mantêm dados mock durante a migração.
 
 ### 4.4 Docker & Nginx
 
@@ -1495,8 +1516,8 @@ web/legi-web/                  (React SPA)
 | Catalog | 9 | ✅ Implementado (books: 5, authors: 2, tags: 2) |
 | Library | 21 | ✅ Implementado (inclui `GET /library/by-book/{bookId}` e `POST /library/{userBookId}/reviews`; listas referenciam `bookId`) |
 | Social | 24 | ✅ Implementado (inclui `GET /social/books/{bookId}/reviews`, Review Interactions: 4 e List social-state/follows: 3) |
-| Web Frontend | 10 rotas | 🚧 Em desenvolvimento (inclui `/books/:bookId` e as páginas de lista `/lists/new`, `/lists/:listId`, `/lists/:listId/edit`) |
-| **Total** | **61 endpoints API + 10 rotas frontend** | |
+| Web Frontend | 11 rotas | 🚧 Em desenvolvimento (inclui `/books/new`, `/books/:bookId` e as páginas de lista `/lists/new`, `/lists/:listId`, `/lists/:listId/edit`) |
+| **Total** | **61 endpoints API + 11 rotas frontend** | |
 
 *Além dos endpoints de domínio acima, cada API expõe `/swagger` e `/health` (health check de RabbitMQ + backlog do outbox, Fase 6 — ver §6.3).*
 

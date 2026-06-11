@@ -8,6 +8,7 @@ import UserProfilePage from "../features/social/components/UserProfilePage";
 import FollowListPage from "../features/social/components/FollowListPage";
 import ExplorePage from "../features/catalog/components/ExplorePage";
 import BookDetailsPage from "../features/catalog/components/BookDetailsPage";
+import RegisterBookPage from "../features/catalog/components/RegisterBookPage";
 import ListsPage from "../features/library/components/ListsPage";
 import ListEditorPage from "../features/library/components/ListEditorPage";
 import ListDetailPage from "../features/library/components/ListDetailPage";
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/feed" replace /> },
       { path: "feed", element: <FeedPage /> },
       { path: "explore", element: <ExplorePage /> },
+      { path: "books/new", element: <RegisterBookPage /> },
       { path: "books/:bookId", element: <BookDetailsPage /> },
       { path: "lists", element: <ListsPage /> },
       { path: "lists/new", element: <ListEditorPage /> },

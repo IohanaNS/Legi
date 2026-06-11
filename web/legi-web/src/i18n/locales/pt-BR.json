@@ -48,7 +48,11 @@
         "reviewError": "Não foi possível publicar a resenha. Tente novamente.",
         "publishReview": "Publicar resenha",
         "deleteReview": "Excluir resenha",
-        "confirmDeleteReview": "Tem certeza que deseja excluir esta resenha?"
+        "confirmDeleteReview": "Tem certeza que deseja excluir esta resenha?",
+        "notice": {
+            "created": "Livro cadastrado com sucesso.",
+            "alreadyExists": "Este livro já está no catálogo."
+        }
     },
     "globalSearch": {
         "title": "Busca",
@@ -185,6 +189,7 @@
         "ratingsCount": "{{count}} avaliações",
         "addToLibrary": "Adicionar à biblioteca",
         "addToWishlist": "Adicionar à wishlist",
+        "registerNewBook": "Cadastrar novo livro",
         "added": "Adicionado!",
         "alreadyInLibrary": "Já está na sua biblioteca",
         "missingSnapshot": "Este livro ainda não foi sincronizado com a Biblioteca",
@@ -193,6 +198,46 @@
             "bestRated": "Melhor avaliados",
             "mostRecent": "Mais recentes",
             "mostPopular": "Mais populares"
+        }
+    },
+    "registerBook": {
+        "title": "Cadastrar novo livro",
+        "subtitle": "Adicione os dados de catálogo de um livro que você não encontrou.",
+        "isbn": "ISBN",
+        "isbnPlaceholder": "9780132350884",
+        "bookTitle": "Título do livro",
+        "titlePlaceholder": "ex.: Clean Code",
+        "publisher": "Editora",
+        "publisherPlaceholder": "ex.: Mariner Books",
+        "pageCount": "Número de páginas",
+        "pageCountPlaceholder": "300",
+        "coverUrl": "URL da capa",
+        "coverUrlPlaceholder": "https://example.com/capa.jpg",
+        "authors": "Autores",
+        "authorPlaceholder": "Autor {{number}}",
+        "addAuthor": "Adicionar autor",
+        "removeAuthor": "Remover autor",
+        "tags": "Tags",
+        "tagPlaceholder": "Tag {{number}}",
+        "addTag": "Adicionar tag",
+        "removeTag": "Remover tag",
+        "synopsis": "Sinopse",
+        "synopsisPlaceholder": "Escreva uma sinopse curta para o livro...",
+        "save": "Cadastrar livro",
+        "errors": {
+            "isbnRequired": "O ISBN é obrigatório",
+            "isbnInvalid": "Informe um ISBN-10 ou ISBN-13 válido",
+            "titleRequired": "O título do livro é obrigatório",
+            "authorRequired": "O nome do autor é obrigatório",
+            "publisherRequired": "A editora é obrigatória",
+            "pageCountRequired": "O número de páginas é obrigatório",
+            "pageCountInvalid": "Informe um número inteiro positivo",
+            "coverUrlRequired": "A URL da capa é obrigatória",
+            "coverUrlInvalid": "Informe uma URL http ou https válida",
+            "tagRequired": "O nome da tag é obrigatório",
+            "synopsisRequired": "A sinopse é obrigatória",
+            "duplicate": "Este livro já está no catálogo.",
+            "saveFailed": "Não foi possível cadastrar o livro. Tente novamente."
         }
     },
     "genres": {

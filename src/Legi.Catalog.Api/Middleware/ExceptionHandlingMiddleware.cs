@@ -85,6 +85,14 @@ public class ExceptionHandlingMiddleware(
             }
         };
 
+        if (exception is ConflictException conflict)
+        {
+            foreach (var extension in conflict.Extensions)
+            {
+                problemDetails.Extensions[extension.Key] = extension.Value;
+            }
+        }
+
         context.Response.StatusCode = problemDetails.Status ?? (int)HttpStatusCode.InternalServerError;
 
         var options = new JsonSerializerOptions

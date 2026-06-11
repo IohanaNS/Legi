@@ -97,3 +97,30 @@ export interface SearchBooksParams {
 }
 
 export type SortOption = "bestRated" | "mostRecent" | "mostPopular";
+
+export interface CreateBookRequest {
+  isbn: string;
+  title: string;
+  authors: string[];
+  synopsis: string;
+  pageCount: number;
+  publisher: string;
+  coverUrl: string;
+  tags: string[];
+}
+
+export interface CreateBookResponse {
+  bookId: string;
+  isbn: string;
+  title: string;
+  authors: AuthorDto[];
+  synopsis?: string | null;
+  pageCount?: number | null;
+  publisher?: string | null;
+  coverUrl?: string | null;
+  averageRating: number;
+  ratingsCount: number;
+  tags: TagDto[];
+  createdByUserId?: string | null;
+  createdAt: string;
+}

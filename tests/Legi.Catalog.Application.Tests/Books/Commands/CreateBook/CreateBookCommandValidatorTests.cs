@@ -115,6 +115,106 @@ public class CreateBookCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_ShouldFail_WhenSynopsisIsEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(synopsis: " ");
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Synopsis is required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenPublisherIsEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(publisher: " ");
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Publisher is required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenPageCountIsMissing()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(pageCount: null);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Page count is required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenCoverUrlIsEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(coverUrl: " ");
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Cover URL is required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenCoverUrlIsNotHttpUrl()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(coverUrl: "ftp://example.com/cover.jpg");
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Cover URL must be a valid HTTP or HTTPS URL");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenTagsAreNull()
+    {
+        // Arrange
+        var command = CreateBookCommandBuilder.Valid()
+            .WithTags(null)
+            .Build();
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Tags are required");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenTagsAreEmpty()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create(tags: []);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "At least one tag is required");
+    }
+
+    [Fact]
     public void Validate_ShouldFail_WhenTagsExceedLimit()
     {
         // Arrange

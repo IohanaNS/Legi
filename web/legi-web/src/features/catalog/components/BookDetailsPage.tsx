@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, MessageSquare, PenLine } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, MessageSquare, PenLine } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { StarRating } from "../../../components/ui/StarRating";
@@ -30,11 +30,14 @@ import {
 } from "../../library/lib/mappers";
 
 const SYNOPSIS_CLAMP = 280;
+type BookNotice = "created" | "alreadyExists";
 
 export default function BookDetailsPage() {
   const { bookId } = useParams<{ bookId: string }>();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const bookNotice = (location.state as { bookNotice?: BookNotice } | null)?.bookNotice;
 
   const { data: book, isLoading, isError } = useBookDetails(bookId);
   const { data: userBook } = useMyUserBookByBook(bookId);
@@ -106,6 +109,13 @@ export default function BookDetailsPage() {
         <ArrowLeft size={16} />
         {t("bookDetails.back")}
       </button>
+
+      {bookNotice && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-100">
+          <CheckCircle2 size={16} className="shrink-0" />
+          {t(`bookDetails.notice.${bookNotice}`)}
+        </div>
+      )}
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
         {/* Left column: cover + actions */}

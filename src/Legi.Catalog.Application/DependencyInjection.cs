@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Legi.SharedKernel.Mediator;
+using Legi.Catalog.Application.Books;
 using Legi.Catalog.Application.Common.Behaviors;
 
 namespace Legi.Catalog.Application;
@@ -16,6 +17,9 @@ public static class DependencyInjection
 
         // Register all handlers automatically
         RegisterHandlers(services, assembly);
+
+        // Application services
+        services.AddScoped<BookImportService>();
 
         // Register pipeline behaviors in execution order (first = outermost)
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
