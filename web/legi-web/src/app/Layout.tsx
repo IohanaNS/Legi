@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../features/auth/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { GlobalSearch } from "../features/search/components/GlobalSearch";
+import { Logo } from "../components/ui/Logo";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -51,8 +52,9 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-56 bg-forest-950 dark:bg-dark-sidebar flex flex-col fixed h-full">
         {/* Logo */}
-        <div className="p-4">
-          <h1 className="font-serif text-xl font-semibold text-green-300">📖 Legi</h1>
+        <div className="flex items-center gap-2.5 p-4">
+          <Logo variant="cream" className="h-7 w-auto" />
+          <h1 className="font-serif text-xl font-semibold text-green-300">BukiHub</h1>
         </div>
 
         {/* Busca */}

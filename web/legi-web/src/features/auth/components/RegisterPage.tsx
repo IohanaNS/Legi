@@ -6,6 +6,7 @@ import { isAxiosError } from "axios";
 import { useAuth } from "../useAuth";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { Logo } from "../../../components/ui/Logo";
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -30,6 +31,11 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">
       <Card className="w-full max-w-sm p-6 space-y-4">
+        <div className="flex flex-col items-center gap-2 pb-1">
+          <Logo variant="default" className="h-10 w-auto dark:hidden" />
+          <Logo variant="cream" className="hidden h-10 w-auto dark:block" />
+          <span className="font-serif text-2xl font-semibold text-stone-800 dark:text-stone-100">BukiHub</span>
+        </div>
         <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">{t("auth.registerTitle")}</h1>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
           <input
