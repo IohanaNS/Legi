@@ -1,15 +1,19 @@
+using Amazon.S3;
 using Legi.Contracts.Catalog;
 using Legi.Contracts.Identity;
 using Legi.Contracts.Library;
 using Legi.Messaging.DependencyInjection;
 using Legi.Social.Application.Common.Interfaces;
+using Legi.Social.Application.Common.Storage;
 using Legi.Social.Domain.Repositories;
 using Legi.Social.Infrastructure.Persistence;
 using Legi.Social.Infrastructure.Persistence.Repositories;
+using Legi.Social.Infrastructure.Storage;
 using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Legi.Social.Infrastructure;
 
@@ -62,6 +66,21 @@ public static class DependencyInjection
         services.AddScoped<IContentSnapshotRepository, ContentSnapshotRepository>();
         services.AddScoped<IFeedItemRepository, FeedItemRepository>();
         services.AddScoped<IBookSnapshotRepository, BookSnapshotRepository>();
+
+        // Object storage for profile images (S3-compatible: MinIO in dev)
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        services.AddSingleton<IAmazonS3>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var config = new AmazonS3Config
+            {
+                ServiceURL = options.Endpoint,
+                ForcePathStyle = true // required for MinIO and most non-AWS gateways
+            };
+            return new AmazonS3Client(options.AccessKey, options.SecretKey, config);
+        });
+        services.AddSingleton<IObjectStorage, S3ObjectStorage>();
+        services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
 
         // Read repositories (Application interfaces)
         services.AddScoped<IFollowReadRepository, FollowReadRepository>();
