@@ -57,15 +57,6 @@ public class UserListRepository : IUserListRepository
                 cancellationToken);
     }
 
-    public async Task<IReadOnlyList<UserList>> GetListsContainingBookAsync(
-        Guid userBookId, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserLists
-            .Include(ul => ul.Items)
-            .Where(ul => ul.Items.Any(i => i.UserBookId == userBookId))
-            .ToListAsync(cancellationToken);
-    }
-
     public Task<int> DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return _context.UserLists

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { BookGridItem } from "../../library/components/BookGridItem";
 import { ListCard } from "../../library/components/ListCard";
@@ -22,10 +23,30 @@ interface ProfileExperienceProps {
   targetUserId: string | undefined;
 }
 
+const PROFILE_TABS: ReadonlySet<ProfileTab> = new Set([
+  "activity",
+  "reading",
+  "finished",
+  "paused",
+  "abandoned",
+  "not_started",
+  "lists",
+]);
+
 export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<ProfileTab>("reading");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  // Drive the active tab from the URL (?tab=) so links — e.g. "back to lists"
+  // from a list detail page — can land directly on the right tab.
+  const tabParam = searchParams.get("tab") as ProfileTab | null;
+  const activeTab: ProfileTab = tabParam && PROFILE_TABS.has(tabParam) ? tabParam : "reading";
+  const setActiveTab = (tab: ProfileTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    setSearchParams(next, { replace: true });
+  };
 
   const permissions = useProfilePermissions(targetUserId);
   const profileQuery = useUserProfile(targetUserId);
@@ -142,7 +163,7 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
             <EmptyState label={t("profile.emptyTab")} />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {lists.map((list) => (
                   <ListCard key={list.listId} list={list} />
                 ))}

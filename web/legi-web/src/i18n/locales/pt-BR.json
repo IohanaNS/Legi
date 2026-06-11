@@ -18,7 +18,13 @@
         "retry": "Tentar novamente",
         "loadMore": "Carregar mais",
         "couldNotLoad": "Não foi possível carregar",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "save": "Salvar",
+        "saving": "Salvando...",
+        "loading": "Carregando...",
+        "edit": "Editar",
+        "delete": "Excluir",
+        "remove": "Remover"
     },
     "bookDetails": {
         "back": "Voltar",
@@ -212,7 +218,29 @@
         "booksCount": "{{count}} livros",
         "searchPlaceholder": "Buscar nas suas listas...",
         "filteredCount": "{{count}} de {{total}} listas",
-        "emptySearch": "Nenhuma lista encontrada"
+        "emptySearch": "Nenhuma lista encontrada",
+        "create": "Nova lista",
+        "createTitle": "Criar lista",
+        "editTitle": "Editar lista",
+        "follow": "Seguir",
+        "following": "Seguindo",
+        "followersCount": "{{count}} seguidores",
+        "backToLists": "Voltar para listas",
+        "detailEmpty": "Esta lista ainda não tem livros",
+        "confirmDelete": "Excluir a lista \"{{name}}\"? Esta ação não pode ser desfeita.",
+        "form": {
+            "name": "Nome da lista",
+            "namePlaceholder": "ex.: Leituras de verão",
+            "nameRequired": "O nome da lista é obrigatório",
+            "description": "Descrição",
+            "descriptionPlaceholder": "Sobre o que é esta lista? (opcional)",
+            "selectedBooks": "Livros selecionados ({{count}})",
+            "noBooks": "Nenhum livro adicionado ainda",
+            "addBooks": "Adicionar livros",
+            "searchPlaceholder": "Buscar livros para adicionar...",
+            "noResults": "Nenhum livro encontrado",
+            "addBook": "Adicionar livro"
+        }
     },
     "wishlist": {
         "title": "Lista de Desejos",

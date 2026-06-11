@@ -11,9 +11,6 @@ public interface IUserListRepository
     Task<int> GetCountByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<bool> ExistsByUserAndNameAsync(Guid userId, string name, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<UserList>> GetListsContainingBookAsync(Guid userBookId,
-        CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Hard-deletes every <c>UserList</c> row for the given user. The cascade-delete
     /// FK on <c>UserListItem</c> takes care of associated items automatically.

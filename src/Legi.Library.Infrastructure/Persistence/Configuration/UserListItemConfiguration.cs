@@ -16,8 +16,8 @@ public class UserListItemConfiguration : IEntityTypeConfiguration<UserListItem>
             .HasColumnName("id")
             .ValueGeneratedNever();
 
-        builder.Property(i => i.UserBookId)
-            .HasColumnName("user_book_id")
+        builder.Property(i => i.BookId)
+            .HasColumnName("book_id")
             .IsRequired();
 
         builder.Property(i => i.Order)
@@ -33,7 +33,7 @@ public class UserListItemConfiguration : IEntityTypeConfiguration<UserListItem>
             .IsRequired();
 
         // No duplicate books in same list
-        builder.HasIndex("user_list_id", nameof(UserListItem.UserBookId))
+        builder.HasIndex("user_list_id", nameof(UserListItem.BookId))
             .HasDatabaseName("ix_user_list_items_list_book")
             .IsUnique();
 

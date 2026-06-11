@@ -15,6 +15,8 @@ public class UpdateUserListCommandValidator : AbstractValidator<UpdateUserListCo
 
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("List name is required.")
+            .Must(name => !string.IsNullOrWhiteSpace(name))
+            .WithMessage("List name cannot be blank.")
             .MinimumLength(UserList.MinNameLength)
             .WithMessage($"List name must be at least {UserList.MinNameLength} characters.")
             .MaximumLength(UserList.MaxNameLength)
@@ -24,5 +26,10 @@ public class UpdateUserListCommandValidator : AbstractValidator<UpdateUserListCo
             .MaximumLength(UserList.MaxDescriptionLength)
             .When(x => x.Description is not null)
             .WithMessage($"Description must be at most {UserList.MaxDescriptionLength} characters.");
+
+        RuleFor(x => x.BookIds)
+            .NotNull().WithMessage("BookIds is required.")
+            .Must(ids => ids.Distinct().Count() == ids.Count)
+            .WithMessage("A list cannot contain the same book twice.");
     }
 }

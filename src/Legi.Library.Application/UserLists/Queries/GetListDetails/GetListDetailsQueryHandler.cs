@@ -24,6 +24,6 @@ public class GetListDetailsQueryHandler(
         if (!visibilityPolicy.CanView(list.UserId, list.IsPublic, request.ViewerUserId))
             throw new NotFoundException("UserList", request.ListId);
 
-        return list;
+        return list with { IsOwner = request.ViewerUserId == list.UserId };
     }
 }

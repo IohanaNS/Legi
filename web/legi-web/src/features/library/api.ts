@@ -4,8 +4,11 @@ import type {
   BackendReadingStatus,
   PaginatedList,
   ProgressType,
+  SaveUserListBody,
   UserBookDto,
   UserLibraryStatsDto,
+  UserListBookDto,
+  UserListDetailDto,
   UserListSummaryDto,
 } from "./types";
 
@@ -84,6 +87,28 @@ export const libraryApi = {
   // GET /library/lists returns a plain array (IReadOnlyList<UserListSummaryDto>).
   getLists: () =>
     http.get<UserListSummaryDto[]>("/library/lists").then((r) => r.data),
+  getListDetail: (listId: string) =>
+    http.get<UserListDetailDto>(`/library/lists/${listId}`).then((r) => r.data),
+  // Public lists from any user matching the search term (used by global search).
+  searchPublicLists: (search: string, page = 1, pageSize = 5) =>
+    http
+      .get<PaginatedList<UserListSummaryDto>>("/library/lists/search", {
+        params: { search, page, pageSize },
+      })
+      .then((r) => r.data),
+  getListBooks: (listId: string, page = 1, pageSize = 100) =>
+    http
+      .get<PaginatedList<UserListBookDto>>(`/library/lists/${listId}/books`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
+  createList: (body: SaveUserListBody) =>
+    http
+      .post<{ listId: string }>("/library/lists", body)
+      .then((r) => r.data),
+  updateList: (listId: string, body: SaveUserListBody) =>
+    http.patch(`/library/lists/${listId}`, body),
+  deleteList: (listId: string) => http.delete(`/library/lists/${listId}`),
   createReadingPost: (userBookId: string, body: CreateReadingPostBody) =>
     http.post(`/library/${userBookId}/posts`, {
       content: body.content,

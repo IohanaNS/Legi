@@ -8,10 +8,14 @@ public class UpdateUserListCommandHandler
     : IRequestHandler<UpdateUserListCommand, UpdateUserListResponse>
 {
     private readonly IUserListRepository _userListRepository;
+    private readonly IBookSnapshotRepository _bookSnapshotRepository;
 
-    public UpdateUserListCommandHandler(IUserListRepository userListRepository)
+    public UpdateUserListCommandHandler(
+        IUserListRepository userListRepository,
+        IBookSnapshotRepository bookSnapshotRepository)
     {
         _userListRepository = userListRepository;
+        _bookSnapshotRepository = bookSnapshotRepository;
     }
 
     public async Task<UpdateUserListResponse> Handle(
@@ -35,7 +39,17 @@ public class UpdateUserListCommandHandler
                 throw new ConflictException($"You already have a list named '{request.Name}'.");
         }
 
+        // Validate any newly added books exist as a BookSnapshot.
+        var existingBookIds = list.Items.Select(i => i.BookId).ToHashSet();
+        foreach (var bookId in request.BookIds.Distinct().Where(id => !existingBookIds.Contains(id)))
+        {
+            var snapshot = await _bookSnapshotRepository.GetByBookIdAsync(bookId, cancellationToken);
+            if (snapshot is null)
+                throw new NotFoundException("Book", bookId);
+        }
+
         list.UpdateDetails(request.Name, request.Description, request.IsPublic);
+        list.SyncBooks(request.BookIds);
 
         await _userListRepository.UpdateAsync(list, cancellationToken);
 

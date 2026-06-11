@@ -47,8 +47,15 @@ public static class DependencyInjection
         services.AddIntegrationEventConsumer<ReviewCreatedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<UserBookRatedIntegrationEvent, SocialDbContext>();
 
+        // Library → Social list projection: public lists become interactable
+        // (likeable/commentable/followable) via a ContentSnapshot(List).
+        services.AddIntegrationEventConsumer<UserListCreatedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<UserListUpdatedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<UserListDeletedIntegrationEvent, SocialDbContext>();
+
         // Write repositories (Domain interfaces)
         services.AddScoped<IFollowRepository, FollowRepository>();
+        services.AddScoped<IListFollowRepository, ListFollowRepository>();
         services.AddScoped<ILikeRepository, LikeRepository>();
         services.AddScoped<ICommentRepository, CommentRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
@@ -62,6 +69,7 @@ public static class DependencyInjection
         services.AddScoped<ILikeReadRepository, LikeReadRepository>();
         services.AddScoped<IFeedItemReadRepository, FeedItemReadRepository>();
         services.AddScoped<IUserProfileReadRepository, UserProfileReadRepository>();
+        services.AddScoped<IListSocialReadRepository, ListSocialReadRepository>();
 
         return services;
     }

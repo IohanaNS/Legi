@@ -4,6 +4,7 @@ import type {
   CreateCommentResponse,
   FeedItemDto,
   FollowUserDto,
+  ListSocialStateDto,
   SocialPaginatedList,
   UserProfileDto,
 } from "./types";
@@ -55,6 +56,12 @@ export const socialApi = {
 
   follow: (followingId: string) => http.post("/social/follows", { followingId }),
   unfollow: (userId: string) => http.delete(`/social/follows/${userId}`),
+
+  // List-specific social state + follow (distinct from user-to-user follow).
+  getListSocialState: (listId: string) =>
+    http.get<ListSocialStateDto>(`/social/lists/${listId}`).then((r) => r.data),
+  followList: (listId: string) => http.post(`/social/lists/${listId}/follows`),
+  unfollowList: (listId: string) => http.delete(`/social/lists/${listId}/follows`),
   getFollowers: (userId: string, page: number, pageSize: number) =>
     http
       .get<SocialPaginatedList<FollowUserDto>>(`/social/users/${userId}/followers`, {

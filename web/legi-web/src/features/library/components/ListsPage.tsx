@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Plus, Search } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { useLists } from "../hooks/useLists";
+import { useDeleteList } from "../hooks/useListMutations";
 import type { UserListSummaryDto } from "../types";
 import { ListCard } from "./ListCard";
 
@@ -11,8 +12,10 @@ const EMPTY_LISTS: UserListSummaryDto[] = [];
 
 export default function ListsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const listsQuery = useLists();
+  const deleteList = useDeleteList();
   const lists = listsQuery.data ?? EMPTY_LISTS;
   const searchInput = searchParams.get("search") ?? "";
   const normalizedSearch = searchInput.trim().toLowerCase();
@@ -38,17 +41,31 @@ export default function ListsPage() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const handleDelete = (list: UserListSummaryDto) => {
+    if (window.confirm(t("lists.confirmDelete", { name: list.name }))) {
+      deleteList.mutate(list.listId);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
-          {t("lists.title")}
-        </h1>
-        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-          {hasSearch
-            ? t("lists.filteredCount", { count: visibleLists.length, total: lists.length })
-            : t("lists.count", { count: lists.length })}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-[1.5rem] font-semibold leading-tight text-stone-800 dark:text-stone-100">
+            {t("lists.title")}
+          </h1>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            {hasSearch
+              ? t("lists.filteredCount", { count: visibleLists.length, total: lists.length })
+              : t("lists.count", { count: lists.length })}
+          </p>
+        </div>
+        <Button onClick={() => navigate("/lists/new")} className="shrink-0">
+          <span className="flex items-center gap-1.5">
+            <Plus size={16} />
+            {t("lists.create")}
+          </span>
+        </Button>
       </header>
 
       <div className="relative max-w-xl">
@@ -72,9 +89,14 @@ export default function ListsPage() {
       ) : visibleLists.length === 0 ? (
         <EmptyState label={hasSearch ? t("lists.emptySearch") : t("lists.empty")} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleLists.map((list) => (
-            <ListCard key={list.listId} list={list} />
+            <ListCard
+              key={list.listId}
+              list={list}
+              onEdit={(l) => navigate(`/lists/${l.listId}/edit`)}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}
@@ -84,15 +106,17 @@ export default function ListsPage() {
 
 function ListGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {Array.from({ length: 4 }).map((_, index) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="h-28 animate-pulse rounded-xl border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-4"
+          className="h-56 animate-pulse rounded-xl border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card"
         >
-          <div className="mb-3 h-4 w-2/3 rounded bg-stone-200 dark:bg-dark-raised" />
-          <div className="h-3 w-full rounded bg-stone-200 dark:bg-dark-raised" />
-          <div className="mt-2 h-3 w-1/3 rounded bg-stone-200 dark:bg-dark-raised" />
+          <div className="aspect-[2/1] rounded-t-xl bg-stone-200 dark:bg-dark-raised" />
+          <div className="p-4">
+            <div className="mb-3 h-4 w-2/3 rounded bg-stone-200 dark:bg-dark-raised" />
+            <div className="h-3 w-full rounded bg-stone-200 dark:bg-dark-raised" />
+          </div>
         </div>
       ))}
     </div>

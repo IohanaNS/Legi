@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, List, LoaderCircle, Search, UserRound, X } from "lucide-react";
@@ -16,6 +17,7 @@ import { useSearchAuthors } from "../../catalog/hooks/useSearchAuthors";
 import { useSearchBooks } from "../../catalog/hooks/useSearchBooks";
 import type { AuthorResult, BookSummaryDto } from "../../catalog/types";
 import { useLists } from "../../library/hooks/useLists";
+import { useSearchPublicLists } from "../../library/hooks/useSearchPublicLists";
 import type { UserListSummaryDto } from "../../library/types";
 import {
   canSearchUsersByUsername,
@@ -97,23 +99,38 @@ export function GlobalSearch() {
   });
   const authorsQuery = useSearchAuthors(debouncedQuery, isOpen && canSearch);
   const listsQuery = useLists({ enabled: isOpen && canSearch });
+  const publicListsQuery = useSearchPublicLists(debouncedQuery, isOpen && canSearch);
   const usersQuery = useSearchUsers(debouncedQuery);
 
   const bookResults = booksQuery.data?.pages[0]?.books.slice(0, RESULT_LIMIT) ?? [];
   const authorResults = authorsQuery.data ?? [];
   const userResults = usersQuery.data?.slice(0, RESULT_LIMIT) ?? [];
+
+  // Combine the viewer's own lists (public + private, matched client-side) with
+  // public lists from any user (server-searched), de-duplicated by id.
   const listResults = useMemo(() => {
     if (!canSearch) return [];
 
     const listQuery = debouncedQuery.toLowerCase();
-    return (listsQuery.data ?? [])
+    const ownMatches = (listsQuery.data ?? []).filter((list) => {
+      const name = list.name.toLowerCase();
+      const description = list.description?.toLowerCase() ?? "";
+      return name.includes(listQuery) || description.includes(listQuery);
+    });
+    const publicMatches = publicListsQuery.data?.items ?? [];
+
+    const seen = new Set<string>();
+    return [...ownMatches, ...publicMatches]
       .filter((list) => {
-        const name = list.name.toLowerCase();
-        const description = list.description?.toLowerCase() ?? "";
-        return name.includes(listQuery) || description.includes(listQuery);
+        if (seen.has(list.listId)) return false;
+        seen.add(list.listId);
+        return true;
       })
       .slice(0, RESULT_LIMIT);
-  }, [canSearch, debouncedQuery, listsQuery.data]);
+  }, [canSearch, debouncedQuery, listsQuery.data, publicListsQuery.data]);
+
+  const listsLoading = listsQuery.isFetching || publicListsQuery.isFetching;
+  const listsError = listsQuery.isError && publicListsQuery.isError;
 
   const openSearch = () => setIsOpen(true);
 
@@ -151,7 +168,7 @@ export function GlobalSearch() {
         <span className="truncate">{t("common.search")}</span>
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div
           className="fixed inset-0 z-50 bg-black/45 px-4 py-8 backdrop-blur-sm"
           role="presentation"
@@ -247,18 +264,21 @@ export function GlobalSearch() {
                   </SearchSection>
 
                   <SearchSection title={t("globalSearch.lists")}>
-                    {listsQuery.isLoading ? (
-                      <LoadingRow label={t("globalSearch.searchingLists")} />
-                    ) : listsQuery.isError ? (
-                      <MutedRow label={t("globalSearch.listsError")} />
-                    ) : listResults.length > 0 ? (
+                    {listResults.length > 0 ? (
                       listResults.map((list) => (
                         <ListResultRow
                           key={list.listId}
                           list={list}
-                          onClick={() => navigateWithSearch("/lists", list.name)}
+                          onClick={() => {
+                            navigate(`/lists/${list.listId}`);
+                            closeSearch();
+                          }}
                         />
                       ))
+                    ) : listsLoading ? (
+                      <LoadingRow label={t("globalSearch.searchingLists")} />
+                    ) : listsError ? (
+                      <MutedRow label={t("globalSearch.listsError")} />
                     ) : (
                       <MutedRow label={t("globalSearch.noLists")} />
                     )}
@@ -292,7 +312,8 @@ export function GlobalSearch() {
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

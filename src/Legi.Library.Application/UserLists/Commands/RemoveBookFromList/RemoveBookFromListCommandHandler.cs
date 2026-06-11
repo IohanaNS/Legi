@@ -25,7 +25,7 @@ public class RemoveBookFromListCommandHandler
         if (list.UserId != request.UserId)
             throw new ForbiddenException();
 
-        list.RemoveBook(request.UserBookId); // Throws if not found
+        list.RemoveBook(request.BookId); // Throws if not found
 
         await _userListRepository.UpdateAsync(list, cancellationToken);
 

@@ -6,5 +6,6 @@ public record CreateUserListCommand(
     Guid UserId,
     string Name,
     string? Description,
-    bool IsPublic
+    bool IsPublic,
+    IReadOnlyList<Guid> BookIds
 ) : IRequest<CreateUserListResponse>;

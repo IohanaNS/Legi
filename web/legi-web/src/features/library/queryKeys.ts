@@ -6,6 +6,9 @@ export const libraryKeys = {
   books: (q: LibraryQuery) => [...libraryKeys.all, "books", q] as const,
   count: (status: BackendReadingStatus) => [...libraryKeys.all, "count", status] as const,
   lists: () => [...libraryKeys.all, "lists"] as const,
+  listDetail: (listId: string) => [...libraryKeys.all, "listDetail", listId] as const,
+  publicListSearch: (search: string) => [...libraryKeys.all, "publicListSearch", search] as const,
+  listBooks: (listId: string) => [...libraryKeys.all, "listBooks", listId] as const,
   userBookByBook: (bookId: string) => [...libraryKeys.all, "byBook", bookId] as const,
   userBooks: (userId: string, status: BackendReadingStatus) =>
     [...libraryKeys.all, "userBooks", userId, status] as const,

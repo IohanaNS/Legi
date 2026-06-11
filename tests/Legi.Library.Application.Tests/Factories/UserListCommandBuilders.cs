@@ -9,6 +9,7 @@ public sealed class CreateUserListCommandBuilder
     private string _name = "Favorites";
     private string? _description = "Books worth returning to.";
     private bool _isPublic;
+    private IReadOnlyList<Guid> _bookIds = [];
 
     public static CreateUserListCommandBuilder Valid() => new();
 
@@ -36,27 +37,34 @@ public sealed class CreateUserListCommandBuilder
         return this;
     }
 
+    public CreateUserListCommandBuilder WithBooks(params Guid[] bookIds)
+    {
+        _bookIds = bookIds;
+        return this;
+    }
+
     public CreateUserListCommand Build()
     {
         return new CreateUserListCommand(
             _userId,
             _name,
             _description,
-            _isPublic);
+            _isPublic,
+            _bookIds);
     }
 }
 
 public sealed class AddBookToListCommandBuilder
 {
-    private Guid _userBookId = LibraryTestIds.UserBookId;
+    private Guid _bookId = LibraryTestIds.BookId;
     private Guid _listId = LibraryTestIds.UserListId;
     private Guid _userId = LibraryTestIds.UserId;
 
     public static AddBookToListCommandBuilder Valid() => new();
 
-    public AddBookToListCommandBuilder WithUserBookId(Guid userBookId)
+    public AddBookToListCommandBuilder WithBookId(Guid bookId)
     {
-        _userBookId = userBookId;
+        _bookId = bookId;
         return this;
     }
 
@@ -72,5 +80,5 @@ public sealed class AddBookToListCommandBuilder
         return this;
     }
 
-    public AddBookToListCommand Build() => new(_userBookId, _listId, _userId);
+    public AddBookToListCommand Build() => new(_bookId, _listId, _userId);
 }

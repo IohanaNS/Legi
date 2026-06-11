@@ -10,5 +10,6 @@ public record UserListDetailDto(
     int LikesCount,
     int CommentsCount,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool IsOwner
 );

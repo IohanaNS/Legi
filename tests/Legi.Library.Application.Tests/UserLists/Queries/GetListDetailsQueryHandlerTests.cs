@@ -93,5 +93,6 @@ public class GetListDetailsQueryHandlerTests
             LikesCount: 0,
             CommentsCount: 0,
             DateTime.UtcNow,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            IsOwner: false);
 }

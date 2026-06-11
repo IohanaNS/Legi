@@ -638,7 +638,7 @@ UserList (Aggregate Root) ✅
 
 UserListItem (Entity — filha de UserList) ✅
 ├── Id: Guid
-├── UserBookId: Guid
+├── BookId: Guid          (Catalog BookId — desacoplado do UserBook desde a feature de listas)
 ├── Order: int
 └── AddedAt: DateTime
 
@@ -674,7 +674,9 @@ BookSnapshot (Read Model — não é aggregate) ✅
 
 **Decisão: UserListItem como entity filha.** Justificativa: invariantes exigem os itens (duplicação, reordenação, BooksCount). UserListItem é minúsculo (IDs + order + timestamp) — carregar 500 itens é trivial.
 
-**Decisão: Soft Delete no UserBook.** Remoção marca `DeletedAt`. ReadingProgress preservados (histórico). UserListItems removidos (hard delete). Re-adição do mesmo livro cria novo UserBook. Global Query Filter no EF Core para filtrar deletados.
+**Decisão: listas referenciam `BookId`, não `UserBookId` (desacopladas da biblioteca).** A feature de listas customizadas trocou `UserListItem.UserBookId` por `BookId` (migration `DecoupleUserListItemFromUserBook`: add `book_id` + backfill via join em `user_books` + drop `user_book_id`, unique `(user_list_id, book_id)`). Consequências: uma lista pode conter qualquer livro com `BookSnapshot` (não precisa estar na biblioteca do usuário); adicionar um livro a uma lista **não** o adiciona à biblioteca; quando um `UserBook` é soft-deleted, a lista **mantém** o livro. `UserList.SyncBooks(bookIdsInOrder)` reconcilia o conjunto de livros ao alvo (remove ausentes, adiciona novos, atribui `Order` por posição, preserva `AddedAt` dos retidos, rejeita duplicatas) — usado pelo fluxo de criar/editar que submete o conjunto completo de livros.
+
+**Decisão: Soft Delete no UserBook.** Remoção marca `DeletedAt`. ReadingProgress preservados (histórico). Memberships de lista **preservadas** — listas referenciam `BookId` (independentes da biblioteca), então remover o livro da biblioteca não o tira das listas. Re-adição do mesmo livro cria novo UserBook. Global Query Filter no EF Core para filtrar deletados.
 
 **Enums:**
 ```csharp
@@ -696,33 +698,37 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - Progresso 100% (Percentage) auto-transiciona status para `Finished`
 - Progresso Page igual ao PageCount do BookSnapshot é convertido para `Completed()`
 - Rating é independente do status — pode ser adicionado/removido a qualquer momento
-- Soft delete: `UserBook.Remove()` marca `DeletedAt`, preserva ReadingProgress
-- Livro pode estar em múltiplas listas (N:N via UserListItem)
+- Soft delete: `UserBook.Remove()` marca `DeletedAt`, preserva ReadingProgress e memberships de lista
+- Livro pode estar em múltiplas listas (N:N via UserListItem por `BookId`); listas são independentes da biblioteca
 - Máximo 100 listas por usuário
 - Nome da lista único por usuário (case-insensitive)
 - ReadingProgress deve ter conteúdo OU progresso (ou ambos). Resenha (`IsReview`) exige conteúdo (min `MinReviewContentLength = 20`) + `Rating`, sem progresso.
 - `ReadingProgress.IsSpoiler` é metadado de apresentação: não altera invariantes do post, mas é persistido no Library e propagado para o Social para ocultar o texto no feed até o usuário revelar (mesmo padrão para posts de progresso e resenhas).
 
-**Domain Events (9 — princípio YAGNI, apenas com consumidores identificados):**
+**Domain Events (11 — princípio YAGNI, apenas com consumidores identificados):**
 
 | Aggregate | Evento | Consumidores |
 |-----------|--------|-------------|
 | UserBook | `BookAddedToLibraryDomainEvent` | Social (feed) |
-| UserBook | `BookRemovedFromLibraryDomainEvent` | Social, UserList (hard delete items) |
+| UserBook | `BookRemovedFromLibraryDomainEvent` | Social (feed) |
 | UserBook | `ReadingStatusChangedDomainEvent` | Social (feed) |
 | UserBook | `UserBookRatedDomainEvent` | Catalog (recalcular média), Social (feed BookRated — suprimido quando `IsPartOfReview`) |
 | UserBook | `UserBookRatingRemovedDomainEvent` | Catalog (recalcular média) |
 | ReadingProgress | `ReadingProgressCreatedDomainEvent` | Social (feed ProgressPosted) |
 | ReadingProgress | `ReviewCreatedDomainEvent` | Social (feed ReviewCreated + snapshot), Catalog (reviews count) |
 | ReadingProgress | `ReadingPostDeletedDomainEvent` | Social (remover do feed), Catalog (decrementa reviews count quando `IsReview`) |
-| UserList | `UserListDeletedDomainEvent` | Social (limpar likes/comments) |
+| UserList | `UserListCreatedDomainEvent` (carrega `IsPublic`) | Social (snapshot da lista quando pública → interativa) |
+| UserList | `UserListUpdatedDomainEvent` (carrega `IsPublic`) | Social (cria/dropa snapshot no toggle público↔privado) |
+| UserList | `UserListDeletedDomainEvent` | Social (limpar snapshot + likes + comments + follows) |
 
-**Cortados por YAGNI:** `ReadingProgressUpdatedDomainEvent`, `UserListCreatedDomainEvent`, `BookAddedToListDomainEvent`, `BookRemovedFromListDomainEvent` — nenhum consumidor claro identificado.
+> **Nota:** `UserListCreated`/`UserListUpdatedDomainEvent` foram reintroduzidos pela feature de listas customizadas (antes cortados por YAGNI). Agora têm consumidor claro: o Social projeta um `ContentSnapshot(List)` apenas para listas públicas, tornando-as interativas (ver §5). Cada um é traduzido para o `*IntegrationEvent` homônimo via `UserListCreated/Updated/DeletedDomainEventHandler` (outbox).
+
+**Cortados por YAGNI:** `ReadingProgressUpdatedDomainEvent`, `BookAddedToListDomainEvent`, `BookRemovedFromListDomainEvent` — nenhum consumidor claro identificado.
 
 **Repository Interfaces (Domain):**
 - `IUserBookRepository` — GetByIdAsync, GetByUserAndBookAsync, AddAsync, UpdateAsync
 - `IReadingPostRepository` — GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync
-- `IUserListRepository` — GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync, GetListsContainingBookAsync
+- `IUserListRepository` — GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync, DeleteAllForUserAsync (cascade na deleção de usuário). *`GetListsContainingBookAsync` foi removido — listas mantêm o livro no soft-delete do UserBook.*
 - `IBookSnapshotRepository` — GetByBookIdAsync, AddOrUpdateAsync
 
 ### 3.2 Application ✅
@@ -750,11 +756,11 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 
 | Command | Handler | Validator | Response | Status |
 |---------|---------|-----------|----------|--------|
-| `CreateUserListCommand` | ✅ | - | ✅ | Completo |
-| `UpdateUserListCommand` | ✅ | ✅ | ✅ | Completo |
+| `CreateUserListCommand` | ✅ | ✅ | ✅ | Completo (aceita `BookIds`; valida `BookSnapshot` de cada; `SyncBooks`; retorna `ListId` real) |
+| `UpdateUserListCommand` | ✅ | ✅ | ✅ | Completo (aceita `BookIds`; checa ownership; `UpdateDetails` + `SyncBooks` numa transação) |
 | `DeleteUserListCommand` | ✅ | - | Unit | Completo |
-| `AddBookToListCommand` | ✅ | - | ✅ | Completo |
-| `RemoveBookFromListCommand` | ✅ | - | Unit | Completo |
+| `AddBookToListCommand` | ✅ | - | ✅ | Completo (por `BookId`; valida snapshot) |
+| `RemoveBookFromListCommand` | ✅ | - | Unit | Completo (por `BookId`) |
 
 **Queries:**
 
@@ -773,7 +779,8 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - `IReadingPostReadRepository` — GetByUserBookIdAsync (paginação)
 - `IUserListReadRepository` — GetByUserIdAsync, GetDetailByIdAsync, GetListBooksAsync, SearchPublicAsync
 
-**DTOs:** `UserBookDto`, `BookSnapshotDto`, `ReadingPostDto`, `UserListDetailDto`, `UserListSummaryDto`, `UserListBookDto`, `PaginatedList<T>`
+**DTOs:** `UserBookDto`, `BookSnapshotDto`, `ReadingPostDto`, `UserListDetailDto` `(ListId, UserId, Name, Description, IsPublic, BooksCount, LikesCount, CommentsCount, CreatedAt, UpdatedAt, IsOwner)`, `UserListSummaryDto` `(ListId, OwnerId, Name, Description, IsPublic, BooksCount, LikesCount, CreatedAt, PreviewBooks ≤4)`, `UserListBookDto` `(BookId, Order, Book: BookSnapshotDto, AddedAt)`, `PaginatedList<T>`
+**Domain Event Handlers (Library → integration via outbox):** `UserListCreatedDomainEventHandler`, `UserListUpdatedDomainEventHandler`, `UserListDeletedDomainEventHandler` — traduzem o evento de domínio para o `*IntegrationEvent` correspondente (`Legi.Contracts/Library`) e publicam via `IEventBus` (mesmo padrão de `ReviewCreatedDomainEventHandler`)
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`, `ForbiddenException`
 **DI:** `DependencyInjection.AddLibraryApplication()` — registra Mediator, handlers (reflection scan), behaviors e validators
@@ -793,7 +800,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | `UserBookConfiguration` | `user_books` | Status como string (max 20). Rating e Progress como owned entities. Global Query Filter `DeletedAt == null`. Unique index filtrado `(UserId, BookId) WHERE deleted_at IS NULL`. |
 | `ReadingPostConfiguration` | `reading_posts` | Content max `ReadingProgress.MaxContentLength`. `IsSpoiler` e `IsReview` boolean com default false. Progress e Rating (snapshot da resenha) como owned entities. Index composto `(UserBookId, ReadingDate DESC)`. |
 | `UserListConfiguration` | `user_lists` | Name max `UserList.MaxNameLength`, Description max `UserList.MaxDescriptionLength`. One-to-many com `UserListItem` via field access (`_items`). Cascade delete. Unique index `(UserId, Name)`. Index filtrado `IsPublic = true`. |
-| `UserListItemConfiguration` | `user_list_items` | Shadow FK `user_list_id`. Unique index `(user_list_id, UserBookId)`. Index `(user_list_id, Order)`. |
+| `UserListItemConfiguration` | `user_list_items` | Shadow FK `user_list_id`. Mapeia `book_id`. Unique index `(user_list_id, book_id)`. Index `(user_list_id, Order)`. |
 | `BookSnapshotConfiguration` | `book_snapshots` | PK = `BookId` (do Catalog). Title max 500, AuthorDisplay max 1000. Read model desnormalizado. |
 
 **Write Repositories (Domain interfaces):**
@@ -802,7 +809,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 |-------------|-----------|---------|
 | `UserBookRepository` | `IUserBookRepository` | GetByIdAsync, GetByUserAndBookAsync, AddAsync, UpdateAsync |
 | `ReadingPostRepository` | `IReadingPostRepository` | GetByIdAsync, AddAsync, UpdateAsync, DeleteAsync |
-| `UserListRepository` | `IUserListRepository` | GetByIdAsync (include Items), AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync (case-insensitive via `.ToLower()`), GetListsContainingBookAsync |
+| `UserListRepository` | `IUserListRepository` | GetByIdAsync (include Items), AddAsync, UpdateAsync, DeleteAsync, GetCountByUserIdAsync, ExistsByUserAndNameAsync (case-insensitive via `.ToLower()`), DeleteAllForUserAsync (bulk SQL, cascade nos items) |
 | `BookSnapshotRepository` | `IBookSnapshotRepository` | GetByBookIdAsync, AddOrUpdateAsync (upsert) |
 
 **Read Repositories (Application interfaces):**
@@ -811,7 +818,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 |-------------|-----------|---------|
 | `UserBookReadRepository` | `IUserBookReadRepository` | GetByUserIdAsync — filtros opcionais (status, wishlist, search em título/autor), join com BookSnapshots, `AsNoTracking`, paginação, ordena por UpdatedAt DESC. GetByUserAndBookAsync — UserBook ativo do viewer para um livro (ou null), join com BookSnapshots |
 | `ReadingPostReadRepository` | `IReadingPostReadRepository` | GetByUserBookIdAsync — filtra por UserBookId, ordena por ReadingDate DESC + CreatedAt DESC, `AsNoTracking`, paginação |
-| `UserListReadRepository` | `IUserListReadRepository` | GetByUserIdAsync (listas do usuário, ordena por UpdatedAt DESC), GetDetailByIdAsync, GetListBooksAsync (multi-join com shadow FK + UserBooks + BookSnapshots, ordena por Order), SearchPublicAsync (busca em nome/descrição, ordena por BooksCount DESC + CreatedAt DESC — ver Opção A: likes de lista dormentes no v1) |
+| `UserListReadRepository` | `IUserListReadRepository` | GetByUserIdAsync (listas do usuário, ordena por UpdatedAt DESC; subquery dos 4 primeiros covers para `PreviewBooks`), GetDetailByIdAsync, GetListBooksAsync (join `user_list_items` → `book_snapshots` por `book_id`, ordena por Order), SearchPublicAsync (busca em nome/descrição, ordena por BooksCount DESC + CreatedAt DESC) |
 
 **DI:** `DependencyInjection.AddLibraryInfrastructure(IServiceCollection, IConfiguration)` — registra DbContext, todos os write repositories e read repositories como scoped
 
@@ -844,13 +851,13 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 | Método | Endpoint | Descrição | Auth | Status |
 |--------|----------|-----------|------|--------|
 | GET | `/api/v1/library/lists` | Minhas listas | 🔒 | ✅ |
-| POST | `/api/v1/library/lists` | Criar lista | 🔒 | ✅ |
-| GET | `/api/v1/library/lists/{listId}` | Detalhes da lista | 🔓 | ✅ |
-| PATCH | `/api/v1/library/lists/{listId}` | Atualizar lista | 🔒 | ✅ |
+| POST | `/api/v1/library/lists` | Criar lista (nome, descrição, visibilidade, `BookIds`) | 🔒 | ✅ |
+| GET | `/api/v1/library/lists/{listId}` | Detalhes da lista (viewer context — pública p/ qualquer autenticado, privada só dono) | 🔒 | ✅ |
+| PATCH | `/api/v1/library/lists/{listId}` | Atualizar lista (detalhes + `BookIds`) | 🔒 | ✅ |
 | DELETE | `/api/v1/library/lists/{listId}` | Excluir lista | 🔒 | ✅ |
-| GET | `/api/v1/library/lists/{listId}/books` | Livros da lista | 🔓 | ✅ |
-| POST | `/api/v1/library/lists/{listId}/books` | Adicionar livro a lista | 🔒 | ✅ |
-| DELETE | `/api/v1/library/lists/{listId}/books/{userBookId}` | Remover livro da lista | 🔒 | ✅ |
+| GET | `/api/v1/library/lists/{listId}/books` | Livros da lista (viewer context) | 🔒 | ✅ |
+| POST | `/api/v1/library/lists/{listId}/books` | Adicionar livro a lista (por `bookId`) | 🔒 | ✅ |
+| DELETE | `/api/v1/library/lists/{listId}/books/{bookId}` | Remover livro da lista | 🔒 | ✅ |
 | GET | `/api/v1/library/lists/search` | Buscar listas públicas | 🔓 | ✅ |
 
 **Query Params para biblioteca (`GET /api/v1/library`):**
@@ -859,7 +866,7 @@ Sem state machine — todas as transições entre status são válidas. O usuár
 - `search` - busca em título/autor
 - `page`, `pageSize` - paginação
 
-**Autenticação:** JWT Bearer (mesma config do Identity Service — `JwtSettings` compartilhado). Todos os endpoints requerem `[Authorize]` exceto detalhes de lista, livros da lista e busca de listas públicas (`[AllowAnonymous]`). UserId extraído do claim `sub` do JWT.
+**Autenticação:** JWT Bearer (mesma config do Identity Service — `JwtSettings` compartilhado). Todos os endpoints requerem `[Authorize]` exceto a busca de listas públicas (`[AllowAnonymous]`). Detalhes/livros de lista exigem autenticação porque carregam o viewer para aplicar a `IUserListVisibilityPolicy` (lista pública é visível a qualquer autenticado; privada só ao dono). UserId extraído do claim `sub` do JWT.
 
 **Middleware:** `ExceptionHandlingMiddleware` (ValidationException → 400, DomainException → 400, NotFoundException → 404, ConflictException → 409, ForbiddenException → 403, UnhandledException → 500)
 
@@ -948,17 +955,18 @@ CREATE INDEX ix_user_lists_user_id ON user_lists(user_id);
 CREATE INDEX ix_user_lists_public ON user_lists(is_public) WHERE is_public = TRUE;
 
 -- Tabela: user_list_items (entity filha de user_lists)
+-- Desde a feature de listas customizadas referencia book_id (Catalog), não user_book_id —
+-- migration DecoupleUserListItemFromUserBook (add book_id + backfill + drop user_book_id).
 CREATE TABLE user_list_items (
     id UUID PRIMARY KEY,
-    list_id UUID NOT NULL REFERENCES user_lists(id) ON DELETE CASCADE,
-    user_book_id UUID NOT NULL REFERENCES user_books(id) ON DELETE CASCADE,
+    user_list_id UUID NOT NULL REFERENCES user_lists(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL,            -- Catalog BookId (sem FK p/ user_books)
     "order" INT NOT NULL DEFAULT 0,
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (list_id, user_book_id)
+    UNIQUE (user_list_id, book_id)
 );
 
-CREATE INDEX ix_user_list_items_list_id ON user_list_items(list_id, "order");
-CREATE INDEX ix_user_list_items_user_book_id ON user_list_items(user_book_id);
+CREATE INDEX ix_user_list_items_list_order ON user_list_items(user_list_id, "order");
 ```
 
 ---
@@ -1021,7 +1029,10 @@ web/legi-web/src/
 | `/feed` | `FeedPage` | Feed social (currently reading) |
 | `/explore` | `ExplorePage` | Busca e navegação do catálogo |
 | `/books/:bookId` | `BookDetailsPage` | Detalhes do livro: info, média, status/progresso, resenhas (escrever/curtir/comentar) |
-| `/lists` | `ListsPage` | Listas do usuário |
+| `/lists` | `ListsPage` | Listas do usuário (grid de cards com mosaico 2×2 de capas) |
+| `/lists/new` | `ListEditorPage` | Criar lista (nome, descrição, visibilidade, busca + seleção de livros) |
+| `/lists/:listId` | `ListDetailPage` | Detalhes da lista + interação social (like/comment/follow; dono: editar/excluir) |
+| `/lists/:listId/edit` | `ListEditorPage` | Editar lista própria |
 | `/wishlist` | `WishlistPage` | Lista de desejos |
 | `/profile` | `ProfilePage` | Perfil do usuário |
 | `/users/:userId` | `UserProfilePage` | Perfil público de outro usuário |
@@ -1057,6 +1068,16 @@ Follow (Aggregate Root — magro)
 ├── CreatedAt: DateTime
 ├── Factory: Create(followerId, followingId) → valida auto-follow
 └── Hard delete no unfollow
+
+ListFollow (Aggregate Root — magro; seguir uma lista pública)
+├── Id: Guid
+├── UserId: Guid
+├── ListId: Guid
+├── CreatedAt: DateTime
+├── Factory: Create(userId, listId)
+└── Chave natural composta (UserId, ListId). Hard delete no unfollow.
+    Distinto de Follow (user↔user); sem contadores/eventos — count lido live,
+    listas seguidas ainda não surgem no perfil.
 
 UserProfile (Aggregate Root — UserId como PK, não herda BaseEntity)
 ├── UserId: Guid (PK)
@@ -1132,7 +1153,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - Contadores de seguidores/seguindo nunca negativos (protegido no aggregate)
 - UserProfile criado via integration event no registro do Identity
 - Like e Comment usam `TargetType + TargetId` polimórfico — modelo unificado para Post, Review e List
-- **Listas são não-interagíveis no v1 (decisão Fase 4, Opção A — ver MESSAGING-ARCHITECTURE-decisions.md §6.5 e bloco 4E):** curtir/comentar exige um `ContentSnapshot` do alvo, e o snapshot de lista só seria criado pelo handler de `UserListCreated`, dropado por YAGNI (criar lista vazia não é fato social relevante). Sem snapshot, nenhuma lista pode ser curtida/comentada. Na prática `ContentLiked`/`ContentCommented` só carregam `TargetType = "Post"`. Consequências aceitas: `UserList.LikesCount`/`CommentsCount` ficam dormentes (métodos/colunas mantidos, prontos para reativação) e `SearchPublicAsync` ordena por `BooksCount`/`CreatedAt` (não por likes, que seriam sempre 0). Reativar = handler snapshot-only para `UserListCreated` (cria `ContentSnapshot(List)` sem `FeedItem`) — Opção B, fora do escopo do v1.
+- **Listas públicas são interagíveis ✅ (pipeline implementado pela feature de listas customizadas — Opção B).** A decisão original (Opção A: listas não-interagíveis) foi revertida. O Library publica `UserListCreated`/`UserListUpdated`/`UserListDeleted`; o Social cria um `ContentSnapshot(List, listId, contentPreview: Name)` **apenas para listas públicas** (handler snapshot-only, sem `FeedItem` — criar lista não vira atividade de feed). **A existência do snapshot é o gate de visibilidade/interação:** lista privada não tem snapshot, então os handlers genéricos de like/comment/follow a rejeitam (NotFound) sem ramificação extra; um toggle público→privado dropa o snapshot. `ContentLiked`/`ContentCommented` agora carregam `TargetType ∈ {"Post", "Review", "List"}`. Likes/comments de lista via `ListInteractionsController` (`/social/lists/{id}/likes|comments`), follow de lista via `ListFollow` (mesmo controller, `/follows`). **Nota:** `UserList.LikesCount`/`CommentsCount` no Library seguem dormentes — a página de detalhes lê os contadores live do Social (`GET /social/lists/{listId}`), então o Social não propaga esses contadores de volta ao Library.
 - **Resenhas (Review) são interagíveis ✅ (pipeline implementado).** `ReviewCreatedIntegrationEvent` (Library) cria `ContentSnapshot(Review, reviewId)` + `FeedItem(ReviewCreated, TargetType=Review, BookId, Data={rating, content, isSpoiler})`. `ContentLiked`/`ContentCommented` carregam `TargetType ∈ {"Post", "Review"}`; o Library resolve ambos pela mesma `ReadingProgress` (o `InteractionTargetResolver` aceita os dois). Likes/comments de resenha via `ReviewInteractionsController` (`/social/reviews/{id}/likes|comments`).
 - Feed: fan-out on read (query com join em follows), não fan-out on write
 - `IsSpoiler` é preservado no `FeedItem.Data` de `ProgressPosted` **e** `ReviewCreated`; quando true, o `ContentSnapshot.ContentPreview` fica null para não vazar texto em superfícies de interação/notificação, e o frontend oculta o texto até revelar (mesmo padrão para progresso e resenha).
@@ -1155,12 +1176,14 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - `IUserProfileRepository` — GetByUserIdAsync, AddAsync, UpdateAsync, DeleteAsync
 - `ILikeRepository` — GetByIdAsync, GetByUserAndTargetAsync, AddAsync, DeleteAsync
 - `ICommentRepository` — GetByIdAsync, AddAsync, DeleteAsync
-- `IContentSnapshotRepository` — GetByTargetAsync, AddOrUpdateAsync, DeleteByTargetAsync
+- `IContentSnapshotRepository` — GetByTargetAsync, AddOrUpdateAsync, StageAddOrUpdateAsync, DeleteByTargetAsync, StageDeleteByTargetAsync
 - `IFeedItemRepository` — AddAsync, DeleteByReferenceAsync, DeleteByActorAsync, StageAddAsync, StageDeleteByReferenceAsync
+- `IListFollowRepository` — GetByUserAndListAsync, ExistsAsync, CountByListAsync, AddAsync, DeleteAsync, StageDeleteByListAsync
 
 ### 5.2 Application ✅
 
 **Follow Commands:** `FollowUserCommand`, `UnfollowUserCommand`
+**List Commands:** `FollowListCommand`, `UnfollowListCommand` (exigem snapshot de lista pública existente; rejeitam o dono; unfollow idempotente)
 **Comment Commands:** `CreateCommentCommand`, `DeleteCommentCommand`
 **Like Commands:** `LikeContentCommand`, `UnlikeContentCommand`
 **Profile Commands:** `UpdateProfileCommand`
@@ -1171,6 +1194,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 **Feed Queries:** `GetFeedQuery`, `GetUserActivityQuery`, `GetBookReviewsQuery` (resenhas de um livro)
 **Profile Queries:** `GetUserProfileQuery`
 **Content Queries:** `GetContentContextQuery`
+**List Queries:** `GetListSocialStateQuery` → `ListSocialStateDto` (estado social live da lista para o viewer)
 
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`
 **Exceptions:** `ConflictException`, `NotFoundException`, `ForbiddenException`
@@ -1180,6 +1204,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - `ICommentReadRepository` — GetByTargetAsync (paginado, com username/avatar via join com user_profiles)
 - `ILikeReadRepository` — GetByTargetAsync (paginado, com `ViewerUserId` opcional para `IsFollowedByViewer`)
 - `IFeedItemReadRepository` — GetFeedAsync, GetUserActivityAsync e GetBookReviewsAsync (filtra `BookId` + `ActivityType=ReviewCreated`) com paginação offset (`page`, `pageSize` → `PaginatedList<FeedItemDto>`)
+- `IListSocialReadRepository` — GetStateAsync (computa estado social live da lista: counts + flags do viewer; lista sem `ContentSnapshot` → estado não-interativo com counts zerados)
 
 **DTOs:**
 - `FollowUserDto` (UserId, Username, AvatarUrl, Bio, IsFollowedByViewer)
@@ -1188,6 +1213,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - `UserProfileDto` (UserId, Username, Bio, AvatarUrl, BannerUrl, FollowersCount, FollowingCount, IsFollowing, CreatedAt)
 - `ContentContextDto` (TargetType, TargetId, OwnerId, OwnerUsername, OwnerAvatarUrl, BookTitle, BookAuthor, BookCoverUrl, ContentPreview)
 - `LikeUserDto` (UserId, Username, AvatarUrl, IsFollowedByViewer)
+- `ListSocialStateDto` (ListId, IsInteractable, IsOwner, LikesCount, CommentsCount, FollowersCount, IsLikedByMe, IsFollowedByMe) — `IsInteractable=false` quando a lista não tem `ContentSnapshot` (privada), com counts/flags zerados
 - `PaginatedList<T>` (Items, Page, PageSize, TotalItems, TotalPages, HasNext, HasPrevious) — usado pelas queries de feed e listas sociais com `page`/`pageSize`
 - Response DTOs: `FollowResponse`, `CreateCommentResponse`, `LikeResponse`, `UpdateProfileResponse`
 
@@ -1199,7 +1225,7 @@ enum ActivityType { ProgressPosted, BookFinished, BookStarted, BookAdded, BookRa
 - `ContentLikedDomainEventHandler` — traduz e publica `ContentLikedIntegrationEvent` (Fase 4D)
 - `ContentUnlikedDomainEventHandler` — traduz e publica `ContentUnlikedIntegrationEvent` (Fase 4D)
 
-**Integration Event Handlers (incoming):** `UserRegistered`/`UserDeleted` (Fase 3), `BookCreated`/`BookUpdated` (Fase 4A → `BookSnapshot`), e handlers de eventos do Library → `FeedItem`/`ContentSnapshot` (Fase 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` e `ReviewCreated` (cria `ContentSnapshot(Review)` + `FeedItem(ReviewCreated)`).
+**Integration Event Handlers (incoming):** `UserRegistered`/`UserDeleted` (Fase 3), `BookCreated`/`BookUpdated` (Fase 4A → `BookSnapshot`), handlers de eventos do Library → `FeedItem`/`ContentSnapshot` (Fase 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated` e `ReviewCreated` (cria `ContentSnapshot(Review)` + `FeedItem(ReviewCreated)`), e os handlers de listas (feature de listas customizadas): `UserListCreated`/`UserListUpdated` (snapshot-only — cria `ContentSnapshot(List)` se pública, dropa no toggle privado; **sem** `FeedItem`) e `UserListDeleted` (purga snapshot + likes + comments + follows da lista). Todos seguem o padrão stage-no-SaveChanges (decisão 8.1).
 
 **DI:** `DependencyInjection.AddSocialApplication()` — registra Mediator, handlers (reflection scan), notification handlers, behaviors e validators
 
@@ -1243,10 +1269,13 @@ Decisões detalhadas em `Docs/SOCIAL-ARCHITECTURE-decisions.md` seção 12.
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
+| GET | `/api/v1/social/lists/{listId}` | Estado social da lista (counts + flags do viewer) | 🔓 |
 | POST | `/api/v1/social/lists/{listId}/likes` | Curtir lista | 🔒 |
 | DELETE | `/api/v1/social/lists/{listId}/likes` | Descurtir lista | 🔒 |
 | GET | `/api/v1/social/lists/{listId}/comments` | Listar comentários da lista | 🔓 |
 | POST | `/api/v1/social/lists/{listId}/comments` | Comentar em lista | 🔒 |
+| POST | `/api/v1/social/lists/{listId}/follows` | Seguir lista | 🔒 |
+| DELETE | `/api/v1/social/lists/{listId}/follows` | Deixar de seguir lista | 🔒 |
 
 **Review Interactions (implementados — `ReviewInteractionsController`):**
 
@@ -1285,6 +1314,7 @@ Schema implementado por `SocialDbContext` e migrations em `src/Legi.Social.Infra
 -- Tabelas próprias do Social
 user_profiles(user_id PK, username, bio, avatar_url, banner_url, followers_count, following_count, created_at, updated_at)
 follows(id PK, follower_id, following_id, created_at, UNIQUE(follower_id, following_id))
+list_follows(id PK, user_id, list_id, created_at, UNIQUE(user_id, list_id))   -- migration AddListFollows
 likes(id PK, user_id, target_type, target_id, created_at, UNIQUE(user_id, target_type, target_id))
 comments(id PK, user_id, target_type, target_id, content, created_at)
 content_snapshots(target_type, target_id, owner_id, owner_username, owner_avatar_url, book_title, book_author, book_cover_url, content_preview, created_at, updated_at, PK(target_type, target_id))
@@ -1309,17 +1339,18 @@ Mensageria assíncrona via RabbitMQ com padrão **outbox/inbox** (entrega at-lea
 **Catalog → Library + Social** (Fases 2 / 4A): `BookCreated` / `BookUpdated` — cada serviço mantém seu `BookSnapshot` local como fonte de lookup de display data em write-time (decisão 2.6.1).
 **Library → Social** (Fases 4B / 4C): `BookAddedToLibrary`, `ReadingStatusChanged`, `ReadingPostCreated`, `ReadingPostDeleted`, `UserBookRated`, `ReviewCreated` — Social projeta `FeedItem` / `ContentSnapshot` (feed fan-out on read).
 `ReadingPostCreated`/`ReviewCreated` carregam `Content`, `IsSpoiler` (e `ReviewCreated` também o rating + `BookId`); o Social grava `isSpoiler` no `FeedItem.Data` e suprime `ContentPreview` quando spoiler. `UserBookRated` carrega `IsPartOfReview`: quando true, o Social **não** cria o feed item `BookRated` (a resenha já emite `ReviewCreated`), evitando atividade duplicada.
+**Library → Social** (listas customizadas): `UserListCreated`, `UserListUpdated`, `UserListDeleted` — Social mantém o `ContentSnapshot(List)` que governa a interatividade da lista (snapshot só existe enquanto a lista é pública; `UserListDeleted` purga snapshot + likes + comments + follows). Sem `FeedItem` (criar/editar lista não é atividade de feed).
 **Social → Library** (Fases 4D / 4E): `ContentLiked` / `ContentUnliked` / `ContentCommented` / `CommentDeleted` — Library ajusta `LikesCount` / `CommentsCount` no `ReadingProgress` (`TargetType ∈ {Post, Review}`; idempotência inbox-only, decisão 8.1.1).
 **Library → Catalog** (Fase 5): `UserBookRated` / `UserBookRatingRemoved` → Catalog mantém uma projeção `BookRating` por-usuário e recalcula `average_rating`/`ratings_count` no `Book` (recompute-from-rows, convergente; `UserBookRated` é um segundo consumer no fanout que o Social já usa).
 **Library → Catalog** (resenhas): `ReviewCreated` incrementa e `ReadingPostDeleted` (quando `IsReview`) decrementa `Book.ReviewsCount` (idempotência inbox-only).
 
-**Total atual: 16 arquivos de integration event em `Legi.Contracts`** (inclui `PingIntegrationEvent` diagnóstico e `ReviewCreatedIntegrationEvent`). Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
+**Total atual: 19 arquivos de integration event em `Legi.Contracts`** (inclui `PingIntegrationEvent` diagnóstico, `ReviewCreatedIntegrationEvent` e os 3 eventos de lista `UserListCreated/Updated/DeletedIntegrationEvent`). Contrato a contrato em `MESSAGING-ARCHITECTURE-decisions.md` §6.
 
-### 6.2 Fora de escopo do v1
+### 6.2 Implementado desde a v1 inicial
 
-- **Listas interagíveis** — listas foram dropadas do feed e são não-curtíveis/não-comentáveis (ver §5, decisão Fase 4 Opção A). `UserListCreated`/`UserListDeleted` não existem como integration events.
+> O **pipeline de Review** (antes fora de escopo) está completo — `ReviewCreatedIntegrationEvent`, `ContentSnapshot(Review)`, `FeedItem(ReviewCreated)`, likes/comments de resenha e contagem no Catalog. Ver §3.1, §5 e os fluxos acima.
 
-> **Implementado desde então:** o **pipeline de Review** (antes fora de escopo) está completo — `ReviewCreatedIntegrationEvent`, `ContentSnapshot(Review)`, `FeedItem(ReviewCreated)`, likes/comments de resenha e contagem no Catalog. Ver §3.1, §5 e os fluxos acima.
+> **Listas customizadas interagíveis** (antes fora de escopo, decisão Fase 4 Opção A — agora revertida para Opção B): existem os integration events `UserListCreated`/`UserListUpdated`/`UserListDeleted`; o Social cria `ContentSnapshot(List)` apenas para listas públicas (snapshot-only, sem `FeedItem`), habilitando like/comment/follow de lista. Listas privadas (sem snapshot) seguem não-interagíveis. Ver §3.1, §5 e o fluxo Library → Social (listas) acima.
 
 ### 6.3 Resiliência, observabilidade e operação (Fase 6 — hardening)
 
@@ -1462,10 +1493,10 @@ web/legi-web/                  (React SPA)
 |---------|-----------|--------|
 | Identity | 7 | ✅ Implementado |
 | Catalog | 9 | ✅ Implementado (books: 5, authors: 2, tags: 2) |
-| Library | 21 | ✅ Implementado (inclui `GET /library/by-book/{bookId}` e `POST /library/{userBookId}/reviews`) |
-| Social | 21 | ✅ Implementado (inclui `GET /social/books/{bookId}/reviews` e Review Interactions: 4) |
-| Web Frontend | 7 rotas | 🚧 Em desenvolvimento (inclui `/books/:bookId`) |
-| **Total** | **58 endpoints API + 7 rotas frontend** | |
+| Library | 21 | ✅ Implementado (inclui `GET /library/by-book/{bookId}` e `POST /library/{userBookId}/reviews`; listas referenciam `bookId`) |
+| Social | 24 | ✅ Implementado (inclui `GET /social/books/{bookId}/reviews`, Review Interactions: 4 e List social-state/follows: 3) |
+| Web Frontend | 10 rotas | 🚧 Em desenvolvimento (inclui `/books/:bookId` e as páginas de lista `/lists/new`, `/lists/:listId`, `/lists/:listId/edit`) |
+| **Total** | **61 endpoints API + 10 rotas frontend** | |
 
 *Além dos endpoints de domínio acima, cada API expõe `/swagger` e `/health` (health check de RabbitMQ + backlog do outbox, Fase 6 — ver §6.3).*
 
@@ -1476,5 +1507,5 @@ web/legi-web/                  (React SPA)
 | Identity | 2 domínio + inbox/outbox | ✅ Migrado |
 | Catalog | 6 domínio + inbox/outbox | ✅ Migrado (inclui `book_ratings` — projeção por-usuário, Fase 5; `book_reviews` abandonada — resenhas vivem no Library/Social, Catalog mantém só `books.reviews_count`) |
 | Library | 5 domínio + inbox/outbox | ✅ Migrado |
-| Social | 7 domínio/read-model + inbox/outbox | ✅ Migrado |
-| **Total** | **20 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |
+| Social | 8 domínio/read-model + inbox/outbox | ✅ Migrado (inclui `list_follows` — feature de listas customizadas) |
+| **Total** | **21 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |

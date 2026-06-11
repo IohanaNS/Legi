@@ -8,6 +8,7 @@ public class SocialDbContext(DbContextOptions<SocialDbContext> options) : DbCont
 {
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Follow> Follows => Set<Follow>();
+    public DbSet<ListFollow> ListFollows => Set<ListFollow>();
     public DbSet<Like> Likes => Set<Like>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<ContentSnapshot> ContentSnapshots => Set<ContentSnapshot>();

@@ -118,7 +118,8 @@ public class GetListBooksQueryHandlerTests
             LikesCount: 0,
             CommentsCount: 0,
             DateTime.UtcNow,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            IsOwner: false);
 
     private static PaginatedList<UserListBookDto> CreateEmptyPage() =>
         new([], totalCount: 0, pageNumber: 1, pageSize: 20);

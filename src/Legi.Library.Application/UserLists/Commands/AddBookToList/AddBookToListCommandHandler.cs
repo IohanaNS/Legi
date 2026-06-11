@@ -8,14 +8,14 @@ public class AddBookToListCommandHandler
     : IRequestHandler<AddBookToListCommand, AddBookToListResponse>
 {
     private readonly IUserListRepository _userListRepository;
-    private readonly IUserBookRepository _userBookRepository;
+    private readonly IBookSnapshotRepository _bookSnapshotRepository;
 
     public AddBookToListCommandHandler(
         IUserListRepository userListRepository,
-        IUserBookRepository userBookRepository)
+        IBookSnapshotRepository bookSnapshotRepository)
     {
         _userListRepository = userListRepository;
-        _userBookRepository = userBookRepository;
+        _bookSnapshotRepository = bookSnapshotRepository;
     }
 
     public async Task<AddBookToListResponse> Handle(
@@ -29,20 +29,20 @@ public class AddBookToListCommandHandler
         if (list.UserId != request.UserId)
             throw new ForbiddenException();
 
-        var userBook = await _userBookRepository.GetByIdAsync(
-                           request.UserBookId, cancellationToken)
-                       ?? throw new NotFoundException("UserBook", request.UserBookId);
+        // Lists reference catalog books directly (not the user's library), so the
+        // book only needs to be known to Library as a BookSnapshot.
+        var snapshot = await _bookSnapshotRepository.GetByBookIdAsync(
+            request.BookId, cancellationToken);
+        if (snapshot is null)
+            throw new NotFoundException("Book", request.BookId);
 
-        if (userBook.UserId != request.UserId)
-            throw new ForbiddenException();
-
-        list.AddBook(request.UserBookId);
+        list.AddBook(request.BookId);
 
         await _userListRepository.UpdateAsync(list, cancellationToken);
 
         return new AddBookToListResponse(
             list.Id,
-            request.UserBookId,
+            request.BookId,
             list.BooksCount);
     }
 }

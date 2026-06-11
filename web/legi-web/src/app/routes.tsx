@@ -9,6 +9,8 @@ import FollowListPage from "../features/social/components/FollowListPage";
 import ExplorePage from "../features/catalog/components/ExplorePage";
 import BookDetailsPage from "../features/catalog/components/BookDetailsPage";
 import ListsPage from "../features/library/components/ListsPage";
+import ListEditorPage from "../features/library/components/ListEditorPage";
+import ListDetailPage from "../features/library/components/ListDetailPage";
 import WishlistPage from "../features/library/components/WishlistPage";
 import ProfilePage from "../features/library/components/ProfilePage";
 import ReadBooksPage from "../features/library/components/ReadBooksPage";
@@ -29,6 +31,9 @@ export const router = createBrowserRouter([
       { path: "explore", element: <ExplorePage /> },
       { path: "books/:bookId", element: <BookDetailsPage /> },
       { path: "lists", element: <ListsPage /> },
+      { path: "lists/new", element: <ListEditorPage /> },
+      { path: "lists/:listId", element: <ListDetailPage /> },
+      { path: "lists/:listId/edit", element: <ListEditorPage /> },
       { path: "wishlist", element: <WishlistPage /> },
       { path: "profile", element: <ProfilePage /> },
       { path: "users/:userId", element: <UserProfilePage /> },

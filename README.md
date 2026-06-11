@@ -233,7 +233,7 @@ Substitua `<Servico>` por `Identity`, `Catalog`, `Library` ou `Social`.
 | DELETE | `/lists/{listId}` | Excluir lista |
 | GET | `/lists/{listId}/books` | Livros da lista |
 | POST | `/lists/{listId}/books` | Adicionar livro a lista |
-| DELETE | `/lists/{listId}/books/{userBookId}` | Remover livro da lista |
+| DELETE | `/lists/{listId}/books/{bookId}` | Remover livro da lista |
 
 ### Social (`/api/v1/social`)
 
@@ -250,10 +250,13 @@ Substitua `<Servico>` por `Identity`, `Catalog`, `Library` ou `Social`.
 | DELETE | `/posts/{postId}/likes` | Remover curtida de post |
 | GET | `/posts/{postId}/comments` | Comentarios de post |
 | POST | `/posts/{postId}/comments` | Comentar em post |
+| GET | `/lists/{listId}` | Estado social da lista (contadores + flags do viewer) |
 | POST | `/lists/{listId}/likes` | Curtir lista |
 | DELETE | `/lists/{listId}/likes` | Remover curtida de lista |
 | GET | `/lists/{listId}/comments` | Comentarios de lista |
 | POST | `/lists/{listId}/comments` | Comentar em lista |
+| POST | `/lists/{listId}/follows` | Seguir lista |
+| DELETE | `/lists/{listId}/follows` | Deixar de seguir lista |
 | DELETE | `/comments/{commentId}` | Excluir comentario |
 
 ## Documentacao

@@ -96,7 +96,8 @@ public class UserListsController : ControllerBase
             GetUserId(),
             request.Name,
             request.Description,
-            request.IsPublic);
+            request.IsPublic,
+            request.BookIds ?? []);
 
         var result = await _mediator.Send(command, cancellationToken);
         return CreatedAtAction(
@@ -119,7 +120,8 @@ public class UserListsController : ControllerBase
             GetUserId(),
             request.Name,
             request.Description,
-            request.IsPublic);
+            request.IsPublic,
+            request.BookIds ?? []);
 
         var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
@@ -147,7 +149,7 @@ public class UserListsController : ControllerBase
         [FromBody] AddBookToListRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new AddBookToListCommand(request.UserBookId, listId, GetUserId());
+        var command = new AddBookToListCommand(request.BookId, listId, GetUserId());
         var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
     }
@@ -155,13 +157,13 @@ public class UserListsController : ControllerBase
     /// <summary>
     /// Remove a book from a list.
     /// </summary>
-    [HttpDelete("{listId:guid}/books/{userBookId:guid}")]
+    [HttpDelete("{listId:guid}/books/{bookId:guid}")]
     public async Task<IActionResult> RemoveBookFromList(
         Guid listId,
-        Guid userBookId,
+        Guid bookId,
         CancellationToken cancellationToken)
     {
-        var command = new RemoveBookFromListCommand(userBookId, listId, GetUserId());
+        var command = new RemoveBookFromListCommand(bookId, listId, GetUserId());
         await _mediator.Send(command, cancellationToken);
         return NoContent();
     }
@@ -171,11 +173,13 @@ public class UserListsController : ControllerBase
 public record CreateUserListRequest(
     string Name,
     string? Description = null,
-    bool IsPublic = false);
+    bool IsPublic = true,
+    IReadOnlyList<Guid>? BookIds = null);
 
 public record UpdateUserListRequest(
     string Name,
     string? Description = null,
-    bool IsPublic = false);
+    bool IsPublic = true,
+    IReadOnlyList<Guid>? BookIds = null);
 
-public record AddBookToListRequest(Guid UserBookId);
+public record AddBookToListRequest(Guid BookId);

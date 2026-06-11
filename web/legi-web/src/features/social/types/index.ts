@@ -1,5 +1,17 @@
 // ---- Social DTOs (camelCase JSON, mirror the backend) ----
 
+// Mirrors Legi.Social.Application.Common.DTOs.ListSocialStateDto.
+export interface ListSocialStateDto {
+  listId: string;
+  isInteractable: boolean;
+  isOwner: boolean;
+  likesCount: number;
+  commentsCount: number;
+  followersCount: number;
+  isLikedByMe: boolean;
+  isFollowedByMe: boolean;
+}
+
 // Mirrors Legi.Social.Application.Common.DTOs.UserProfileDto.
 export interface UserProfileDto {
   userId: string;

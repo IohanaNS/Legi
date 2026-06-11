@@ -10,10 +10,14 @@ public class CreateUserListCommandHandler : IRequestHandler<CreateUserListComman
 {
     private const int MaxListsPerUser = 100;
     private readonly IUserListRepository _userListRepository;
+    private readonly IBookSnapshotRepository _bookSnapshotRepository;
 
-    public CreateUserListCommandHandler(IUserListRepository userListRepository)
+    public CreateUserListCommandHandler(
+        IUserListRepository userListRepository,
+        IBookSnapshotRepository bookSnapshotRepository)
     {
         _userListRepository = userListRepository;
+        _bookSnapshotRepository = bookSnapshotRepository;
     }
 
     public async Task<CreateUserListResponse> Handle(CreateUserListCommand request, CancellationToken cancellationToken)
@@ -30,13 +34,24 @@ public class CreateUserListCommandHandler : IRequestHandler<CreateUserListComman
         if (nameExists)
             throw new ConflictException($"You already have a list named '{request.Name}'.");
 
+        // Every book must already be projected as a BookSnapshot (same contract as
+        // AddBookToLibrary). A missing snapshot means the book is unknown to Library.
+        foreach (var bookId in request.BookIds.Distinct())
+        {
+            var snapshot = await _bookSnapshotRepository.GetByBookIdAsync(bookId, cancellationToken);
+            if (snapshot is null)
+                throw new NotFoundException("Book", bookId);
+        }
+
         var list = UserList.Create(
             request.UserId,
             request.Name,
             request.Description,
             request.IsPublic);
 
-        // 4. Persist
+        if (request.BookIds.Count > 0)
+            list.SyncBooks(request.BookIds);
+
         await _userListRepository.AddAsync(list, cancellationToken);
 
         return new CreateUserListResponse(

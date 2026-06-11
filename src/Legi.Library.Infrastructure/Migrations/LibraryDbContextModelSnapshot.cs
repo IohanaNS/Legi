@@ -266,25 +266,25 @@ namespace Legi.Library.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("added_at");
 
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("book_id");
+
                     b.Property<int>("Order")
                         .HasColumnType("integer")
                         .HasColumnName("order");
-
-                    b.Property<Guid>("UserBookId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_book_id");
 
                     b.Property<Guid>("user_list_id")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("user_list_id", "Order")
-                        .HasDatabaseName("ix_user_list_items_list_order");
-
-                    b.HasIndex("user_list_id", "UserBookId")
+                    b.HasIndex("user_list_id", "BookId")
                         .IsUnique()
                         .HasDatabaseName("ix_user_list_items_list_book");
+
+                    b.HasIndex("user_list_id", "Order")
+                        .HasDatabaseName("ix_user_list_items_list_order");
 
                     b.ToTable("user_list_items", (string)null);
                 });

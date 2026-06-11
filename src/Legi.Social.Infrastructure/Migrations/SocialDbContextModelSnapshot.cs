@@ -379,6 +379,36 @@ namespace Legi.Social.Infrastructure.Migrations
                     b.ToTable("likes", (string)null);
                 });
 
+            modelBuilder.Entity("Legi.Social.Domain.Entities.ListFollow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListId")
+                        .HasDatabaseName("ix_list_follows_list_id");
+
+                    b.HasIndex("UserId", "ListId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_list_follows_user_list");
+
+                    b.ToTable("list_follows", (string)null);
+                });
+
             modelBuilder.Entity("Legi.Social.Domain.Entities.UserProfile", b =>
                 {
                     b.Property<Guid>("UserId")

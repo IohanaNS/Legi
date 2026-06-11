@@ -8,23 +8,31 @@ public class UserListReadRepository(
     LibraryDbContext context,
     IUserListVisibilityPolicy visibilityPolicy) : IUserListReadRepository
 {
+    private const int PreviewBookCount = 4;
+
+    private sealed record SummaryRow(
+        Guid ListId,
+        Guid OwnerId,
+        string Name,
+        string? Description,
+        bool IsPublic,
+        int BooksCount,
+        int LikesCount,
+        DateTime CreatedAt);
+
     public async Task<IReadOnlyList<UserListSummaryDto>> GetByUserIdAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        return await context.UserLists
+        var rows = await context.UserLists
             .AsNoTracking()
             .Where(ul => ul.UserId == userId)
             .OrderByDescending(ul => ul.UpdatedAt)
-            .Select(ul => new UserListSummaryDto(
-                ul.Id,
-                ul.Name,
-                ul.Description,
-                ul.IsPublic,
-                ul.BooksCount,
-                ul.LikesCount,
-                ul.CreatedAt))
+            .Select(ul => new SummaryRow(
+                ul.Id, ul.UserId, ul.Name, ul.Description, ul.IsPublic, ul.BooksCount, ul.LikesCount, ul.CreatedAt))
             .ToListAsync(cancellationToken);
+
+        return await BuildSummariesAsync(rows, cancellationToken);
     }
 
     public async Task<PaginatedList<UserListSummaryDto>> GetVisibleByUserIdAsync(
@@ -38,21 +46,17 @@ public class UserListReadRepository(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
+        var rows = await query
             .OrderByDescending(ul => ul.UpdatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(ul => new UserListSummaryDto(
-                ul.Id,
-                ul.Name,
-                ul.Description,
-                ul.IsPublic,
-                ul.BooksCount,
-                ul.LikesCount,
-                ul.CreatedAt))
+            .Select(ul => new SummaryRow(
+                ul.Id, ul.UserId, ul.Name, ul.Description, ul.IsPublic, ul.BooksCount, ul.LikesCount, ul.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new PaginatedList<UserListSummaryDto>(items, totalCount, pageNumber, pageSize);
+        var summaries = await BuildSummariesAsync(rows, cancellationToken);
+
+        return new PaginatedList<UserListSummaryDto>(summaries, totalCount, pageNumber, pageSize);
     }
 
     public async Task<int> CountVisibleByUserIdAsync(
@@ -81,7 +85,8 @@ public class UserListReadRepository(
                 ul.LikesCount,
                 ul.CommentsCount,
                 ul.CreatedAt,
-                ul.UpdatedAt))
+                ul.UpdatedAt,
+                false))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -102,27 +107,19 @@ public class UserListReadRepository(
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Join(
-                context.UserBooks,
-                i => i.UserBookId,
-                ub => ub.Id,
-                (i, ub) => new { Item = i, UserBook = ub })
-            .Join(
                 context.BookSnapshots,
-                x => x.UserBook.BookId,
+                i => i.BookId,
                 bs => bs.BookId,
-                (x, bs) => new { x.Item, x.UserBook, Snapshot = bs })
-            .Select(x => new UserListBookDto(
-                x.Item.UserBookId,
-                x.Item.Order,
-                new BookSnapshotDto(
-                    x.Snapshot.BookId,
-                    x.Snapshot.Title,
-                    x.Snapshot.AuthorDisplay,
-                    x.Snapshot.CoverUrl,
-                    x.Snapshot.PageCount),
-                x.UserBook.Status.ToString(),
-                x.UserBook.CurrentRating != null ? x.UserBook.CurrentRating.Stars : null,
-                x.Item.AddedAt))
+                (i, bs) => new UserListBookDto(
+                    i.BookId,
+                    i.Order,
+                    new BookSnapshotDto(
+                        bs.BookId,
+                        bs.Title,
+                        bs.AuthorDisplay,
+                        bs.CoverUrl,
+                        bs.PageCount),
+                    i.AddedAt))
             .ToListAsync(cancellationToken);
 
         return new PaginatedList<UserListBookDto>(items, totalCount, pageNumber, pageSize);
@@ -148,24 +145,73 @@ public class UserListReadRepository(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
-            // Lists are non-interactable in v1 (Option A), so LikesCount is always 0
-            // and can't order "popular". Rank by size, then recency.
-            .OrderByDescending(ul => ul.BooksCount)
+        var rows = await query
+            .OrderByDescending(ul => ul.LikesCount)
+            .ThenByDescending(ul => ul.BooksCount)
             .ThenByDescending(ul => ul.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(ul => new UserListSummaryDto(
-                ul.Id,
-                ul.Name,
-                ul.Description,
-                ul.IsPublic,
-                ul.BooksCount,
-                ul.LikesCount,
-                ul.CreatedAt))
+            .Select(ul => new SummaryRow(
+                ul.Id, ul.UserId, ul.Name, ul.Description, ul.IsPublic, ul.BooksCount, ul.LikesCount, ul.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new PaginatedList<UserListSummaryDto>(items, totalCount, pageNumber, pageSize);
+        var summaries = await BuildSummariesAsync(rows, cancellationToken);
+
+        return new PaginatedList<UserListSummaryDto>(summaries, totalCount, pageNumber, pageSize);
+    }
+
+    /// <summary>
+    /// Maps the materialized base rows to <see cref="UserListSummaryDto"/>, populating
+    /// <see cref="UserListSummaryDto.PreviewBooks"/> (up to <see cref="PreviewBookCount"/>
+    /// covers per list) with a single query over the page of lists. Books missing a
+    /// <c>BookSnapshot</c> are skipped.
+    /// </summary>
+    private async Task<IReadOnlyList<UserListSummaryDto>> BuildSummariesAsync(
+        IReadOnlyList<SummaryRow> rows,
+        CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0)
+            return [];
+
+        var listIds = rows.Select(r => r.ListId).ToList();
+
+        var previewRows = await context.UserListItems
+            .AsNoTracking()
+            .Where(i => listIds.Contains(EF.Property<Guid>(i, "user_list_id")))
+            .Join(
+                context.BookSnapshots,
+                i => i.BookId,
+                bs => bs.BookId,
+                (i, bs) => new
+                {
+                    ListId = EF.Property<Guid>(i, "user_list_id"),
+                    i.Order,
+                    Book = new BookSnapshotDto(bs.BookId, bs.Title, bs.AuthorDisplay, bs.CoverUrl, bs.PageCount)
+                })
+            .ToListAsync(cancellationToken);
+
+        var previewsByList = previewRows
+            .GroupBy(r => r.ListId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<BookSnapshotDto>)g
+                    .OrderBy(r => r.Order)
+                    .Take(PreviewBookCount)
+                    .Select(r => r.Book)
+                    .ToList());
+
+        return rows
+            .Select(r => new UserListSummaryDto(
+                r.ListId,
+                r.OwnerId,
+                r.Name,
+                r.Description,
+                r.IsPublic,
+                r.BooksCount,
+                r.LikesCount,
+                r.CreatedAt,
+                previewsByList.TryGetValue(r.ListId, out var preview) ? preview : []))
+            .ToList();
     }
 
     private IQueryable<Legi.Library.Domain.Entities.UserList> VisibleListsForUser(

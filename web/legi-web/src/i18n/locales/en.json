@@ -18,7 +18,13 @@
         "retry": "Retry",
         "loadMore": "Load more",
         "couldNotLoad": "Couldn't load",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving...",
+        "loading": "Loading...",
+        "edit": "Edit",
+        "delete": "Delete",
+        "remove": "Remove"
     },
     "bookDetails": {
         "back": "Back",
@@ -212,7 +218,29 @@
         "booksCount": "{{count}} books",
         "searchPlaceholder": "Search your lists...",
         "filteredCount": "{{count}} of {{total}} lists",
-        "emptySearch": "No lists found"
+        "emptySearch": "No lists found",
+        "create": "New list",
+        "createTitle": "Create list",
+        "editTitle": "Edit list",
+        "follow": "Follow",
+        "following": "Following",
+        "followersCount": "{{count}} followers",
+        "backToLists": "Back to lists",
+        "detailEmpty": "This list has no books yet",
+        "confirmDelete": "Delete the list \"{{name}}\"? This cannot be undone.",
+        "form": {
+            "name": "List name",
+            "namePlaceholder": "e.g. Summer reads",
+            "nameRequired": "List name is required",
+            "description": "Description",
+            "descriptionPlaceholder": "What is this list about? (optional)",
+            "selectedBooks": "Selected books ({{count}})",
+            "noBooks": "No books added yet",
+            "addBooks": "Add books",
+            "searchPlaceholder": "Search books to add...",
+            "noResults": "No books found",
+            "addBook": "Add book"
+        }
     },
     "wishlist": {
         "title": "Wishlist",

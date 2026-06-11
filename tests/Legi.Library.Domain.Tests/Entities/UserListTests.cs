@@ -69,7 +69,7 @@ public class UserListTests
 
         var item = list.AddBook(LibraryTestIds.UserBookId);
 
-        Assert.Equal(LibraryTestIds.UserBookId, item.UserBookId);
+        Assert.Equal(LibraryTestIds.UserBookId, item.BookId);
         Assert.Equal(0, item.Order);
         Assert.Equal(1, list.BooksCount);
         Assert.Single(list.Items);
@@ -129,8 +129,8 @@ public class UserListTests
 
         list.ReorderBooks([second, first]);
 
-        Assert.Equal(1, list.Items.Single(x => x.UserBookId == first).Order);
-        Assert.Equal(0, list.Items.Single(x => x.UserBookId == second).Order);
+        Assert.Equal(1, list.Items.Single(x => x.BookId == first).Order);
+        Assert.Equal(0, list.Items.Single(x => x.BookId == second).Order);
     }
 
     [Fact]
@@ -163,9 +163,70 @@ public class UserListTests
 
         list.Delete();
 
-        var domainEvent = Assert.IsType<UserListDeletedDomainEvent>(
-            Assert.Single(list.DomainEvents));
+        var domainEvent = Assert.Single(list.DomainEvents.OfType<UserListDeletedDomainEvent>());
         Assert.Equal(list.Id, domainEvent.UserListId);
         Assert.Equal(list.UserId, domainEvent.UserId);
+    }
+
+    [Fact]
+    public void Create_Always_RaisesUserListCreatedEvent()
+    {
+        var list = UserListBuilder.Valid().Public().Build();
+
+        var domainEvent = Assert.Single(list.DomainEvents.OfType<UserListCreatedDomainEvent>());
+        Assert.Equal(list.Id, domainEvent.UserListId);
+        Assert.Equal(list.UserId, domainEvent.UserId);
+        Assert.True(domainEvent.IsPublic);
+    }
+
+    [Fact]
+    public void UpdateDetails_Always_RaisesUserListUpdatedEvent()
+    {
+        var list = UserListBuilder.Valid().Build();
+
+        list.UpdateDetails("Renamed", "New", isPublic: true);
+
+        var domainEvent = Assert.Single(list.DomainEvents.OfType<UserListUpdatedDomainEvent>());
+        Assert.Equal(list.Id, domainEvent.UserListId);
+        Assert.Equal("Renamed", domainEvent.Name);
+        Assert.True(domainEvent.IsPublic);
+    }
+
+    [Fact]
+    public void SyncBooks_ReconcilesToTargetSetInOrder()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var c = Guid.NewGuid();
+        var list = UserListBuilder.Valid().WithBook(a).WithBook(b).Build();
+
+        // Drop b, keep a, add c — final order [c, a].
+        list.SyncBooks([c, a]);
+
+        Assert.Equal(2, list.BooksCount);
+        Assert.Equal(0, list.Items.Single(i => i.BookId == c).Order);
+        Assert.Equal(1, list.Items.Single(i => i.BookId == a).Order);
+        Assert.DoesNotContain(list.Items, i => i.BookId == b);
+    }
+
+    [Fact]
+    public void SyncBooks_PreservesAddedAtForRetainedBooks()
+    {
+        var a = Guid.NewGuid();
+        var list = UserListBuilder.Valid().WithBook(a).Build();
+        var originalAddedAt = list.Items.Single(i => i.BookId == a).AddedAt;
+
+        list.SyncBooks([Guid.NewGuid(), a]);
+
+        Assert.Equal(originalAddedAt, list.Items.Single(i => i.BookId == a).AddedAt);
+    }
+
+    [Fact]
+    public void SyncBooks_DuplicateBooks_ThrowsDomainException()
+    {
+        var a = Guid.NewGuid();
+        var list = UserListBuilder.Valid().Build();
+
+        Assert.Throws<DomainException>(() => list.SyncBooks([a, a]));
     }
 }

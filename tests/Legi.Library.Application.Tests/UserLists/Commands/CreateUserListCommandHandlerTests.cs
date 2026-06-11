@@ -11,11 +11,14 @@ namespace Legi.Library.Application.Tests.UserLists.Commands;
 public class CreateUserListCommandHandlerTests
 {
     private readonly Mock<IUserListRepository> _userListRepository = new();
+    private readonly Mock<IBookSnapshotRepository> _bookSnapshotRepository = new();
     private readonly CreateUserListCommandHandler _handler;
 
     public CreateUserListCommandHandlerTests()
     {
-        _handler = new CreateUserListCommandHandler(_userListRepository.Object);
+        _handler = new CreateUserListCommandHandler(
+            _userListRepository.Object,
+            _bookSnapshotRepository.Object);
     }
 
     [Fact]
@@ -82,5 +85,59 @@ public class CreateUserListCommandHandlerTests
         _userListRepository.Verify(
             r => r.AddAsync(It.IsAny<UserList>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_BookWithoutSnapshot_ThrowsNotFoundAndDoesNotCreate()
+    {
+        var command = CreateUserListCommandBuilder.Valid()
+            .WithBooks(LibraryTestIds.BookId)
+            .Build();
+
+        _userListRepository
+            .Setup(r => r.GetCountByUserIdAsync(command.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _userListRepository
+            .Setup(r => r.ExistsByUserAndNameAsync(command.UserId, command.Name, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _bookSnapshotRepository
+            .Setup(r => r.GetByBookIdAsync(LibraryTestIds.BookId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Legi.Library.Domain.Entities.BookSnapshot?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            _handler.Handle(command, CancellationToken.None));
+
+        _userListRepository.Verify(
+            r => r.AddAsync(It.IsAny<UserList>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_BooksWithSnapshots_CreatesListWithItems()
+    {
+        var command = CreateUserListCommandBuilder.Valid()
+            .WithBooks(LibraryTestIds.BookId, LibraryTestIds.OtherBookId)
+            .Build();
+        UserList? added = null;
+
+        _userListRepository
+            .Setup(r => r.GetCountByUserIdAsync(command.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _userListRepository
+            .Setup(r => r.ExistsByUserAndNameAsync(command.UserId, command.Name, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _bookSnapshotRepository
+            .Setup(r => r.GetByBookIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => BookSnapshotFactory.Create(id));
+        _userListRepository
+            .Setup(r => r.AddAsync(It.IsAny<UserList>(), It.IsAny<CancellationToken>()))
+            .Callback<UserList, CancellationToken>((list, _) => added = list)
+            .Returns(Task.CompletedTask);
+
+        var response = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.NotNull(added);
+        Assert.Equal(2, added.BooksCount);
+        Assert.NotEqual(Guid.Empty, response.ListId);
     }
 }

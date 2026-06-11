@@ -8,14 +8,11 @@ public class RemoveBookFromLibraryCommandHandler
     : IRequestHandler<RemoveBookFromLibraryCommand, Unit>
 {
     private readonly IUserBookRepository _userBookRepository;
-    private readonly IUserListRepository _userListRepository;
 
     public RemoveBookFromLibraryCommandHandler(
-        IUserBookRepository userBookRepository,
-        IUserListRepository userListRepository)
+        IUserBookRepository userBookRepository)
     {
         _userBookRepository = userBookRepository;
-        _userListRepository = userListRepository;
     }
 
     public async Task<Unit> Handle(
@@ -30,20 +27,12 @@ public class RemoveBookFromLibraryCommandHandler
         if (userBook.UserId != request.UserId)
             throw new ForbiddenException();
 
-        // 2. Soft delete (emits BookRemovedFromLibraryDomainEvent)
+        // 2. Soft delete (emits BookRemovedFromLibraryDomainEvent).
+        //    Lists are library-independent (they reference catalog BookIds), so
+        //    removing a book from the library leaves any list memberships intact.
         userBook.Remove();
 
-        // 3. Clean up list references (hard delete UserListItems)
-        var listsWithBook = await _userListRepository.GetListsContainingBookAsync(
-            userBook.Id, cancellationToken);
-
-        foreach (var list in listsWithBook)
-        {
-            list.RemoveBookIfExists(userBook.Id);
-            await _userListRepository.UpdateAsync(list, cancellationToken);
-        }
-
-        // 4. Persist
+        // 3. Persist
         await _userBookRepository.UpdateAsync(userBook, cancellationToken);
 
         return Unit.Value;

@@ -95,6 +95,7 @@ public class UpdateUserListCommandValidatorTests
             userId ?? Guid.Parse("11111111-1111-1111-1111-111111111111"),
             name,
             description,
-            isPublic);
+            isPublic,
+            []);
     }
 }

@@ -4,6 +4,9 @@ using Legi.Social.Application.Comments.Commands.CreateComment;
 using Legi.Social.Application.Comments.Queries.GetContentComments;
 using Legi.Social.Application.Likes.Commands.LikeContent;
 using Legi.Social.Application.Likes.Commands.UnlikeContent;
+using Legi.Social.Application.Lists.Commands.FollowList;
+using Legi.Social.Application.Lists.Commands.UnfollowList;
+using Legi.Social.Application.Lists.Queries.GetListSocialState;
 using Legi.Social.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +26,42 @@ public class ListInteractionsController : ControllerBase
 
     private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? throw new UnauthorizedAccessException());
+
+    private Guid? GetUserIdOrNull()
+    {
+        var value = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(value, out var id) ? id : null;
+    }
+
+    /// <summary>
+    /// Live social state of a list for the current viewer (counts + like/follow flags).
+    /// </summary>
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetSocialState(Guid listId)
+    {
+        var query = new GetListSocialStateQuery(listId, GetUserIdOrNull());
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    [HttpPost("follows")]
+    [Authorize]
+    public async Task<IActionResult> FollowList(Guid listId)
+    {
+        var userId = GetUserId();
+        await _mediator.Send(new FollowListCommand(userId, listId));
+        return Created($"/api/v1/social/lists/{listId}/follows", null);
+    }
+
+    [HttpDelete("follows")]
+    [Authorize]
+    public async Task<IActionResult> UnfollowList(Guid listId)
+    {
+        var userId = GetUserId();
+        await _mediator.Send(new UnfollowListCommand(userId, listId));
+        return NoContent();
+    }
 
     [HttpPost("likes")]
     [Authorize]

@@ -49,12 +49,43 @@ export interface AddBookToLibraryResponse {
 
 export interface UserListSummaryDto {
   listId: string;
+  ownerId: string;
   name: string;
   description?: string | null;
   isPublic: boolean;
   booksCount: number;
   likesCount: number;
   createdAt: string;
+  previewBooks: BookSnapshotDto[];
+}
+
+export interface UserListDetailDto {
+  listId: string;
+  userId: string;
+  name: string;
+  description?: string | null;
+  isPublic: boolean;
+  booksCount: number;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isOwner: boolean;
+}
+
+export interface UserListBookDto {
+  bookId: string;
+  order: number;
+  book: BookSnapshotDto;
+  addedAt: string;
+}
+
+// Request bodies for create/update (mirror the API records).
+export interface SaveUserListBody {
+  name: string;
+  description?: string | null;
+  isPublic: boolean;
+  bookIds: string[];
 }
 
 export interface UserLibraryStatsDto {

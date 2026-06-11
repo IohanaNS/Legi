@@ -17,4 +17,5 @@ export const interactionKeys = {
   comments: (resource: string, id: string) => ["comments", resource, id] as const,
   followers: (userId: string) => ["followers", userId] as const,
   following: (userId: string) => ["following", userId] as const,
+  listSocial: (listId: string) => ["listSocial", listId] as const,
 };
