@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { Trash2 } from "lucide-react";
 import type { QueryKey } from "@tanstack/react-query";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
-import { useComments, useAddComment } from "../hooks/useComments";
+import { useAuth } from "../../auth/useAuth";
+import { useComments, useAddComment, useDeleteComment } from "../hooks/useComments";
 import { relativeTime } from "../lib/time";
 import type { Resource } from "../api";
 import type { CommentDto } from "../types";
@@ -13,12 +15,16 @@ interface CommentThreadProps {
   resource: Resource;
   id: string;
   listKey: QueryKey;
+  /** When true, the viewer (content owner) may delete any comment, not just their own. */
+  canModerate?: boolean;
 }
 
-export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
+export function CommentThread({ resource, id, listKey, canModerate = false }: CommentThreadProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const query = useComments(resource, id);
   const addComment = useAddComment(resource, id, listKey);
+  const deleteComment = useDeleteComment(resource, id, listKey);
   const [content, setContent] = useState("");
 
   const comments = query.data?.pages.flatMap((p) => p.items) ?? [];
@@ -28,6 +34,12 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
     const trimmed = content.trim();
     if (!trimmed || addComment.isPending) return;
     addComment.mutate(trimmed, { onSuccess: () => setContent("") });
+  };
+
+  const handleDelete = (commentId: string) => {
+    if (window.confirm(t("feed.confirmDeleteComment"))) {
+      deleteComment.mutate(commentId);
+    }
   };
 
   return (
@@ -63,7 +75,12 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
         <>
           <ul className="space-y-3">
             {comments.map((c) => (
-              <CommentRow key={c.id} comment={c} />
+              <CommentRow
+                key={c.id}
+                comment={c}
+                canDelete={canModerate || c.userId === user?.userId}
+                onDelete={() => handleDelete(c.id)}
+              />
             ))}
           </ul>
           {query.hasNextPage && (
@@ -82,14 +99,22 @@ export function CommentThread({ resource, id, listKey }: CommentThreadProps) {
   );
 }
 
-function CommentRow({ comment }: { comment: CommentDto }) {
+function CommentRow({
+  comment,
+  canDelete,
+  onDelete,
+}: {
+  comment: CommentDto;
+  canDelete: boolean;
+  onDelete: () => void;
+}) {
   const { t } = useTranslation();
   return (
-    <li className="flex items-start gap-2">
+    <li className="group flex items-start gap-2">
       <Link to={`/users/${comment.userId}`}>
         <Avatar src={comment.avatarUrl ?? undefined} fallback={comment.username} size="sm" />
       </Link>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm">
           <Link
             to={`/users/${comment.userId}`}
@@ -101,6 +126,17 @@ function CommentRow({ comment }: { comment: CommentDto }) {
         </p>
         <p className="text-sm text-stone-600 dark:text-stone-300 break-words">{comment.content}</p>
       </div>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={t("feed.deleteComment")}
+          title={t("feed.deleteComment")}
+          className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
     </li>
   );
 }

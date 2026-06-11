@@ -30,7 +30,11 @@ export default function ListDetailPage() {
   const list = detailQuery.data;
   const books = booksQuery.data?.items ?? [];
   const state = social.query.data;
-  const showSocial = !list.isOwner && state?.isInteractable;
+  // A public list is interactable: everyone (owner included) sees its likes,
+  // followers and comments. Only the like/follow *actions* are owner-gated —
+  // you can't follow or like your own list.
+  const isPublic = Boolean(state?.isInteractable);
+  const canInteract = isPublic && !list.isOwner;
 
   // Owners came from their own lists hub; for someone else's list, go back to
   // that owner's profile on the lists tab.
@@ -85,7 +89,7 @@ export default function ListDetailPage() {
                 </Button>
               </>
             ) : (
-              showSocial && (
+              canInteract && (
                 <Button
                   variant={state?.isFollowedByMe ? "outline" : "primary"}
                   size="sm"
@@ -105,15 +109,18 @@ export default function ListDetailPage() {
           <p className="text-sm text-stone-600 dark:text-stone-300">{list.description}</p>
         )}
 
-        {showSocial && (
+        {isPublic && (
           <div className="flex items-center gap-4 border-t border-stone-100 pt-3 dark:border-dark-raised">
             <button
               type="button"
+              disabled={!canInteract}
               onClick={() => social.toggleLike.mutate(Boolean(state?.isLikedByMe))}
               aria-pressed={state?.isLikedByMe}
               className={cn(
                 "flex items-center gap-1.5 text-sm transition-colors",
-                state?.isLikedByMe ? "text-red-500" : "text-stone-500 hover:text-red-500",
+                state?.isLikedByMe ? "text-red-500" : "text-stone-500",
+                canInteract && "hover:text-red-500",
+                !canInteract && "cursor-default",
               )}
             >
               <Heart size={16} className={state?.isLikedByMe ? "fill-red-500" : ""} />
@@ -140,11 +147,12 @@ export default function ListDetailPage() {
       )}
 
       {/* Comments (public lists only) */}
-      {showSocial && (
+      {isPublic && (
         <CommentThread
           resource="lists"
           id={listId}
           listKey={interactionKeys.listSocial(listId)}
+          canModerate={list.isOwner}
         />
       )}
     </div>

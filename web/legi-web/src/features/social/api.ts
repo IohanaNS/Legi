@@ -53,6 +53,7 @@ export const socialApi = {
     http
       .post<CreateCommentResponse>(`/social/${resource}/${id}/comments`, { content })
       .then((r) => r.data),
+  deleteComment: (commentId: string) => http.delete(`/social/comments/${commentId}`),
 
   follow: (followingId: string) => http.post("/social/follows", { followingId }),
   unfollow: (userId: string) => http.delete(`/social/follows/${userId}`),

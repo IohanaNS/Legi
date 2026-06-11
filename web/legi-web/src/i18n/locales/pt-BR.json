@@ -114,6 +114,8 @@
         "comment": "Comentar",
         "send": "Enviar",
         "addComment": "Adicione um comentário...",
+        "deleteComment": "Excluir comentário",
+        "confirmDeleteComment": "Excluir este comentário?",
         "noComments": "Nenhum comentário ainda",
         "loadingComments": "Carregando comentários...",
         "follow": "Seguir",

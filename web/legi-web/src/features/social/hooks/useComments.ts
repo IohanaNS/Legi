@@ -33,3 +33,18 @@ export function useAddComment(resource: Resource, id: string, listKey: QueryKey)
     },
   });
 }
+
+/**
+ * Deletes a comment (allowed for its author or the content owner) and refreshes
+ * the comment list plus the host list (so the displayed commentsCount updates).
+ */
+export function useDeleteComment(resource: Resource, id: string, listKey: QueryKey) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) => socialApi.deleteComment(commentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: interactionKeys.comments(resource, id) });
+      qc.invalidateQueries({ queryKey: listKey });
+    },
+  });
+}

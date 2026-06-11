@@ -114,6 +114,8 @@
         "comment": "Comment",
         "send": "Send",
         "addComment": "Add a comment...",
+        "deleteComment": "Delete comment",
+        "confirmDeleteComment": "Delete this comment?",
         "noComments": "No comments yet",
         "loadingComments": "Loading comments...",
         "follow": "Follow",
