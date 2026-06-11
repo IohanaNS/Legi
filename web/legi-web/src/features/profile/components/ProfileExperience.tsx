@@ -11,6 +11,7 @@ import { tabToStatus } from "../../library/lib/mappers";
 import type { ProfileTab, ViewMode } from "../../library/types";
 import { FeedCard } from "../../social/components/FeedCard";
 import { FollowButton } from "../../social/components/FollowButton";
+import { FollowedListsSection } from "../../social/components/FollowedListsSection";
 import { useUserActivity } from "../../social/hooks/useFeed";
 import { useUserProfile } from "../../social/hooks/useUserProfile";
 import { feedKeys } from "../../social/queryKeys";
@@ -150,32 +151,40 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
             </div>
           )
         ) : activeTab === "lists" ? (
-          listsQuery.isLoading ? (
-            <ContentSkeleton />
-          ) : listsQuery.isError ? (
-            <ErrorState
-              label={t("profile.errorLoading")}
-              onRetry={() => {
-                void listsQuery.refetch();
-              }}
+          <div className="space-y-6">
+            {listsQuery.isLoading ? (
+              <ContentSkeleton />
+            ) : listsQuery.isError ? (
+              <ErrorState
+                label={t("profile.errorLoading")}
+                onRetry={() => {
+                  void listsQuery.refetch();
+                }}
+              />
+            ) : lists.length === 0 ? (
+              <EmptyState label={t("profile.emptyLists")} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {lists.map((list) => (
+                    <ListCard key={list.listId} list={list} />
+                  ))}
+                </div>
+                {listsQuery.hasNextPage && (
+                  <LoadMoreButton
+                    onClick={() => listsQuery.fetchNextPage()}
+                    disabled={listsQuery.isFetchingNextPage}
+                  />
+                )}
+              </>
+            )}
+
+            <FollowedListsSection
+              userId={targetUserId}
+              unfollowAsUserId={permissions.isOwnProfile ? targetUserId : undefined}
+              ownerUsername={profile.username}
             />
-          ) : lists.length === 0 ? (
-            <EmptyState label={t("profile.emptyTab")} />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {lists.map((list) => (
-                  <ListCard key={list.listId} list={list} />
-                ))}
-              </div>
-              {listsQuery.hasNextPage && (
-                <LoadMoreButton
-                  onClick={() => listsQuery.fetchNextPage()}
-                  disabled={listsQuery.isFetchingNextPage}
-                />
-              )}
-            </>
-          )
+          </div>
         ) : booksQuery.isLoading ? (
           <ContentSkeleton />
         ) : booksQuery.isError ? (

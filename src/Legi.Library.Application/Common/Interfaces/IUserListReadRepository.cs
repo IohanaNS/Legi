@@ -35,4 +35,14 @@ public interface IUserListReadRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns summaries for the given list ids, restricted to public lists.
+    /// Used to hydrate followed-list references (which carry only ids) from the
+    /// Social context. Order is not guaranteed — callers that need the original
+    /// ordering should reorder by the requested id sequence.
+    /// </summary>
+    Task<IReadOnlyList<UserListSummaryDto>> GetPublicSummariesByIdsAsync(
+        IReadOnlyList<Guid> listIds,
+        CancellationToken cancellationToken = default);
 }

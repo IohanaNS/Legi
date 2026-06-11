@@ -18,4 +18,5 @@ export const interactionKeys = {
   followers: (userId: string) => ["followers", userId] as const,
   following: (userId: string) => ["following", userId] as const,
   listSocial: (listId: string) => ["listSocial", listId] as const,
+  followedLists: (userId: string) => ["followedLists", userId] as const,
 };

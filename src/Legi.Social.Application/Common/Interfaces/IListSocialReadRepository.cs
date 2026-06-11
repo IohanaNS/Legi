@@ -13,4 +13,15 @@ public interface IListSocialReadRepository
         Guid listId,
         Guid? viewerUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the lists the given user follows (most recently followed first),
+    /// paginated. Only the list ids + follow timestamps are returned; the list
+    /// metadata is hydrated from the Library context by the caller.
+    /// </summary>
+    Task<PaginatedList<FollowedListDto>> GetFollowedListsAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

@@ -52,4 +52,26 @@ public class ListSocialReadRepository(SocialDbContext context) : IListSocialRead
             IsLikedByMe: isLikedByMe,
             IsFollowedByMe: isFollowedByMe);
     }
+
+    public async Task<PaginatedList<FollowedListDto>> GetFollowedListsAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.ListFollows
+            .AsNoTracking()
+            .Where(f => f.UserId == userId)
+            .OrderByDescending(f => f.CreatedAt);
+
+        var totalItems = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(f => new FollowedListDto(f.ListId, f.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        return new PaginatedList<FollowedListDto>(items, totalItems, page, pageSize);
+    }
 }

@@ -12,6 +12,14 @@ export interface ListSocialStateDto {
   isFollowedByMe: boolean;
 }
 
+// Mirrors Legi.Social.Application.Common.DTOs.FollowedListDto.
+// A reference to a list the user follows — only the id + when it was followed.
+// The list metadata is hydrated separately from Library's /lists/by-ids.
+export interface FollowedListDto {
+  listId: string;
+  followedAt: string;
+}
+
 // Mirrors Legi.Social.Application.Common.DTOs.UserProfileDto.
 export interface UserProfileDto {
   userId: string;

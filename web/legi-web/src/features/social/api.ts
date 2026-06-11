@@ -3,6 +3,7 @@ import type {
   CommentDto,
   CreateCommentResponse,
   FeedItemDto,
+  FollowedListDto,
   FollowUserDto,
   ListSocialStateDto,
   SocialPaginatedList,
@@ -63,6 +64,13 @@ export const socialApi = {
     http.get<ListSocialStateDto>(`/social/lists/${listId}`).then((r) => r.data),
   followList: (listId: string) => http.post(`/social/lists/${listId}/follows`),
   unfollowList: (listId: string) => http.delete(`/social/lists/${listId}/follows`),
+  // The lists a user follows (ids + followedAt only — hydrate via Library by-ids).
+  getFollowedLists: (userId: string, page: number, pageSize: number) =>
+    http
+      .get<SocialPaginatedList<FollowedListDto>>(`/social/users/${userId}/followed-lists`, {
+        params: { page, pageSize },
+      })
+      .then((r) => r.data),
   getFollowers: (userId: string, page: number, pageSize: number) =>
     http
       .get<SocialPaginatedList<FollowUserDto>>(`/social/users/${userId}/followers`, {

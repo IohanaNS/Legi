@@ -14,4 +14,6 @@ export const libraryKeys = {
     [...libraryKeys.all, "userBooks", userId, status] as const,
   userStats: (userId: string) => [...libraryKeys.all, "userStats", userId] as const,
   userLists: (userId: string) => [...libraryKeys.all, "userLists", userId] as const,
+  listSummariesByIds: (ids: string[]) =>
+    [...libraryKeys.all, "listSummariesByIds", ids] as const,
 };

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Legi.SharedKernel.Mediator;
+using Legi.Social.Application.Lists.Queries.GetFollowedLists;
 using Legi.Social.Application.Profiles.Queries.GetUserProfile;
 using Legi.Social.Application.Profiles.Queries.SearchUsers;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +39,18 @@ public class UserProfilesController : ControllerBase
         var viewerUserId = GetViewerUserIdOrNull();
 
         var query = new GetUserProfileQuery(userId, viewerUserId);
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("{userId:guid}/followed-lists")]
+    public async Task<IActionResult> GetFollowedLists(
+        Guid userId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetFollowedListsQuery(userId, page, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

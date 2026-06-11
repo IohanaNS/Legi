@@ -7,12 +7,15 @@ import { useLists } from "../hooks/useLists";
 import { useDeleteList } from "../hooks/useListMutations";
 import type { UserListSummaryDto } from "../types";
 import { ListCard } from "./ListCard";
+import { useAuth } from "../../auth/useAuth";
+import { FollowedListsSection } from "../../social/components/FollowedListsSection";
 
 const EMPTY_LISTS: UserListSummaryDto[] = [];
 
 export default function ListsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const listsQuery = useLists();
   const deleteList = useDeleteList();
@@ -100,6 +103,12 @@ export default function ListsPage() {
           ))}
         </div>
       )}
+
+      <FollowedListsSection
+        userId={user?.userId}
+        unfollowAsUserId={user?.userId}
+        searchTerm={searchInput}
+      />
     </div>
   );
 }

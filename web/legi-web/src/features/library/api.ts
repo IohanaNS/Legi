@@ -89,6 +89,12 @@ export const libraryApi = {
     http.get<UserListSummaryDto[]>("/library/lists").then((r) => r.data),
   getListDetail: (listId: string) =>
     http.get<UserListDetailDto>(`/library/lists/${listId}`).then((r) => r.data),
+  // Hydrate followed-list references (ids from Social) into summaries. Only
+  // public lists are returned; order is not guaranteed (caller reorders).
+  getListSummariesByIds: (ids: string[]) =>
+    http
+      .get<UserListSummaryDto[]>("/library/lists/by-ids", { params: { ids: ids.join(",") } })
+      .then((r) => r.data),
   // Public lists from any user matching the search term (used by global search).
   searchPublicLists: (search: string, page = 1, pageSize = 5) =>
     http

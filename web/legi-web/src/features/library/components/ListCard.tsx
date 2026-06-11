@@ -12,9 +12,11 @@ interface ListCardProps {
   onEdit?: (list: UserListSummaryDto) => void;
   /** When provided, a delete trash icon is shown in the footer (owner only). */
   onDelete?: (list: UserListSummaryDto) => void;
+  /** Extra control rendered on the right of the footer (e.g. an unfollow button). */
+  footerAction?: React.ReactNode;
 }
 
-export function ListCard({ list, onEdit, onDelete }: ListCardProps) {
+export function ListCard({ list, onEdit, onDelete, footerAction }: ListCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -42,6 +44,8 @@ export function ListCard({ list, onEdit, onDelete }: ListCardProps) {
 
         <div className="mt-2 flex items-center justify-between">
           <p className="text-xs text-stone-400">{t("lists.booksCount", { count: list.booksCount })}</p>
+
+          {footerAction}
 
           {(onEdit || onDelete) && (
             <div className="flex items-center gap-1">

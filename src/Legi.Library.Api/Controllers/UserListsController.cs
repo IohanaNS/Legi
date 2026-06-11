@@ -1,3 +1,4 @@
+using Legi.Library.Application.Common.DTOs;
 using Legi.Library.Application.UserLists.Commands.AddBookToList;
 using Legi.Library.Application.UserLists.Commands.CreateUserList;
 using Legi.Library.Application.UserLists.Commands.DeleteUserList;
@@ -5,6 +6,7 @@ using Legi.Library.Application.UserLists.Commands.RemoveBookFromList;
 using Legi.Library.Application.UserLists.Commands.UpdateUserList;
 using Legi.Library.Application.UserLists.Queries.GetListBooks;
 using Legi.Library.Application.UserLists.Queries.GetListDetails;
+using Legi.Library.Application.UserLists.Queries.GetListSummariesByIds;
 using Legi.Library.Application.UserLists.Queries.GetMyLists;
 using Legi.Library.Application.UserLists.Queries.SearchPublicLists;
 using System.Security.Claims;
@@ -80,6 +82,33 @@ public class UserListsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new SearchPublicListsQuery(search, page, pageSize);
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get summaries for a set of public lists by id (comma-separated). Used to
+    /// hydrate followed-list references coming from the Social context. Only
+    /// public lists are returned; unknown/private ids are silently omitted.
+    /// </summary>
+    [HttpGet("by-ids")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetListSummariesByIds(
+        [FromQuery] string? ids,
+        CancellationToken cancellationToken = default)
+    {
+        var listIds = (ids ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Guid.TryParse(s, out var id) ? id : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (listIds.Count == 0)
+            return Ok(Array.Empty<UserListSummaryDto>());
+
+        var query = new GetListSummariesByIdsQuery(listIds);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

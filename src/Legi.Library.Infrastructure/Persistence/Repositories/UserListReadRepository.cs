@@ -160,6 +160,23 @@ public class UserListReadRepository(
         return new PaginatedList<UserListSummaryDto>(summaries, totalCount, pageNumber, pageSize);
     }
 
+    public async Task<IReadOnlyList<UserListSummaryDto>> GetPublicSummariesByIdsAsync(
+        IReadOnlyList<Guid> listIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (listIds.Count == 0)
+            return [];
+
+        var rows = await context.UserLists
+            .AsNoTracking()
+            .Where(ul => ul.IsPublic && listIds.Contains(ul.Id))
+            .Select(ul => new SummaryRow(
+                ul.Id, ul.UserId, ul.Name, ul.Description, ul.IsPublic, ul.BooksCount, ul.LikesCount, ul.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        return await BuildSummariesAsync(rows, cancellationToken);
+    }
+
     /// <summary>
     /// Maps the materialized base rows to <see cref="UserListSummaryDto"/>, populating
     /// <see cref="UserListSummaryDto.PreviewBooks"/> (up to <see cref="PreviewBookCount"/>
