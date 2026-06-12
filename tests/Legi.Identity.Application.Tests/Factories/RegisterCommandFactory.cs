@@ -7,12 +7,16 @@ public static class RegisterCommandFactory
     public static RegisterCommand Create(
         string? email = null,
         string? username = null,
-        string? password = null)
+        string? password = null,
+        string? turnstileToken = null,
+        string? remoteIpAddress = null)
     {
         return new RegisterCommand(
             email ?? "teste@exemplo.com",
             username ?? "testusr",
-            password ?? "Senha123!"
+            password ?? "Senha123!",
+            turnstileToken,
+            remoteIpAddress
         );
     }
 

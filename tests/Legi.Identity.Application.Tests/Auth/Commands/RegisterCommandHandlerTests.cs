@@ -1,6 +1,7 @@
 using Legi.Identity.Application.Auth.Commands.Register;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Application.Tests.Factories;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
@@ -13,6 +14,8 @@ public class RegisterCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _tokenServiceMock;
+    private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
+    private readonly TurnstileSettings _turnstileSettings;
     private readonly RegisterCommandHandler _handler;
 
     public RegisterCommandHandlerTests()
@@ -20,11 +23,19 @@ public class RegisterCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenServiceMock = new Mock<IJwtTokenService>();
+        _humanVerificationServiceMock = new Mock<IHumanVerificationService>();
+        _turnstileSettings = new TurnstileSettings
+        {
+            Enabled = false,
+            RequireForRegistration = true
+        };
 
         _handler = new RegisterCommandHandler(
             _userRepositoryMock.Object,
             _passwordHasherMock.Object,
-            _tokenServiceMock.Object
+            _tokenServiceMock.Object,
+            _turnstileSettings,
+            _humanVerificationServiceMock.Object
         );
     }
 
@@ -114,6 +125,82 @@ public class RegisterCommandHandlerTests
         _userRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRequireTurnstileWhenEnabled()
+    {
+        // Arrange
+        _turnstileSettings.Enabled = true;
+        var command = RegisterCommandFactory.Create(turnstileToken: null);
+
+        _humanVerificationServiceMock
+            .Setup(x => x.VerifyAsync(null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await Assert.ThrowsAsync<HumanVerificationRequiredException>(act);
+
+        _userRepositoryMock.Verify(
+            x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        _userRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldContinueWhenTurnstilePasses()
+    {
+        // Arrange
+        _turnstileSettings.Enabled = true;
+        var command = RegisterCommandFactory.Create(turnstileToken: "turnstile-token");
+
+        _humanVerificationServiceMock
+            .Setup(x => x.VerifyAsync("turnstile-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        _passwordHasherMock
+            .Setup(x => x.Hash(command.Password))
+            .Returns("hashed_password");
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateAccessToken(It.IsAny<User>()))
+            .Returns(("access_token", DateTime.UtcNow.AddHours(1)));
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh_token"))
+            .Returns("refresh_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(DateTime.UtcNow.AddDays(14));
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _userRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Once
         );
     }
 

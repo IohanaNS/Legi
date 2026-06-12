@@ -406,6 +406,7 @@
         "haveAccount": "Already have an account?",
         "invalidCredentials": "Invalid email/username or password.",
         "userExists": "That email or username is already taken.",
+        "turnstileRequired": "Please complete the verification and try again.",
         "genericError": "Something went wrong. Please try again."
     }
 }

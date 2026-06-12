@@ -155,6 +155,12 @@ services:
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
+            Turnstile__Enabled: ${Turnstile__Enabled:-false}
+            Turnstile__SecretKey: ${Turnstile__SecretKey:-}
+            Turnstile__SiteVerifyUrl: ${Turnstile__SiteVerifyUrl:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
+            Turnstile__RequireForRegistration: ${Turnstile__RequireForRegistration:-true}
+            Turnstile__LoginFailedAttemptsBeforeRequired: ${Turnstile__LoginFailedAttemptsBeforeRequired:-2}
+            Turnstile__VerificationTimeoutSeconds: ${Turnstile__VerificationTimeoutSeconds:-5}
             RabbitMq__Host: rabbitmq
             RabbitMq__Port: 5672
             RabbitMq__VirtualHost: /
@@ -282,6 +288,8 @@ services:
         build:
             context: web/legi-web
             dockerfile: Dockerfile
+            args:
+                VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
         container_name: legi-web
         ports:
             - "3000:80"

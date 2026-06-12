@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,8 @@ import { useAuth } from "../useAuth";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Logo } from "../../../components/ui/Logo";
+import { isTurnstileConfigured } from "../turnstile";
+import { TurnstileBox } from "./TurnstileBox";
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -17,10 +19,43 @@ export default function LoginPage() {
 
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [turnstileRequired, setTurnstileRequired] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileEnabled = isTurnstileConfigured();
+  const shouldShowTurnstile = turnstileEnabled && (turnstileRequired || failedAttempts >= 2);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+  }, []);
 
   const mutation = useMutation({
-    mutationFn: () => login({ emailOrUsername, password }),
-    onSuccess: () => navigate(from, { replace: true }),
+    mutationFn: () => login({
+      emailOrUsername,
+      password,
+      turnstileToken: shouldShowTurnstile ? turnstileToken ?? undefined : undefined,
+    }),
+    onSuccess: () => {
+      setFailedAttempts(0);
+      setTurnstileRequired(false);
+      navigate(from, { replace: true });
+    },
+    onError: (error) => {
+      if (!isAxiosError(error)) return;
+
+      if (error.response?.status === 403 && hasTurnstileRequired(error.response.data)) {
+        setTurnstileRequired(true);
+        resetTurnstile();
+        return;
+      }
+
+      if (error.response?.status === 401) {
+        setFailedAttempts((current) => current + 1);
+        resetTurnstile();
+      }
+    },
   });
 
   useEffect(() => {
@@ -32,6 +67,8 @@ export default function LoginPage() {
   const errorMessage = mutation.isError
     ? isAxiosError(mutation.error) && mutation.error.response?.status === 401
       ? t("auth.invalidCredentials")
+      : isAxiosError(mutation.error) && mutation.error.response?.status === 403
+        ? t("auth.turnstileRequired")
       : t("auth.genericError")
     : null;
 
@@ -64,8 +101,16 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
+          {shouldShowTurnstile && (
+            <TurnstileBox
+              key={turnstileResetKey}
+              action="login"
+              onVerify={setTurnstileToken}
+              onReset={() => setTurnstileToken(null)}
+            />
+          )}
           {errorMessage && <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>}
-          <Button type="submit" disabled={mutation.isPending} className="w-full">
+          <Button type="submit" disabled={mutation.isPending || (shouldShowTurnstile && !turnstileToken)} className="w-full">
             {t("auth.signIn")}
           </Button>
         </form>
@@ -76,4 +121,11 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+function hasTurnstileRequired(value: unknown): value is { captchaRequired: true } {
+  return typeof value === "object" &&
+    value !== null &&
+    "captchaRequired" in value &&
+    value.captchaRequired === true;
 }

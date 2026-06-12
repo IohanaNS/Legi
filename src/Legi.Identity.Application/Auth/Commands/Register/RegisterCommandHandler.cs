@@ -1,5 +1,6 @@
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
@@ -12,19 +13,35 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _tokenService;
+    private readonly TurnstileSettings _turnstileSettings;
+    private readonly IHumanVerificationService _humanVerificationService;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenService tokenService)
+        IJwtTokenService tokenService,
+        TurnstileSettings turnstileSettings,
+        IHumanVerificationService humanVerificationService)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _turnstileSettings = turnstileSettings;
+        _humanVerificationService = humanVerificationService;
     }
 
     public async Task<RegisterResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
+        if (_turnstileSettings.Enabled &&
+            _turnstileSettings.RequireForRegistration &&
+            !await _humanVerificationService.VerifyAsync(
+                request.TurnstileToken,
+                request.RemoteIpAddress,
+                cancellationToken))
+        {
+            throw new HumanVerificationRequiredException();
+        }
+
         var existingUserByEmail = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (existingUserByEmail != null)
             throw new ConflictException("A user with this email already exists.");

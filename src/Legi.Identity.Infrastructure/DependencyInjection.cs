@@ -1,5 +1,7 @@
 using Legi.Contracts.Identity;
+using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Persistence.Repositories;
@@ -34,6 +36,29 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
 
         // Security
+        services.AddOptions<LoginLockoutSettings>()
+            .Bind(configuration.GetSection(LoginLockoutSettings.SectionName))
+            .Validate(
+                LoginLockoutSettings.HasValidSettings,
+                LoginLockoutSettings.ValidationMessage)
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<LoginLockoutSettings>>().Value);
+
+        services.AddOptions<TurnstileSettings>()
+            .Bind(configuration.GetSection(TurnstileSettings.SectionName))
+            .Validate(
+                TurnstileSettings.HasValidSettings,
+                TurnstileSettings.ValidationMessage)
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<TurnstileSettings>>().Value);
+        services.AddHttpClient<IHumanVerificationService, TurnstileVerificationService>((sp, client) =>
+        {
+            var settings = sp.GetRequiredService<TurnstileSettings>();
+            client.Timeout = TimeSpan.FromSeconds(settings.VerificationTimeoutSeconds);
+        });
+
         services.AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
             .Validate(

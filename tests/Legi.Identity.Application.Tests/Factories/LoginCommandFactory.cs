@@ -6,11 +6,15 @@ public static class LoginCommandFactory
 {
     public static LoginCommand Create(
         string? emailOrUsername = null,
-        string? password = null)
+        string? password = null,
+        string? turnstileToken = null,
+        string? remoteIpAddress = null)
     {
         return new LoginCommand(
             emailOrUsername ?? "teste@exemplo.com",
-            password ?? "Senha123!"
+            password ?? "Senha123!",
+            turnstileToken,
+            remoteIpAddress
         );
     }
 

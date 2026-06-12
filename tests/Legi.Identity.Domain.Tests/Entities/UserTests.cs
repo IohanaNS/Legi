@@ -185,6 +185,73 @@ public class UserTests
         Assert.All(user.RefreshTokens, t => Assert.False(t.IsActive));
     }
 
+    [Fact]
+    public void RecordFailedLogin_ShouldIncrementFailedAttempts()
+    {
+        // Arrange
+        var user = CreateValidUser();
+        var now = new DateTime(2026, 6, 12, 12, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        user.RecordFailedLogin(5, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(15), now);
+
+        // Assert
+        Assert.Equal(1, user.FailedLoginAttempts);
+        Assert.Equal(now, user.LastFailedLoginAt);
+        Assert.Null(user.LoginLockoutEndsAt);
+    }
+
+    [Fact]
+    public void RecordFailedLogin_ShouldLockAccountWhenLimitIsReached()
+    {
+        // Arrange
+        var user = CreateValidUser();
+        var now = new DateTime(2026, 6, 12, 12, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        user.RecordFailedLogin(2, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10), now);
+        user.RecordFailedLogin(2, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10), now.AddMinutes(1));
+
+        // Assert
+        Assert.Equal(2, user.FailedLoginAttempts);
+        Assert.Equal(now.AddMinutes(11), user.LoginLockoutEndsAt);
+        Assert.True(user.IsLoginLockedOut(now.AddMinutes(5)));
+    }
+
+    [Fact]
+    public void RecordFailedLogin_ShouldResetStaleFailuresOutsideWindow()
+    {
+        // Arrange
+        var user = CreateValidUser();
+        var now = new DateTime(2026, 6, 12, 12, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        user.RecordFailedLogin(5, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10), now);
+        user.RecordFailedLogin(5, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10), now.AddMinutes(16));
+
+        // Assert
+        Assert.Equal(1, user.FailedLoginAttempts);
+        Assert.Equal(now.AddMinutes(16), user.LastFailedLoginAt);
+        Assert.Null(user.LoginLockoutEndsAt);
+    }
+
+    [Fact]
+    public void RecordSuccessfulLogin_ShouldClearFailedLoginState()
+    {
+        // Arrange
+        var user = CreateValidUser();
+        var now = new DateTime(2026, 6, 12, 12, 0, 0, DateTimeKind.Utc);
+        user.RecordFailedLogin(5, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10), now);
+
+        // Act
+        user.RecordSuccessfulLogin(now.AddMinutes(1));
+
+        // Assert
+        Assert.Equal(0, user.FailedLoginAttempts);
+        Assert.Null(user.LastFailedLoginAt);
+        Assert.Null(user.LoginLockoutEndsAt);
+    }
+
     // Helper method
     private User CreateValidUser() => UserFactory.Create();
 }

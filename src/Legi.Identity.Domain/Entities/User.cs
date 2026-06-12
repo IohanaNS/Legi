@@ -9,6 +9,9 @@ public class User : BaseAuditableEntity
     public Email Email { get; private set; } = null!;
     public Username Username { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
+    public int FailedLoginAttempts { get; private set; }
+    public DateTime? LastFailedLoginAt { get; private set; }
+    public DateTime? LoginLockoutEndsAt { get; private set; }
 
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
@@ -51,6 +54,59 @@ public class User : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
 
         return token;
+    }
+
+    public bool IsLoginLockedOut(DateTime utcNow)
+    {
+        return LoginLockoutEndsAt is not null && LoginLockoutEndsAt > utcNow;
+    }
+
+    public void RecordFailedLogin(
+        int maxFailedAttempts,
+        TimeSpan failureWindow,
+        TimeSpan lockoutDuration,
+        DateTime utcNow)
+    {
+        if (maxFailedAttempts <= 0)
+            throw new DomainException("Max failed login attempts must be greater than zero");
+
+        if (failureWindow <= TimeSpan.Zero)
+            throw new DomainException("Login failure window must be greater than zero");
+
+        if (lockoutDuration <= TimeSpan.Zero)
+            throw new DomainException("Login lockout duration must be greater than zero");
+
+        if (IsLoginLockedOut(utcNow))
+            return;
+
+        if (LoginLockoutEndsAt <= utcNow)
+        {
+            FailedLoginAttempts = 0;
+            LoginLockoutEndsAt = null;
+        }
+
+        if (LastFailedLoginAt is null || LastFailedLoginAt.Value.Add(failureWindow) <= utcNow)
+        {
+            FailedLoginAttempts = 0;
+        }
+
+        FailedLoginAttempts++;
+        LastFailedLoginAt = utcNow;
+
+        if (FailedLoginAttempts >= maxFailedAttempts)
+        {
+            LoginLockoutEndsAt = utcNow.Add(lockoutDuration);
+        }
+
+        UpdatedAt = utcNow;
+    }
+
+    public void RecordSuccessfulLogin(DateTime utcNow)
+    {
+        FailedLoginAttempts = 0;
+        LastFailedLoginAt = null;
+        LoginLockoutEndsAt = null;
+        UpdatedAt = utcNow;
     }
 
     public void RevokeRefreshToken(string tokenHash)

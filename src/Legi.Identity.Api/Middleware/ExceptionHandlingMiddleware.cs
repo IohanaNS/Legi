@@ -44,6 +44,13 @@ public class ExceptionHandlingMiddleware(
                     context.Request.Path);
                 break;
 
+            case HumanVerificationRequiredException:
+                logger.LogInformation(
+                    "Human verification required for {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+                break;
+
             case ConflictException:
             case DomainException:
                 logger.LogWarning(
@@ -95,6 +102,17 @@ public class ExceptionHandlingMiddleware(
                 Status = (int)HttpStatusCode.Unauthorized,
                 Title = "Unauthorized",
                 Detail = unauthorizedEx.Message
+            },
+
+            HumanVerificationRequiredException humanVerificationEx => new ProblemDetails
+            {
+                Status = (int)HttpStatusCode.Forbidden,
+                Title = "Human Verification Required",
+                Detail = humanVerificationEx.Message,
+                Extensions =
+                {
+                    ["captchaRequired"] = true
+                }
             },
 
             NotFoundException notFoundEx => new ProblemDetails

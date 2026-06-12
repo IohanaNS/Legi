@@ -406,6 +406,7 @@
         "haveAccount": "Já tem uma conta?",
         "invalidCredentials": "E-mail/usuário ou senha inválidos.",
         "userExists": "Este e-mail ou usuário já está em uso.",
+        "turnstileRequired": "Complete a verificação e tente novamente.",
         "genericError": "Algo deu errado. Tente novamente."
     }
 }

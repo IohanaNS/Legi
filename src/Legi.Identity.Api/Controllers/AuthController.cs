@@ -35,7 +35,12 @@ public class AuthController : ControllerBase
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new RegisterCommand(request.Email, request.Username, request.Password);
+        var command = new RegisterCommand(
+            request.Email,
+            request.Username,
+            request.Password,
+            request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
         var result = await _mediator.Send(command, cancellationToken);
 
         RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
@@ -58,7 +63,11 @@ public class AuthController : ControllerBase
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new LoginCommand(request.EmailOrUsername, request.Password);
+        var command = new LoginCommand(
+            request.EmailOrUsername,
+            request.Password,
+            request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
         var result = await _mediator.Send(command, cancellationToken);
 
         RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
@@ -130,6 +139,6 @@ public class AuthController : ControllerBase
 }
 
 // Request DTOs
-public record RegisterRequest(string Email, string Username, string Password);
-public record LoginRequest(string EmailOrUsername, string Password);
+public record RegisterRequest(string Email, string Username, string Password, string? TurnstileToken = null);
+public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
 public record AuthSessionResponse(Guid UserId, string Email, string Username, string Token, DateTime ExpiresAt);

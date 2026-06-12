@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,8 @@ import { useAuth } from "../useAuth";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Logo } from "../../../components/ui/Logo";
+import { isTurnstileConfigured } from "../turnstile";
+import { TurnstileBox } from "./TurnstileBox";
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -16,15 +18,31 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileEnabled = isTurnstileConfigured();
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+  }, []);
 
   const mutation = useMutation({
-    mutationFn: () => register({ email, username, password }),
+    mutationFn: () => register({
+      email,
+      username,
+      password,
+      turnstileToken: turnstileToken ?? undefined,
+    }),
     onSuccess: () => navigate("/feed", { replace: true }),
+    onError: () => resetTurnstile(),
   });
 
   const errorMessage = mutation.isError
     ? isAxiosError(mutation.error) && mutation.error.response?.status === 409
       ? t("auth.userExists")
+      : isAxiosError(mutation.error) && mutation.error.response?.status === 403
+        ? t("auth.turnstileRequired")
       : t("auth.genericError")
     : null;
 
@@ -61,8 +79,16 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
           />
+          {turnstileEnabled && (
+            <TurnstileBox
+              key={turnstileResetKey}
+              action="register"
+              onVerify={setTurnstileToken}
+              onReset={() => setTurnstileToken(null)}
+            />
+          )}
           {errorMessage && <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>}
-          <Button type="submit" disabled={mutation.isPending} className="w-full">
+          <Button type="submit" disabled={mutation.isPending || (turnstileEnabled && !turnstileToken)} className="w-full">
             {t("auth.signUp")}
           </Button>
         </form>

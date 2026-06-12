@@ -28,6 +28,33 @@ public class RateLimitConfigurationTests
     }
 
     [Fact]
+    public void IdentityAppSettings_ShouldConfigureAccountTargetedLoginLockout()
+    {
+        // Arrange
+        var appSettings = LoadJson("src", "Legi.Identity.Api", "appsettings.json");
+        var loginLockout = appSettings.GetProperty("LoginLockout");
+
+        // Assert
+        Assert.InRange(loginLockout.GetProperty("MaxFailedAttempts").GetInt32(), 1, 10);
+        Assert.InRange(loginLockout.GetProperty("FailureWindowMinutes").GetInt32(), 1, 60);
+        Assert.InRange(loginLockout.GetProperty("LockoutDurationMinutes").GetInt32(), 1, 60);
+    }
+
+    [Fact]
+    public void IdentityAppSettings_ShouldConfigureTurnstile()
+    {
+        // Arrange
+        var appSettings = LoadJson("src", "Legi.Identity.Api", "appsettings.json");
+        var turnstile = appSettings.GetProperty("Turnstile");
+
+        // Assert
+        Assert.False(turnstile.GetProperty("Enabled").GetBoolean());
+        Assert.True(turnstile.GetProperty("RequireForRegistration").GetBoolean());
+        Assert.InRange(turnstile.GetProperty("LoginFailedAttemptsBeforeRequired").GetInt32(), 0, 5);
+        Assert.StartsWith("https://", turnstile.GetProperty("SiteVerifyUrl").GetString());
+    }
+
+    [Fact]
     public void DockerCompose_ShouldBindIdentityApiToLoopbackOnly()
     {
         // Arrange
