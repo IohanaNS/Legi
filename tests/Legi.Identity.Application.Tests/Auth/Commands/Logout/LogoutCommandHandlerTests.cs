@@ -1,4 +1,5 @@
 using Legi.Identity.Application.Auth.Commands.Logout;
+using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Tests.Factories;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
@@ -9,12 +10,16 @@ namespace Legi.Identity.Application.Tests.Auth.Commands.Logout;
 public class LogoutCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IJwtTokenService> _tokenServiceMock;
     private readonly LogoutCommandHandler _handler;
 
     public LogoutCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
-        _handler = new LogoutCommandHandler(_userRepositoryMock.Object);
+        _tokenServiceMock = new Mock<IJwtTokenService>();
+        _handler = new LogoutCommandHandler(
+            _userRepositoryMock.Object,
+            _tokenServiceMock.Object);
     }
 
     [Fact]
@@ -23,7 +28,11 @@ public class LogoutCommandHandlerTests
         // Arrange
         var command = LogoutCommandFactory.Create(refreshToken: "valid_token");
         var user = UserFactory.Create();
-        user.AddRefreshToken(command.RefreshToken, DateTime.UtcNow.AddDays(1));
+        user.AddRefreshToken("valid_token_hash", DateTime.UtcNow.AddDays(1));
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("valid_token_hash");
 
         _userRepositoryMock
             .Setup(x => x.GetByIdAsync(command.UserId, It.IsAny<CancellationToken>()))
@@ -33,7 +42,7 @@ public class LogoutCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.Null(user.GetValidRefreshToken(command.RefreshToken));
+        Assert.Null(user.GetValidRefreshToken("valid_token_hash"));
         _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -65,6 +74,10 @@ public class LogoutCommandHandlerTests
         // Arrange
         var command = LogoutCommandFactory.Create(refreshToken: "missing_token");
         var user = UserFactory.Create();
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("missing_token_hash");
 
         _userRepositoryMock
             .Setup(x => x.GetByIdAsync(command.UserId, It.IsAny<CancellationToken>()))

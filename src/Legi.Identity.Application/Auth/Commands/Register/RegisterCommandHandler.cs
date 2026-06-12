@@ -40,7 +40,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         var user = User.Create(email, username, passwordHash);
 
         var (accessToken, expiresAt) = _tokenService.GenerateAccessToken(user);
-        var refreshTokenHash = _tokenService.GenerateRefreshToken();
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshTokenHash = _tokenService.HashRefreshToken(refreshToken);
 
         user.AddRefreshToken(refreshTokenHash, DateTime.UtcNow.AddDays(7));
 
@@ -51,7 +52,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
             user.Email.Value,
             user.Username.Value,
             accessToken,
-            refreshTokenHash,
+            refreshToken,
             expiresAt
         );
     }

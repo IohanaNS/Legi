@@ -25,7 +25,8 @@ public class LoginCommandHandler(
 
         var (token, expiresAt) = jwtTokenService.GenerateAccessToken(user);
 
-        var refreshTokenHash = jwtTokenService.GenerateRefreshToken();
+        var refreshToken = jwtTokenService.GenerateRefreshToken();
+        var refreshTokenHash = jwtTokenService.HashRefreshToken(refreshToken);
         user.AddRefreshToken(refreshTokenHash, DateTime.UtcNow.AddDays(7));
 
         await userRepository.UpdateAsync(user, cancellationToken);
@@ -35,7 +36,7 @@ public class LoginCommandHandler(
             user.Email.Value,
             user.Username.Value,
             token,
-            refreshTokenHash,
+            refreshToken,
             expiresAt
         );
     }

@@ -37,12 +37,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Rate Limiting
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.PostConfigure<IpRateLimitOptions>(options =>
+{
+    options.RealIpHeader = null;
+    options.ClientIdHeader = null;
+});
 builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
 builder.Services.AddInMemoryRateLimiting();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
 // JWT Authentication
-var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
+var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
+    ?? throw new InvalidOperationException("JWT settings are required.");
+jwtSettings.ValidateAccessTokenLifetime();
 
 builder.Services.AddAuthentication(options =>
 {

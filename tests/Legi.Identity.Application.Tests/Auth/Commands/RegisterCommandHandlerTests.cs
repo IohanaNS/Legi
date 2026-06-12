@@ -55,7 +55,17 @@ public class RegisterCommandHandlerTests
 
         _tokenServiceMock
             .Setup(x => x.GenerateRefreshToken())
+            .Returns("refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh_token"))
             .Returns("refresh_token_hash");
+
+        User? addedUser = null;
+        _userRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((user, _) => addedUser = user)
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -65,7 +75,10 @@ public class RegisterCommandHandlerTests
         Assert.Equal(command.Email.ToLowerInvariant(), result.Email);
         Assert.Equal(command.Username.ToLowerInvariant(), result.Username);
         Assert.Equal("access_token", result.Token);
-        Assert.Equal("refresh_token_hash", result.RefreshToken);
+        Assert.Equal("refresh_token", result.RefreshToken);
+        Assert.NotNull(addedUser);
+        Assert.Contains(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token_hash");
+        Assert.DoesNotContain(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token");
 
         _userRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
@@ -123,6 +136,10 @@ public class RegisterCommandHandlerTests
             .Setup(x => x.GenerateRefreshToken())
             .Returns("refresh");
 
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh"))
+            .Returns("refresh_hash");
+
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
@@ -159,11 +176,16 @@ public class RegisterCommandHandlerTests
             .Setup(x => x.GenerateRefreshToken())
             .Returns("refresh_token");
 
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh_token"))
+            .Returns("refresh_token_hash");
+
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Once);
         _tokenServiceMock.Verify(x => x.GenerateRefreshToken(), Times.Once);
+        _tokenServiceMock.Verify(x => x.HashRefreshToken("refresh_token"), Times.Once);
     }
 }

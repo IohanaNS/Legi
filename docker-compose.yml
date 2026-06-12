@@ -146,7 +146,7 @@ services:
             dockerfile: src/Legi.Identity.Api/Dockerfile
         container_name: legi-identity-api
         ports:
-            - "5000:8080"
+            - "127.0.0.1:5000:8080"
         environment:
             ASPNETCORE_ENVIRONMENT: Development
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres

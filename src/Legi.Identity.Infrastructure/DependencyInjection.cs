@@ -34,7 +34,12 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
 
         // Security
-        services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.AddOptions<JwtSettings>()
+            .Bind(configuration.GetSection(JwtSettings.SectionName))
+            .Validate(
+                JwtSettings.HasValidAccessTokenLifetime,
+                JwtSettings.AccessTokenExpirationValidationMessage)
+            .ValidateOnStart();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
 

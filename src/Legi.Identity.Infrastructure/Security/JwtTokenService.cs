@@ -48,4 +48,10 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
         rng.GetBytes(randomBytes);
         return Convert.ToBase64String(randomBytes);
     }
+
+    public string HashRefreshToken(string refreshToken)
+    {
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToBase64String(hashBytes);
+    }
 }

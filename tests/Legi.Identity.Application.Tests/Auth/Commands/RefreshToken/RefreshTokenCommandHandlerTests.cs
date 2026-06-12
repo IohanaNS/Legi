@@ -31,16 +31,27 @@ public class RefreshTokenCommandHandlerTests
         // Arrange
         var command = RefreshTokenCommandFactory.Create("old_refresh_token");
         var user = UserFactory.Create();
-        user.AddRefreshToken(command.RefreshToken, DateTime.UtcNow.AddDays(1));
         var accessTokenExpiresAt = new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        _userRepositoryMock
-            .Setup(x => x.GetByRefreshTokenAsync(command.RefreshToken, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("old_refresh_token_hash");
 
         _tokenServiceMock
             .Setup(x => x.GenerateRefreshToken())
             .Returns("new_refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("new_refresh_token"))
+            .Returns("new_refresh_token_hash");
+
+        _userRepositoryMock
+            .Setup(x => x.RotateRefreshTokenAsync(
+                "old_refresh_token_hash",
+                "new_refresh_token_hash",
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RefreshTokenRotationResult.Success(user));
 
         _tokenServiceMock
             .Setup(x => x.GenerateAccessToken(user))
@@ -54,10 +65,14 @@ public class RefreshTokenCommandHandlerTests
         Assert.Equal("new_refresh_token", result.RefreshToken);
         Assert.Equal(accessTokenExpiresAt, result.ExpiresAt);
 
-        Assert.Null(user.GetValidRefreshToken(command.RefreshToken));
-        Assert.NotNull(user.GetValidRefreshToken("new_refresh_token"));
-
-        _userRepositoryMock.Verify(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(
+            x => x.RotateRefreshTokenAsync(
+                "old_refresh_token_hash",
+                "new_refresh_token_hash",
+                It.Is<DateTime>(expiresAt => expiresAt > DateTime.UtcNow),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _userRepositoryMock.Verify(x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -66,9 +81,25 @@ public class RefreshTokenCommandHandlerTests
         // Arrange
         var command = RefreshTokenCommandFactory.Create("invalid_token");
 
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("invalid_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("unused_refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("unused_refresh_token"))
+            .Returns("unused_refresh_token_hash");
+
         _userRepositoryMock
-            .Setup(x => x.GetByRefreshTokenAsync(command.RefreshToken, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
+            .Setup(x => x.RotateRefreshTokenAsync(
+                "invalid_token_hash",
+                "unused_refresh_token_hash",
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RefreshTokenRotationResult.Invalid());
 
         // Act
         var act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -81,6 +112,7 @@ public class RefreshTokenCommandHandlerTests
             x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Never);
     }
 
     [Fact]
@@ -88,12 +120,26 @@ public class RefreshTokenCommandHandlerTests
     {
         // Arrange
         var command = RefreshTokenCommandFactory.Create("expired_token");
-        var user = UserFactory.Create();
-        user.AddRefreshToken(command.RefreshToken, DateTime.UtcNow.AddMinutes(-1));
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("expired_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("unused_refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("unused_refresh_token"))
+            .Returns("unused_refresh_token_hash");
 
         _userRepositoryMock
-            .Setup(x => x.GetByRefreshTokenAsync(command.RefreshToken, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+            .Setup(x => x.RotateRefreshTokenAsync(
+                "expired_token_hash",
+                "unused_refresh_token_hash",
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RefreshTokenRotationResult.Invalid());
 
         // Act
         var act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -102,7 +148,41 @@ public class RefreshTokenCommandHandlerTests
         var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
         Assert.Equal("Invalid or expired refresh token.", exception.Message);
 
-        _tokenServiceMock.Verify(x => x.GenerateRefreshToken(), Times.Never);
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowUnauthorizedExceptionAndNotIssueAccessToken_WhenReplayIsDetected()
+    {
+        // Arrange
+        var command = RefreshTokenCommandFactory.Create("replayed_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("replayed_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("unused_refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("unused_refresh_token"))
+            .Returns("unused_refresh_token_hash");
+
+        _userRepositoryMock
+            .Setup(x => x.RotateRefreshTokenAsync(
+                "replayed_token_hash",
+                "unused_refresh_token_hash",
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RefreshTokenRotationResult.ReplayDetected());
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
+        Assert.Equal("Invalid or expired refresh token.", exception.Message);
         _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Never);
     }
 }

@@ -1,3 +1,4 @@
+using System.Data;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -40,11 +41,51 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
             .FirstOrDefaultAsync(u => u.Email.Value == normalized || u.Username.Value == normalized, cancellationToken);
     }
 
-    public async Task<User?> GetByRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken = default)
+    public async Task<RefreshTokenRotationResult> RotateRefreshTokenAsync(
+        string currentTokenHash,
+        string newTokenHash,
+        DateTime newTokenExpiresAt,
+        CancellationToken cancellationToken = default)
     {
-        return await context.Users
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted,
+            cancellationToken);
+
+        var currentToken = await context.Set<RefreshToken>()
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM refresh_tokens
+                WHERE token_hash = {currentTokenHash}
+                FOR UPDATE
+                """)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (currentToken is null)
+            return RefreshTokenRotationResult.Invalid();
+
+        var userId = context.Entry(currentToken).Property<Guid>("UserId").CurrentValue;
+        var user = await context.Users
             .Include(u => u.RefreshTokens)
-            .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.TokenHash == tokenHash), cancellationToken);
+            .SingleAsync(u => u.Id == userId, cancellationToken);
+
+        if (currentToken.IsRevoked)
+        {
+            user.RevokeAllRefreshTokens();
+            await context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return RefreshTokenRotationResult.ReplayDetected();
+        }
+
+        if (currentToken.IsExpired)
+            return RefreshTokenRotationResult.Invalid();
+
+        user.RevokeRefreshToken(currentTokenHash);
+        user.AddRefreshToken(newTokenHash, newTokenExpiresAt);
+
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return RefreshTokenRotationResult.Success(user);
     }
 
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)

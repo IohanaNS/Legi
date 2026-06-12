@@ -49,6 +49,10 @@ public class LoginCommandHandlerTests
 
         _tokenServiceMock
             .Setup(x => x.GenerateRefreshToken())
+            .Returns("refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh_token"))
             .Returns("refresh_token_hash");
 
         // Act
@@ -59,7 +63,7 @@ public class LoginCommandHandlerTests
         Assert.Equal(user.Id, result.UserId);
         Assert.Equal(user.Email.Value, result.Email);
         Assert.Equal("access_token", result.Token);
-        Assert.Equal("refresh_token_hash", result.RefreshToken);
+        Assert.Equal("refresh_token", result.RefreshToken);
 
         _userRepositoryMock.Verify(
             x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
@@ -142,12 +146,18 @@ public class LoginCommandHandlerTests
             .Setup(x => x.GenerateRefreshToken())
             .Returns("new_refresh_token");
 
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("new_refresh_token"))
+            .Returns("new_refresh_token_hash");
+
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
+        Assert.Equal("new_refresh_token", result.RefreshToken);
         Assert.Equal(tokenCountBefore + 1, user.RefreshTokens.Count);
-        Assert.Contains(user.RefreshTokens, t => t.TokenHash == "new_refresh_token");
+        Assert.Contains(user.RefreshTokens, t => t.TokenHash == "new_refresh_token_hash");
+        Assert.DoesNotContain(user.RefreshTokens, t => t.TokenHash == "new_refresh_token");
     }
 
     [Fact]
@@ -172,6 +182,10 @@ public class LoginCommandHandlerTests
         _tokenServiceMock
             .Setup(x => x.GenerateRefreshToken())
             .Returns("refresh");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("refresh"))
+            .Returns("refresh_hash");
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

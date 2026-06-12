@@ -20,9 +20,8 @@ public sealed class LoggingBehavior<TRequest, TResponse>
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Handling {RequestName} with payload {@Request}",
-            typeof(TRequest).Name,
-            request);
+            "Handling {RequestName}",
+            typeof(TRequest).Name);
 
         var response = await next();
 

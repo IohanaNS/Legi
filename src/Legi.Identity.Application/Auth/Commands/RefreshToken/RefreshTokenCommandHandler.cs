@@ -22,32 +22,21 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
         RefreshTokenCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. Find User by RefreshToken
-        var user = await _userRepository.GetByRefreshTokenAsync(request.RefreshToken, cancellationToken);
+        var refreshTokenHash = _jwtTokenService.HashRefreshToken(request.RefreshToken);
 
-        if (user is null)
-            throw new UnauthorizedException("Invalid or expired refresh token.");
-
-        // 2. Validate token
-        var currentToken = user.GetValidRefreshToken(request.RefreshToken);
-
-        if (currentToken is null)
-            throw new UnauthorizedException("Invalid or expired refresh token.");
-
-        // 3. Revoke current token
-        user.RevokeRefreshToken(request.RefreshToken);
-
-        // 4. Create new refresh token
         var newRefreshTokenValue = _jwtTokenService.GenerateRefreshToken();
-        user.AddRefreshToken(newRefreshTokenValue, DateTime.UtcNow.AddDays(7));
+        var newRefreshTokenHash = _jwtTokenService.HashRefreshToken(newRefreshTokenValue);
+        var rotation = await _userRepository.RotateRefreshTokenAsync(
+            refreshTokenHash,
+            newRefreshTokenHash,
+            DateTime.UtcNow.AddDays(7),
+            cancellationToken);
 
-        // 5. Generate new access token
-        var (accessToken, expiresAt) = _jwtTokenService.GenerateAccessToken(user);
+        if (rotation.Status is not RefreshTokenRotationStatus.Success || rotation.User is null)
+            throw new UnauthorizedException("Invalid or expired refresh token.");
 
-        // 6. Persist
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        var (accessToken, expiresAt) = _jwtTokenService.GenerateAccessToken(rotation.User);
 
-        // 7. Return
         return new RefreshTokenResponse(accessToken, newRefreshTokenValue, expiresAt);
     }
 }
