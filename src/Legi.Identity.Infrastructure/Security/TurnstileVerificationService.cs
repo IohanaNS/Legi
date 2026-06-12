@@ -21,12 +21,16 @@ public sealed class TurnstileVerificationService : IHumanVerificationService
     public async Task<bool> VerifyAsync(
         string? token,
         string? remoteIpAddress,
+        string expectedAction,
         CancellationToken cancellationToken = default)
     {
         if (!_settings.Enabled)
             return true;
 
         if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(expectedAction))
             return false;
 
         var form = new Dictionary<string, string>
@@ -54,7 +58,10 @@ public sealed class TurnstileVerificationService : IHumanVerificationService
                 stream,
                 cancellationToken: cancellationToken);
 
-            return payload?.Success == true;
+            return payload?.Success == true &&
+                   string.Equals(payload.Action, expectedAction, StringComparison.Ordinal) &&
+                   _settings.AllowedHostnames.Any(hostname =>
+                       string.Equals(hostname.Trim(), payload.Hostname, StringComparison.OrdinalIgnoreCase));
         }
         catch (HttpRequestException)
         {
@@ -74,5 +81,11 @@ public sealed class TurnstileVerificationService : IHumanVerificationService
     {
         [JsonPropertyName("success")]
         public bool Success { get; init; }
+
+        [JsonPropertyName("hostname")]
+        public string? Hostname { get; init; }
+
+        [JsonPropertyName("action")]
+        public string? Action { get; init; }
     }
 }

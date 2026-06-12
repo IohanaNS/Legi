@@ -158,6 +158,7 @@ services:
             Turnstile__Enabled: ${Turnstile__Enabled:-false}
             Turnstile__SecretKey: ${Turnstile__SecretKey:-}
             Turnstile__SiteVerifyUrl: ${Turnstile__SiteVerifyUrl:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
+            Turnstile__AllowedHostnames__0: ${Turnstile__AllowedHostnames__0:-localhost}
             Turnstile__RequireForRegistration: ${Turnstile__RequireForRegistration:-true}
             Turnstile__LoginFailedAttemptsBeforeRequired: ${Turnstile__LoginFailedAttemptsBeforeRequired:-2}
             Turnstile__VerificationTimeoutSeconds: ${Turnstile__VerificationTimeoutSeconds:-5}

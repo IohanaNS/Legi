@@ -34,6 +34,7 @@ public static class DependencyInjection
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
 
         // Security
         services.AddOptions<LoginLockoutSettings>()

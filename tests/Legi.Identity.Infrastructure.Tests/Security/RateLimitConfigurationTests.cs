@@ -52,6 +52,7 @@ public class RateLimitConfigurationTests
         Assert.True(turnstile.GetProperty("RequireForRegistration").GetBoolean());
         Assert.InRange(turnstile.GetProperty("LoginFailedAttemptsBeforeRequired").GetInt32(), 0, 5);
         Assert.StartsWith("https://", turnstile.GetProperty("SiteVerifyUrl").GetString());
+        Assert.NotEmpty(turnstile.GetProperty("AllowedHostnames").EnumerateArray());
     }
 
     [Fact]

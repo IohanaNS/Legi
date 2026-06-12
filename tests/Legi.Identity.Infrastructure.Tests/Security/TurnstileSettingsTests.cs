@@ -46,7 +46,8 @@ public class TurnstileSettingsTests
         {
             Enabled = true,
             SecretKey = "1x0000000000000000000000000000000AA",
-            SiteVerifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+            SiteVerifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            AllowedHostnames = ["localhost"]
         };
 
         // Act
@@ -54,5 +55,24 @@ public class TurnstileSettingsTests
 
         // Assert
         Assert.True(result);
+    }
+
+    [Fact]
+    public void HasValidSettings_ShouldRejectEnabledSettingsWithoutAllowedHostnames()
+    {
+        // Arrange
+        var settings = new TurnstileSettings
+        {
+            Enabled = true,
+            SecretKey = "1x0000000000000000000000000000000AA",
+            SiteVerifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            AllowedHostnames = []
+        };
+
+        // Act
+        var result = TurnstileSettings.HasValidSettings(settings);
+
+        // Assert
+        Assert.False(result);
     }
 }

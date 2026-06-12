@@ -16,21 +16,13 @@ namespace Legi.Catalog.Infrastructure.ExternalServices.GoogleBooks;
 /// - Description is HTML-formatted and needs stripping
 /// - Image URLs may use http:// instead of https://
 /// </summary>
-internal class GoogleBooksClient : IExternalBookClient
+internal class GoogleBooksClient(
+    HttpClient httpClient,
+    IOptions<GoogleBooksSettings> settings,
+    ILogger<GoogleBooksClient> logger)
+    : IExternalBookClient
 {
-    private readonly HttpClient _httpClient;
-    private readonly GoogleBooksSettings _settings;
-    private readonly ILogger<GoogleBooksClient> _logger;
-
-    public GoogleBooksClient(
-        HttpClient httpClient,
-        IOptions<GoogleBooksSettings> settings,
-        ILogger<GoogleBooksClient> logger)
-    {
-        _httpClient = httpClient;
-        _settings = settings.Value;
-        _logger = logger;
-    }
+    private readonly GoogleBooksSettings _settings = settings.Value;
 
     public string ProviderName => "GoogleBooks";
     public int Priority => 2;
@@ -41,11 +33,11 @@ internal class GoogleBooksClient : IExternalBookClient
         {
             var url = BuildSearchUrl(isbn);
 
-            var response = await _httpClient.GetFromJsonAsync<GoogleBooksSearchResponse>(url, ct);
+            var response = await httpClient.GetFromJsonAsync<GoogleBooksSearchResponse>(url, ct);
 
             if (response is null or { TotalItems: 0 } || response.Items is null)
             {
-                _logger.LogDebug("ISBN {Isbn} not found in Google Books", isbn);
+                logger.LogDebug("ISBN {Isbn} not found in Google Books", isbn);
                 return null;
             }
 
@@ -57,22 +49,22 @@ internal class GoogleBooksClient : IExternalBookClient
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
         {
-            _logger.LogWarning("Google Books API rate limit exceeded for ISBN {Isbn}", isbn);
+            logger.LogWarning("Google Books API rate limit exceeded for ISBN {Isbn}", isbn);
             return null;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Google Books API request failed for ISBN {Isbn}", isbn);
+            logger.LogWarning(ex, "Google Books API request failed for ISBN {Isbn}", isbn);
             return null;
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            _logger.LogWarning(ex, "Google Books API request timed out for ISBN {Isbn}", isbn);
+            logger.LogWarning(ex, "Google Books API request timed out for ISBN {Isbn}", isbn);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unexpected error fetching from Google Books for ISBN {Isbn}", isbn);
+            logger.LogWarning(ex, "Unexpected error fetching from Google Books for ISBN {Isbn}", isbn);
             return null;
         }
     }
@@ -85,11 +77,11 @@ internal class GoogleBooksClient : IExternalBookClient
         try
         {
             var url = BuildTextSearchUrl(searchTerm, maxResults);
-            var response = await _httpClient.GetFromJsonAsync<GoogleBooksSearchResponse>(url, ct);
+            var response = await httpClient.GetFromJsonAsync<GoogleBooksSearchResponse>(url, ct);
 
             if (response is null or { TotalItems: 0 } || response.Items is null)
             {
-                _logger.LogDebug("Query {SearchTerm} returned no results in Google Books", searchTerm);
+                logger.LogDebug("Query {SearchTerm} returned no results in Google Books", searchTerm);
                 return [];
             }
 
@@ -101,22 +93,22 @@ internal class GoogleBooksClient : IExternalBookClient
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
         {
-            _logger.LogWarning("Google Books API rate limit exceeded for query {SearchTerm}", searchTerm);
+            logger.LogWarning("Google Books API rate limit exceeded for query {SearchTerm}", searchTerm);
             return [];
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Google Books API search failed for query {SearchTerm}", searchTerm);
+            logger.LogWarning(ex, "Google Books API search failed for query {SearchTerm}", searchTerm);
             return [];
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            _logger.LogWarning(ex, "Google Books API search timed out for query {SearchTerm}", searchTerm);
+            logger.LogWarning(ex, "Google Books API search timed out for query {SearchTerm}", searchTerm);
             return [];
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unexpected error searching Google Books for query {SearchTerm}", searchTerm);
+            logger.LogWarning(ex, "Unexpected error searching Google Books for query {SearchTerm}", searchTerm);
             return [];
         }
     }

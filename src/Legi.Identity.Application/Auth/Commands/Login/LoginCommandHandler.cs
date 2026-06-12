@@ -1,6 +1,7 @@
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
+using Legi.Identity.Domain.Entities;
 using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Repositories;
 
@@ -8,6 +9,7 @@ namespace Legi.Identity.Application.Auth.Commands.Login;
 
 public class LoginCommandHandler(
     IUserRepository userRepository,
+    ILoginAttemptRepository loginAttemptRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     LoginLockoutSettings loginLockoutSettings,
@@ -21,35 +23,35 @@ public class LoginCommandHandler(
         LoginCommand request,
         CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmailOrUsernameAsync(request.EmailOrUsername, cancellationToken);
-
-        if (user is null)
-            throw new UnauthorizedException(InvalidCredentialsMessage);
-
+        var identifier = LoginAttempt.NormalizeIdentifier(request.EmailOrUsername);
         var now = DateTime.UtcNow;
+        var loginAttempt = await loginAttemptRepository.GetByIdentifierAsync(identifier, cancellationToken);
 
-        if (user.IsLoginLockedOut(now))
+        if (loginAttempt?.IsLockedOut(now) == true)
             throw new UnauthorizedException(InvalidCredentialsMessage);
 
         if (turnstileSettings.Enabled &&
-            user.FailedLoginAttempts >= turnstileSettings.LoginFailedAttemptsBeforeRequired &&
+            (loginAttempt?.FailedAttempts ?? 0) >= turnstileSettings.LoginFailedAttemptsBeforeRequired &&
             !await humanVerificationService.VerifyAsync(
                 request.TurnstileToken,
                 request.RemoteIpAddress,
+                HumanVerificationActions.Login,
                 cancellationToken))
         {
             throw new HumanVerificationRequiredException();
         }
 
+        var user = await userRepository.GetByEmailOrUsernameAsync(identifier, cancellationToken);
+
+        if (user is null)
+        {
+            await RecordFailedAttemptAsync(identifier, now, cancellationToken);
+            throw new UnauthorizedException(InvalidCredentialsMessage);
+        }
+
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            user.RecordFailedLogin(
-                loginLockoutSettings.MaxFailedAttempts,
-                loginLockoutSettings.FailureWindow,
-                loginLockoutSettings.LockoutDuration,
-                now);
-
-            await userRepository.UpdateAsync(user, cancellationToken);
+            await RecordFailedAttemptAsync(identifier, now, cancellationToken);
 
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
@@ -59,6 +61,7 @@ public class LoginCommandHandler(
         var refreshToken = jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = jwtTokenService.HashRefreshToken(refreshToken);
         var refreshTokenExpiresAt = jwtTokenService.GetRefreshTokenExpiresAt();
+        await loginAttemptRepository.ClearAsync(identifier, cancellationToken);
         user.RecordSuccessfulLogin(now);
         user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
 
@@ -73,5 +76,19 @@ public class LoginCommandHandler(
             expiresAt,
             refreshTokenExpiresAt
         );
+    }
+
+    private Task RecordFailedAttemptAsync(
+        string identifier,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        return loginAttemptRepository.RecordFailedAttemptAsync(
+            identifier,
+            loginLockoutSettings.MaxFailedAttempts,
+            loginLockoutSettings.FailureWindow,
+            loginLockoutSettings.LockoutDuration,
+            utcNow,
+            cancellationToken);
     }
 }

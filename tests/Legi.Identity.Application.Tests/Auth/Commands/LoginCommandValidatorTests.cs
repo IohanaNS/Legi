@@ -36,6 +36,20 @@ public class LoginCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_ShouldFail_WhenEmailOrUsernameIsTooLong()
+    {
+        // Arrange
+        var command = LoginCommandFactory.Create(emailOrUsername: new string('a', 256));
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Email or username must be at most 255 characters");
+    }
+
+    [Fact]
     public void Validate_ShouldPass_WhenCommandIsValid()
     {
         // Arrange

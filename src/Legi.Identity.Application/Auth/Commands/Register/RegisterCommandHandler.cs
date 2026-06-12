@@ -37,6 +37,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
             !await _humanVerificationService.VerifyAsync(
                 request.TurnstileToken,
                 request.RemoteIpAddress,
+                HumanVerificationActions.Register,
                 cancellationToken))
         {
             throw new HumanVerificationRequiredException();

@@ -136,7 +136,7 @@ public class RegisterCommandHandlerTests
         var command = RegisterCommandFactory.Create(turnstileToken: null);
 
         _humanVerificationServiceMock
-            .Setup(x => x.VerifyAsync(null, null, It.IsAny<CancellationToken>()))
+            .Setup(x => x.VerifyAsync(null, null, HumanVerificationActions.Register, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
@@ -163,7 +163,7 @@ public class RegisterCommandHandlerTests
         var command = RegisterCommandFactory.Create(turnstileToken: "turnstile-token");
 
         _humanVerificationServiceMock
-            .Setup(x => x.VerifyAsync("turnstile-token", null, It.IsAny<CancellationToken>()))
+            .Setup(x => x.VerifyAsync("turnstile-token", null, HumanVerificationActions.Register, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         _userRepositoryMock

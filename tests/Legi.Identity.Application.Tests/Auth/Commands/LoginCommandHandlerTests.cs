@@ -12,6 +12,7 @@ namespace Legi.Identity.Application.Tests.Auth.Commands;
 public class LoginCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _tokenServiceMock;
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
@@ -22,6 +23,7 @@ public class LoginCommandHandlerTests
     public LoginCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
+        _loginAttemptRepositoryMock = new Mock<ILoginAttemptRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenServiceMock = new Mock<IJwtTokenService>();
         _humanVerificationServiceMock = new Mock<IHumanVerificationService>();
@@ -37,8 +39,13 @@ public class LoginCommandHandlerTests
             LoginFailedAttemptsBeforeRequired = 2
         };
 
+        _loginAttemptRepositoryMock
+            .Setup(x => x.GetByIdentifierAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LoginAttempt?)null);
+
         _handler = new LoginCommandHandler(
             _userRepositoryMock.Object,
+            _loginAttemptRepositoryMock.Object,
             _passwordHasherMock.Object,
             _tokenServiceMock.Object,
             _loginLockoutSettings,
@@ -94,6 +101,10 @@ public class LoginCommandHandlerTests
             x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
             Times.Once
         );
+        _loginAttemptRepositoryMock.Verify(
+            x => x.ClearAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -116,6 +127,16 @@ public class LoginCommandHandlerTests
         _passwordHasherMock.Verify(
             x => x.Verify(It.IsAny<string>(), It.IsAny<string>()),
             Times.Never
+        );
+        _loginAttemptRepositoryMock.Verify(
+            x => x.RecordFailedAttemptAsync(
+                "inexistente@exemplo.com",
+                _loginLockoutSettings.MaxFailedAttempts,
+                _loginLockoutSettings.FailureWindow,
+                _loginLockoutSettings.LockoutDuration,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once
         );
     }
 
@@ -146,32 +167,28 @@ public class LoginCommandHandlerTests
             Times.Never
         );
 
-        Assert.Equal(1, user.FailedLoginAttempts);
-        Assert.NotNull(user.LastFailedLoginAt);
-        Assert.Null(user.LoginLockoutEndsAt);
-
-        _userRepositoryMock.Verify(
-            x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
+        _loginAttemptRepositoryMock.Verify(
+            x => x.RecordFailedAttemptAsync(
+                command.EmailOrUsername,
+                _loginLockoutSettings.MaxFailedAttempts,
+                _loginLockoutSettings.FailureWindow,
+                _loginLockoutSettings.LockoutDuration,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
             Times.Once
+        );
+        _userRepositoryMock.Verify(
+            x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never
         );
     }
 
     [Fact]
-    public async Task Handle_ShouldLockAccountWhenFailedAttemptLimitIsReached()
+    public async Task Handle_ShouldRecordFailedAttemptWhenPasswordIsIncorrect()
     {
         // Arrange
         var command = LoginCommandFactory.Create(password: "SenhaErrada!");
         var user = CreateValidUser();
-        user.RecordFailedLogin(
-            _loginLockoutSettings.MaxFailedAttempts,
-            _loginLockoutSettings.FailureWindow,
-            _loginLockoutSettings.LockoutDuration,
-            DateTime.UtcNow.AddMinutes(-2));
-        user.RecordFailedLogin(
-            _loginLockoutSettings.MaxFailedAttempts,
-            _loginLockoutSettings.FailureWindow,
-            _loginLockoutSettings.LockoutDuration,
-            DateTime.UtcNow.AddMinutes(-1));
 
         _userRepositoryMock
             .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
@@ -187,11 +204,15 @@ public class LoginCommandHandlerTests
         // Assert
         var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
         Assert.Equal("Invalid credentials", exception.Message);
-        Assert.Equal(_loginLockoutSettings.MaxFailedAttempts, user.FailedLoginAttempts);
-        Assert.True(user.LoginLockoutEndsAt > DateTime.UtcNow);
 
-        _userRepositoryMock.Verify(
-            x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
+        _loginAttemptRepositoryMock.Verify(
+            x => x.RecordFailedAttemptAsync(
+                command.EmailOrUsername,
+                _loginLockoutSettings.MaxFailedAttempts,
+                _loginLockoutSettings.FailureWindow,
+                _loginLockoutSettings.LockoutDuration,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
             Times.Once
         );
     }
@@ -201,21 +222,21 @@ public class LoginCommandHandlerTests
     {
         // Arrange
         var command = LoginCommandFactory.Create(password: "SenhaCorreta123!");
-        var user = CreateValidUser();
         var now = DateTime.UtcNow;
+        var loginAttempt = LoginAttempt.Create(command.EmailOrUsername, now.AddMinutes(-1));
 
         for (var i = 0; i < _loginLockoutSettings.MaxFailedAttempts; i++)
         {
-            user.RecordFailedLogin(
+            loginAttempt.RecordFailedLogin(
                 _loginLockoutSettings.MaxFailedAttempts,
                 _loginLockoutSettings.FailureWindow,
                 _loginLockoutSettings.LockoutDuration,
                 now.AddSeconds(i));
         }
 
-        _userRepositoryMock
-            .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+        _loginAttemptRepositoryMock
+            .Setup(x => x.GetByIdentifierAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loginAttempt);
 
         // Act
         var act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -226,6 +247,10 @@ public class LoginCommandHandlerTests
 
         _passwordHasherMock.Verify(
             x => x.Verify(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never
+        );
+        _userRepositoryMock.Verify(
+            x => x.GetByEmailOrUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
         _userRepositoryMock.Verify(
@@ -240,24 +265,24 @@ public class LoginCommandHandlerTests
         // Arrange
         _turnstileSettings.Enabled = true;
         var command = LoginCommandFactory.Create(turnstileToken: null);
-        var user = CreateValidUser();
         var now = DateTime.UtcNow;
+        var loginAttempt = LoginAttempt.Create(command.EmailOrUsername, now.AddMinutes(-1));
 
         for (var i = 0; i < _turnstileSettings.LoginFailedAttemptsBeforeRequired; i++)
         {
-            user.RecordFailedLogin(
+            loginAttempt.RecordFailedLogin(
                 _loginLockoutSettings.MaxFailedAttempts,
                 _loginLockoutSettings.FailureWindow,
                 _loginLockoutSettings.LockoutDuration,
                 now.AddSeconds(i));
         }
 
-        _userRepositoryMock
-            .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+        _loginAttemptRepositoryMock
+            .Setup(x => x.GetByIdentifierAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loginAttempt);
 
         _humanVerificationServiceMock
-            .Setup(x => x.VerifyAsync(null, null, It.IsAny<CancellationToken>()))
+            .Setup(x => x.VerifyAsync(null, null, HumanVerificationActions.Login, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
@@ -271,7 +296,58 @@ public class LoginCommandHandlerTests
             Times.Never
         );
         _userRepositoryMock.Verify(
+            x => x.GetByEmailOrUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        _userRepositoryMock.Verify(
             x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRequireTurnstileWhenUnknownIdentifierHasFailedAttempts()
+    {
+        // Arrange
+        _turnstileSettings.Enabled = true;
+        var command = LoginCommandFactory.CreateWithEmail("unknown@example.com");
+        var now = DateTime.UtcNow;
+        var loginAttempt = LoginAttempt.Create(command.EmailOrUsername, now.AddMinutes(-1));
+
+        for (var i = 0; i < _turnstileSettings.LoginFailedAttemptsBeforeRequired; i++)
+        {
+            loginAttempt.RecordFailedLogin(
+                _loginLockoutSettings.MaxFailedAttempts,
+                _loginLockoutSettings.FailureWindow,
+                _loginLockoutSettings.LockoutDuration,
+                now.AddSeconds(i));
+        }
+
+        _loginAttemptRepositoryMock
+            .Setup(x => x.GetByIdentifierAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loginAttempt);
+
+        _humanVerificationServiceMock
+            .Setup(x => x.VerifyAsync(null, null, HumanVerificationActions.Login, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await Assert.ThrowsAsync<HumanVerificationRequiredException>(act);
+        _userRepositoryMock.Verify(
+            x => x.GetByEmailOrUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        _loginAttemptRepositoryMock.Verify(
+            x => x.RecordFailedAttemptAsync(
+                It.IsAny<string>(),
+                It.IsAny<int>(),
+                It.IsAny<TimeSpan>(),
+                It.IsAny<TimeSpan>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
             Times.Never
         );
     }
@@ -284,22 +360,27 @@ public class LoginCommandHandlerTests
         var command = LoginCommandFactory.Create(turnstileToken: "turnstile-token");
         var user = CreateValidUser();
         var now = DateTime.UtcNow;
+        var loginAttempt = LoginAttempt.Create(command.EmailOrUsername, now.AddMinutes(-1));
 
         for (var i = 0; i < _turnstileSettings.LoginFailedAttemptsBeforeRequired; i++)
         {
-            user.RecordFailedLogin(
+            loginAttempt.RecordFailedLogin(
                 _loginLockoutSettings.MaxFailedAttempts,
                 _loginLockoutSettings.FailureWindow,
                 _loginLockoutSettings.LockoutDuration,
                 now.AddSeconds(i));
         }
 
+        _loginAttemptRepositoryMock
+            .Setup(x => x.GetByIdentifierAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loginAttempt);
+
         _userRepositoryMock
             .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         _humanVerificationServiceMock
-            .Setup(x => x.VerifyAsync("turnstile-token", null, It.IsAny<CancellationToken>()))
+            .Setup(x => x.VerifyAsync("turnstile-token", null, HumanVerificationActions.Login, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         _passwordHasherMock
@@ -445,6 +526,10 @@ public class LoginCommandHandlerTests
         Assert.Equal(0, user.FailedLoginAttempts);
         Assert.Null(user.LastFailedLoginAt);
         Assert.Null(user.LoginLockoutEndsAt);
+        _loginAttemptRepositoryMock.Verify(
+            x => x.ClearAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     // Helper method
