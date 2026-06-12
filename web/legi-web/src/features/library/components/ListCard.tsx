@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BookOpen, Globe, Lock, Pencil, Trash2 } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
+import { BookCover } from "../../../components/ui/BookCover";
 import { cn } from "../../../lib/utils";
 import type { BookSnapshotDto, UserListSummaryDto } from "../types";
 
@@ -131,12 +132,6 @@ function CoverMosaic({ books }: { books: BookSnapshotDto[] }) {
 
 function CoverTile({ book }: { book: BookSnapshotDto }) {
   return (
-    <div className="flex items-center justify-center overflow-hidden bg-stone-200 dark:bg-dark-bg">
-      {book.coverUrl ? (
-        <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" loading="lazy" />
-      ) : (
-        <BookOpen size={20} className="text-stone-400 dark:text-stone-600" />
-      )}
-    </div>
+    <BookCover title={book.title} author={book.authorDisplay} coverUrl={book.coverUrl} />
   );
 }

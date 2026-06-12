@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Globe, Heart, Lock, Pencil, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, Globe, Heart, Lock, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { BookCover } from "../../../components/ui/BookCover";
 import { cn } from "../../../lib/utils";
 import { CommentThread } from "../../social/components/CommentThread";
 import { useListSocial } from "../../social/hooks/useListSocial";
@@ -162,19 +163,13 @@ export default function ListDetailPage() {
 function ListBookTile({ book }: { book: BookSnapshotDto }) {
   return (
     <Link to={`/books/${book.bookId}`} className="group block">
-      <div className="aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-bg">
-        {book.coverUrl ? (
-          <img
-            src={book.coverUrl}
-            alt={book.title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <BookOpen size={24} className="text-stone-400" />
-          </div>
-        )}
+      <div className="aspect-[2/3] overflow-hidden rounded-lg">
+        <BookCover
+          title={book.title}
+          author={book.authorDisplay}
+          coverUrl={book.coverUrl}
+          className="transition-transform group-hover:scale-105"
+        />
       </div>
       <p className="mt-1.5 truncate text-sm font-medium text-stone-800 dark:text-stone-100">{book.title}</p>
       <p className="truncate text-xs text-stone-500">{book.authorDisplay}</p>

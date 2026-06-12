@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, X } from "lucide-react";
+import { BookCover } from "../../../components/ui/BookCover";
 import { useReadingBooks } from "../../library/hooks/useReadingNow";
 
 interface ChangeBookModalProps {
@@ -86,15 +87,12 @@ export function ChangeBookModal({ currentUserBookId, onSelect, onClose }: Change
                   }}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-stone-50 dark:hover:bg-dark-raised"
                 >
-                  {ub.book.coverUrl ? (
-                    <img
-                      src={ub.book.coverUrl}
-                      alt={ub.book.title}
-                      className="h-14 w-10 flex-shrink-0 rounded object-cover bg-stone-200"
-                    />
-                  ) : (
-                    <div className="h-14 w-10 flex-shrink-0 rounded bg-stone-200" />
-                  )}
+                  <BookCover
+                    title={ub.book.title}
+                    author={ub.book.authorDisplay}
+                    coverUrl={ub.book.coverUrl}
+                    className="h-14 w-10 flex-shrink-0 rounded"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-stone-800 dark:text-stone-100">
                       {ub.book.title}

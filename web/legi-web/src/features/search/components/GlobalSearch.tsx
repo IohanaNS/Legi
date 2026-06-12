@@ -10,8 +10,9 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, List, LoaderCircle, Search, UserRound, X } from "lucide-react";
+import { List, LoaderCircle, Search, UserRound, X } from "lucide-react";
 import { Avatar } from "../../../components/ui/Avatar";
+import { BookCover } from "../../../components/ui/BookCover";
 import { cn } from "../../../lib/utils";
 import { useSearchAuthors } from "../../catalog/hooks/useSearchAuthors";
 import { useSearchBooks } from "../../catalog/hooks/useSearchBooks";
@@ -336,15 +337,12 @@ function BookResultRow({ book, onClick }: { book: BookSummaryDto; onClick: () =>
 
   return (
     <ResultButton onClick={onClick}>
-      <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-stone-200 dark:bg-dark-raised">
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-400">
-            <BookOpen size={18} />
-          </div>
-        )}
-      </div>
+      <BookCover
+        title={book.title}
+        author={authors}
+        coverUrl={book.coverUrl}
+        className="h-14 w-10 shrink-0 rounded"
+      />
       <ResultText title={book.title} subtitle={authors} meta={t("globalSearch.bookResult")} />
     </ResultButton>
   );

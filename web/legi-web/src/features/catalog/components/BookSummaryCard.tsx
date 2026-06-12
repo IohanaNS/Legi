@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, BookCheck, BookOpen, BookPlus, Check, Gift, LoaderCircle } from "lucide-react";
+import { AlertCircle, BookCheck, BookPlus, Check, Gift, LoaderCircle } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { BookCover } from "../../../components/ui/BookCover";
 import { StarRating } from "../../../components/ui/StarRating";
 import {
   isAlreadyInLibrary,
@@ -27,7 +28,6 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
   const markAsRead = useMarkBookAsRead();
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingTarget, setPendingTarget] = useState<ActionTarget | null>(null);
-  const [coverFailed, setCoverFailed] = useState(false);
   const [markMode, setMarkMode] = useState(false);
 
   const authors = book.authors.map((author) => author.name).join(", ") || t("explore.unknownAuthor");
@@ -77,22 +77,8 @@ export function BookSummaryCard({ book }: BookSummaryCardProps) {
 
   return (
     <article className="flex h-full flex-col rounded-lg border border-stone-200 dark:border-dark-raised bg-white dark:bg-dark-card p-3">
-      <Link
-        to={`/books/${book.id}`}
-        className="mb-3 block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised"
-      >
-        {book.coverUrl && !coverFailed ? (
-          <img
-            src={book.coverUrl}
-            alt={book.title}
-            className="h-full w-full object-cover"
-            onError={() => setCoverFailed(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-400 dark:text-stone-500">
-            <BookOpen size={34} />
-          </div>
-        )}
+      <Link to={`/books/${book.id}`} className="mb-3 block aspect-[2/3] overflow-hidden rounded-lg">
+        <BookCover title={book.title} author={authors} coverUrl={book.coverUrl} />
       </Link>
 
       <div className="flex flex-1 flex-col">

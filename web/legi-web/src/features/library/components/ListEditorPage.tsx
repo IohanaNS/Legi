@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import { BookOpen, Check, Globe, Lock, Plus, Search, X } from "lucide-react";
+import { Check, Globe, Lock, Plus, Search, X } from "lucide-react";
+import { BookCover } from "../../../components/ui/BookCover";
 import { Button } from "../../../components/ui/Button";
 import { useSearchBooks } from "../../catalog/hooks/useSearchBooks";
 import { cn } from "../../../lib/utils";
@@ -321,13 +322,5 @@ function VisibilityButton({
 }
 
 function Cover({ url, title }: { url?: string | null; title: string }) {
-  return (
-    <div className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-200 dark:bg-dark-bg">
-      {url ? (
-        <img src={url} alt={title} className="h-full w-full object-cover" loading="lazy" />
-      ) : (
-        <BookOpen size={16} className="text-stone-400" />
-      )}
-    </div>
-  );
+  return <BookCover title={title} coverUrl={url} className="h-14 w-10 shrink-0 rounded" />;
 }

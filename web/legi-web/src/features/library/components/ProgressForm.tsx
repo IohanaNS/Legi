@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { EyeOff } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
+import { BookCover } from "../../../components/ui/BookCover";
 import { useUpdateProgress } from "../hooks/useReadingNow";
 import { progressPercent } from "../lib/mappers";
 import type { ProgressType, UserBookDto } from "../types";
@@ -77,15 +78,12 @@ export function ProgressForm({ userBook, onSuccess }: ProgressFormProps) {
   return (
     <form onSubmit={handleSubmit}>
       <div className="flex gap-4">
-        {book.coverUrl ? (
-          <img
-            src={book.coverUrl}
-            alt={book.title}
-            className="h-28 w-20 flex-shrink-0 rounded-lg object-cover bg-stone-200"
-          />
-        ) : (
-          <div className="h-28 w-20 flex-shrink-0 rounded-lg bg-stone-200" />
-        )}
+        <BookCover
+          title={book.title}
+          author={book.authorDisplay}
+          coverUrl={book.coverUrl}
+          className="h-28 w-20 flex-shrink-0 rounded-lg"
+        />
 
         <div className="flex-1 min-w-0">
           <h3 className="truncate font-semibold text-stone-800 dark:text-stone-100">{book.title}</h3>

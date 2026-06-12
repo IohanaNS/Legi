@@ -10,6 +10,8 @@ import { usePopularTags } from "../hooks/usePopularTags";
 import { useSearchBooks } from "../hooks/useSearchBooks";
 import type { SortOption, TagResult } from "../types";
 
+const BOOK_SEARCH_DEBOUNCE_MS = 300;
+
 export default function ExplorePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -25,7 +27,7 @@ export default function ExplorePage() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
-    }, 300);
+    }, BOOK_SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);

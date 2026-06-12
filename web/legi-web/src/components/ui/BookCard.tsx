@@ -1,5 +1,6 @@
 ﻿import { StarRating } from "./StarRating";
 import { Badge } from "./Badge";
+import { BookCover } from "./BookCover";
 import { cn } from "../../lib/utils";
 
 interface BookCardProps {
@@ -33,11 +34,12 @@ export function BookCard({
         className={cn("flex gap-3 group", interactive && "cursor-pointer", className)}
         onClick={onClick}
       >
-        <div className="w-16 h-22 bg-stone-200 rounded-lg flex-shrink-0 overflow-hidden">
-          {coverUrl && (
-            <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
-          )}
-        </div>
+        <BookCover
+          title={title}
+          author={author}
+          coverUrl={coverUrl}
+          className="w-16 h-22 rounded-lg flex-shrink-0"
+        />
         <div className="flex-1 min-w-0">
           <p
             className={cn(
@@ -59,11 +61,12 @@ export function BookCard({
       className={cn("group", interactive && "cursor-pointer", className)}
       onClick={onClick}
     >
-      <div className="aspect-[2/3] bg-stone-200 rounded-lg overflow-hidden mb-2">
-        {coverUrl && (
-          <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
-        )}
-      </div>
+      <BookCover
+        title={title}
+        author={author}
+        coverUrl={coverUrl}
+        className="aspect-[2/3] h-auto rounded-lg mb-2"
+      />
       <h3
         className={cn(
           "text-sm font-medium text-stone-800 truncate",

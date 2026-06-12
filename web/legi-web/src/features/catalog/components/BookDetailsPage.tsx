@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, CheckCircle2, MessageSquare, PenLine } from "lucide-react";
+import { ArrowLeft, CheckCircle2, MessageSquare, PenLine } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { BookCover } from "../../../components/ui/BookCover";
 import { StarRating } from "../../../components/ui/StarRating";
 import { StarRatingInput } from "../../../components/ui/StarRatingInput";
 import { useBookDetails } from "../hooks/useBookDetails";
@@ -120,14 +121,8 @@ export default function BookDetailsPage() {
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
         {/* Left column: cover + actions */}
         <div className="space-y-4">
-          <div className="aspect-[2/3] overflow-hidden rounded-xl bg-stone-200 dark:bg-dark-raised">
-            {book.coverUrl ? (
-              <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-stone-400">
-                <BookOpen size={40} />
-              </div>
-            )}
+          <div className="aspect-[2/3] overflow-hidden rounded-xl">
+            <BookCover title={book.title} author={authors} coverUrl={book.coverUrl} />
           </div>
 
           {userBook ? (

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { StarRating } from "../../../components/ui/StarRating";
+import { BookCover } from "../../../components/ui/BookCover";
 import { Badge } from "../../../components/ui/Badge";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { BookLifecycleActions } from "./BookLifecycleActions";
@@ -28,9 +29,7 @@ export function BookGridItem({ userBook, editable = false }: BookGridItemProps) 
           to={`/books/${book.bookId}`}
           className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-stone-200 dark:bg-dark-raised"
         >
-          {book.coverUrl && (
-            <img src={book.coverUrl} alt={book.title} className="h-full w-full object-cover" />
-          )}
+          <BookCover title={book.title} author={book.authorDisplay} coverUrl={book.coverUrl} />
 
           <div className="absolute left-2 top-2">
             <Badge variant={statusVariant(status)}>
