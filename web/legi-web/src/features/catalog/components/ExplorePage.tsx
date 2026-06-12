@@ -10,27 +10,52 @@ import { usePopularTags } from "../hooks/usePopularTags";
 import { useSearchBooks } from "../hooks/useSearchBooks";
 import type { SortOption, TagResult } from "../types";
 
-const BOOK_SEARCH_DEBOUNCE_MS = 300;
+const BOOK_SEARCH_DEBOUNCE_MS = 400;
 
 export default function ExplorePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const searchInput = searchParams.get("search") ?? "";
+  const urlSearchInput = searchParams.get("search") ?? "";
   const authorSlug = searchParams.get("authorSlug") ?? undefined;
   const authorName = searchParams.get("authorName");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(urlSearchInput);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearchInput.trim());
+  const [isSearchComposing, setIsSearchComposing] = useState(false);
   const [selectedTags, setSelectedTags] = useState<TagResult[]>([]);
   const [sort, setSort] = useState<SortOption>("mostPopular");
 
   useEffect(() => {
+    setSearchInput(urlSearchInput);
+    setDebouncedSearch(urlSearchInput.trim());
+  }, [urlSearchInput]);
+
+  useEffect(() => {
+    if (isSearchComposing) return;
+
     const timeoutId = window.setTimeout(() => {
-      setDebouncedSearch(searchInput.trim());
+      const normalizedSearch = searchInput.trim();
+      setDebouncedSearch(normalizedSearch);
+      setSearchParams((currentParams) => {
+        const currentSearch = currentParams.get("search") ?? "";
+        if (currentSearch === searchInput || (!normalizedSearch && !currentParams.has("search"))) {
+          return currentParams;
+        }
+
+        const nextParams = new URLSearchParams(currentParams);
+        if (normalizedSearch) {
+          nextParams.set("search", searchInput);
+        } else {
+          nextParams.delete("search");
+        }
+
+        return nextParams;
+      }, { replace: true });
     }, BOOK_SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [searchInput]);
+  }, [isSearchComposing, searchInput, setSearchParams]);
 
   const tagsQuery = usePopularTags();
   const booksQuery = useSearchBooks({
@@ -55,21 +80,21 @@ export default function ExplorePage() {
   };
 
   const handleSearchChange = (value: string) => {
-    const nextParams = new URLSearchParams(searchParams);
-    if (value.trim()) {
-      nextParams.set("search", value);
-    } else {
-      nextParams.delete("search");
-    }
-
-    setSearchParams(nextParams, { replace: true });
+    setSearchInput(value);
   };
 
   const clearAuthorFilter = () => {
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("authorSlug");
-    nextParams.delete("authorName");
-    setSearchParams(nextParams, { replace: true });
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (searchInput.trim()) {
+        nextParams.set("search", searchInput);
+      } else {
+        nextParams.delete("search");
+      }
+      nextParams.delete("authorSlug");
+      nextParams.delete("authorName");
+      return nextParams;
+    }, { replace: true });
   };
 
   return (
@@ -89,7 +114,11 @@ export default function ExplorePage() {
         </Button>
       </header>
 
-      <SearchBar value={searchInput} onChange={handleSearchChange} />
+      <SearchBar
+        value={searchInput}
+        onChange={handleSearchChange}
+        onCompositionChange={setIsSearchComposing}
+      />
 
       {authorSlug && (
         <div className="flex">

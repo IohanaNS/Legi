@@ -73,7 +73,8 @@ public sealed partial class BookImportService(
             pageCount,
             publisher,
             coverUrl,
-            CreateTags(input.Tags).Take(Book.MaxTags));
+            CreateTags(input.Tags).Take(Book.MaxTags),
+            providerWorkKey: externalData?.WorkKey);
 
         await bookRepository.AddAsync(book, cancellationToken);
         return book;
@@ -124,7 +125,8 @@ public sealed partial class BookImportService(
                 candidate.PageCount,
                 Clean(candidate.Publisher),
                 ResolveCoverUrl(candidate.CoverUrl, isbn.Value),
-                CreateTags(candidate.Tags).Take(Book.MaxTags));
+                CreateTags(candidate.Tags).Take(Book.MaxTags),
+                providerWorkKey: candidate.WorkKey);
 
             await bookRepository.AddAsync(book, cancellationToken);
             return new BookImportOutcome(BookImportResult.Imported, book.Id);

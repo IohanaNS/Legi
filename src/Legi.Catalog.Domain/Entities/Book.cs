@@ -10,6 +10,16 @@ public class Book : BaseAuditableEntity
     public const int MaxAuthors = 10;
 
     public Isbn Isbn { get; private set; } = null!;
+
+    /// <summary>
+    /// Groups editions of the same abstract work. Resolved at creation from the
+    /// provider work key (when available) or synthesized from title + primary
+    /// author. See <see cref="WorkKey"/> and Docs/CATALOG-FEATURE-editions.md.
+    /// Currently informational (stored, not yet a relationship) — the bridge to
+    /// the future Work/Edition split.
+    /// </summary>
+    public WorkKey WorkKey { get; private set; } = null!;
+
     public string Title { get; private set; } = null!;
     public string? Synopsis { get; private set; }
     public int? PageCount { get; private set; }
@@ -37,7 +47,8 @@ public class Book : BaseAuditableEntity
         int? pageCount = null,
         string? publisher = null,
         string? coverUrl = null,
-        IEnumerable<Tag>? tags = null)
+        IEnumerable<Tag>? tags = null,
+        string? providerWorkKey = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new DomainException("Title is required");
@@ -46,7 +57,7 @@ public class Book : BaseAuditableEntity
                throw new DomainException("Title must be at most 500 characters");
 
         var authorsList = authors.ToList();
-        
+
         switch (authorsList.Count)
         {
             case 0:
@@ -58,11 +69,14 @@ public class Book : BaseAuditableEntity
         if (pageCount.HasValue && pageCount.Value <= 0)
             throw new DomainException("Page count must be greater than zero");
 
+        var trimmedTitle = title.Trim();
+
         var book = new Book
         {
             Id = Guid.NewGuid(),
             Isbn = isbn,
-            Title = title.Trim(),
+            WorkKey = WorkKey.Resolve(providerWorkKey, trimmedTitle, authorsList[0].Name),
+            Title = trimmedTitle,
             Synopsis = synopsis?.Trim(),
             PageCount = pageCount,
             Publisher = publisher?.Trim(),

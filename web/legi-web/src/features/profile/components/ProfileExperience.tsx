@@ -229,6 +229,7 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
                   key={ub.userBookId}
                   userBook={ub}
                   editable={permissions.canEditLibrary}
+                  variant={viewMode}
                 />
               ))}
             </div>

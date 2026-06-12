@@ -62,9 +62,25 @@ aggregated read fields.
 - **Linking:** an edition belongs to exactly one work. On import, resolve/create
   the work by `WorkKey`, then attach the edition. Two editions sharing a `WorkKey`
   are siblings under one work.
-- **Risk to watch:** synthesized keys can over-merge (same title, different book) or
-  under-merge (title variations). Keep the work-link *reassignable* so a wrong
-  grouping can be corrected later without data loss.
+
+### Merge policy — LOCKED: bias to under-merge (2026-06-12)
+
+Over-merge **corrupts** (unrelated books collapse → wrong aggregate rating shown);
+under-merge only **fragments** (duplicate Works, recoverable via merge). So when in
+doubt, do **not** merge. Linking precedence, authoritative-signal first:
+
+1. **OpenLibrary work key** directly (OL-sourced editions) — trust it.
+2. **ISBN → OL work lookup** — resolve the authoritative work key by ISBN for
+   Google-sourced (and any ISBN-bearing) editions instead of guessing. The main
+   lever that keeps Google books on real work keys.
+3. **Synthesized key** only as last resort — normalized `title + primary author`
+   (lowercase, strip diacritics/punctuation, normalize author "Last, First" →
+   "First Last" + initials). **Always include the author** (never title alone);
+   **keep subtitles** (dropping them over-merges series volumes).
+
+Keep the work-link **reassignable**. Auto-reconciliation (a synthesized Work later
+discovering its OL key and merging) + merge tooling are **deferred** — accept some
+duplicate Works initially; the mutable link makes later correction safe.
 
 ## The attachment map (the spine)
 
@@ -78,7 +94,7 @@ The rule: **social/aggregate concerns → Work; physical/reading concerns → Ed
 | ISBN, page count, publisher, language, format, year | **Edition** | A specific manifestation |
 | **Cover** | **Edition** | Edition-specific; Work carries a denormalized default |
 | Default/representative cover | **Work** (denormalized from an edition) | Search/list/feed need *a* cover |
-| `UserBook` | **points at both** | Edition = the copy they read; Work = identity for aggregation |
+| `UserBook` | **WorkId (required) + EditionId (nullable)** | Edition = the copy they read (optional); Work = identity for aggregation |
 | Rating / review (the act) | **Work** (review may *note* the edition) | A review of *Dune* shows on every edition |
 | Reading progress, page-based completion | **Edition** | Needs *that* edition's page count |
 | List entries | **Work** | Lists are edition-agnostic; display a representative cover |
@@ -100,10 +116,16 @@ The rule: **social/aggregate concerns → Work; physical/reading concerns → Ed
   the Edition. `EnrichExistingBookAsync` becomes "enrich edition + maybe work."
 
 ### Library
-- `UserBook` gains a **dual reference**: `EditionId` (the copy they read) +
-  `WorkId` (identity for aggregation). Re-add of a *different edition* of the same
-  work is still a new reading cycle.
-- Page-based `Progress` reads **`Edition.PageCount`**.
+- `UserBook` gains a **dual reference**: `WorkId` (required, identity for
+  aggregation) + `EditionId` (**nullable**, the copy they read). **LOCKED
+  (2026-06-12): edition optional.** Add-to-library defaults to **work-level**
+  (frictionless, never a dead-end); user refines to a specific edition later
+  (progressive disclosure). Auto-attach a representative edition when obvious, but
+  never require it. Re-add of a *different edition* of the same work is still a new
+  reading cycle.
+- Page-based `Progress` reads **`Edition.PageCount`** when an edition is set; with
+  no edition, fall back to percentage (existing `ProgressForm` behavior). UI nudges
+  "pick your edition to track by page."
 - `BookSnapshot` splits/extends into work-level + edition-level fields (or
   `WorkSnapshot` + `EditionSnapshot`) — projected from Catalog events.
 - Lists reference **Work**; display the work's default cover.
@@ -149,12 +171,11 @@ perception now. See the placeholder section in
 
 ## Open questions / deferred
 
-- `WorkKey` synthesis algorithm for Google / OL gaps, and how aggressively to merge
-  (over-merge vs under-merge tolerance).
 - `BookSnapshot` — extend in place vs split into `WorkSnapshot` + `EditionSnapshot`.
-- Whether `UserBook` strictly requires an `EditionId`, or allows "work-only" when
-  the user can't identify their exact edition (likely: allow work-only, edition
-  optional, to avoid a dead end at add-time).
 - Whether to split the `BookId`-carrying integration events or widen them in place.
 - Edition-merge / reassign tooling — deferred, but keep the work-link mutable.
+
+**Resolved 2026-06-12** (see Merge policy + Library sections above): WorkKey merge
+tolerance → **bias to under-merge**, OL/ISBN-first linking. UserBook edition
+requirement → **edition optional, work-level default**.
 </content>

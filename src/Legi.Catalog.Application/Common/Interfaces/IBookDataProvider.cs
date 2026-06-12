@@ -40,6 +40,13 @@ public record ExternalBookData
     public string? Language { get; init; }
 
     /// <summary>
+    /// The provider's abstract-work identifier when available (OpenLibrary's
+    /// <c>/works/OL…W</c>). Null for providers with no work concept (Google Books).
+    /// Used to group editions of the same work — see <c>WorkKey</c>.
+    /// </summary>
+    public string? WorkKey { get; init; }
+
+    /// <summary>
     /// Which provider returned this data (e.g. "OpenLibrary", "GoogleBooks").
     /// For logging/debugging only — never persisted.
     /// </summary>
@@ -66,4 +73,10 @@ public record ExternalBookCandidate
     public IReadOnlyList<string> Tags { get; init; } = [];
     public string? Language { get; init; }
     public string? PublishedDate { get; init; }
+
+    /// <summary>
+    /// The provider's abstract-work identifier when available (OpenLibrary search
+    /// docs are work-keyed). Null for Google Books. Used to group editions.
+    /// </summary>
+    public string? WorkKey { get; init; }
 }

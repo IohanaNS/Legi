@@ -29,6 +29,19 @@ public class BookConfiguration : IEntityTypeConfiguration<Book>
                 .HasDatabaseName("ix_books_isbn");
         });
 
+        // Value Object: WorkKey — groups editions of the same work. Non-unique:
+        // many editions (books) can share one work key.
+        builder.OwnsOne(b => b.WorkKey, workKey =>
+        {
+            workKey.Property(w => w.Value)
+                .HasColumnName("work_key")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            workKey.HasIndex(w => w.Value)
+                .HasDatabaseName("ix_books_work_key");
+        });
+
         builder.Property(b => b.Title)
             .HasColumnName("title")
             .HasMaxLength(500)

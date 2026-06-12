@@ -22,6 +22,7 @@ internal static class OpenLibraryMapper
             Publisher = edition.Publishers?.FirstOrDefault(),
             CoverUrl = BuildCoverUrl(edition.Covers),
             Language = ParseLanguageCode(edition.Languages),
+            WorkKey = edition.Works?.FirstOrDefault()?.Key,
             ProviderName = "OpenLibrary"
         };
     }
@@ -51,7 +52,8 @@ internal static class OpenLibraryMapper
             CoverUrl = BuildCoverUrl(doc.CoverId),
             Tags = doc.Subjects?.Take(10).ToList() ?? [],
             Language = doc.Languages?.FirstOrDefault(),
-            PublishedDate = doc.FirstPublishYear?.ToString()
+            PublishedDate = doc.FirstPublishYear?.ToString(),
+            WorkKey = doc.Key // OpenLibrary search docs are keyed by work ("/works/OL…W").
         };
     }
 
