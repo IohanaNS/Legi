@@ -23,4 +23,22 @@ public class JwtTokenServiceTests
         Assert.Equal(expectedHash, result);
         Assert.NotEqual(refreshToken, result);
     }
+
+    [Fact]
+    public void GetRefreshTokenExpiresAt_ShouldUseConfiguredLifetime()
+    {
+        // Arrange
+        var service = new JwtTokenService(Options.Create(new JwtSettings
+        {
+            RefreshTokenExpirationDays = 14
+        }));
+        var before = DateTime.UtcNow.AddDays(14);
+
+        // Act
+        var result = service.GetRefreshTokenExpiresAt();
+
+        // Assert
+        var after = DateTime.UtcNow.AddDays(14);
+        Assert.InRange(result, before, after);
+    }
 }

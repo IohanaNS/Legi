@@ -42,8 +42,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         var (accessToken, expiresAt) = _tokenService.GenerateAccessToken(user);
         var refreshToken = _tokenService.GenerateRefreshToken();
         var refreshTokenHash = _tokenService.HashRefreshToken(refreshToken);
+        var refreshTokenExpiresAt = _tokenService.GetRefreshTokenExpiresAt();
 
-        user.AddRefreshToken(refreshTokenHash, DateTime.UtcNow.AddDays(7));
+        user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
 
         await _userRepository.AddAsync(user, cancellationToken);
 
@@ -53,7 +54,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
             user.Username.Value,
             accessToken,
             refreshToken,
-            expiresAt
+            expiresAt,
+            refreshTokenExpiresAt
         );
     }
 }

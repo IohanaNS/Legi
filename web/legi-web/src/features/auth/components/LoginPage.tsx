@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ import { Logo } from "../../../components/ui/Logo";
 
 export default function LoginPage() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { isAuthenticated, isLoading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/feed";
@@ -23,11 +23,21 @@ export default function LoginPage() {
     onSuccess: () => navigate(from, { replace: true }),
   });
 
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [from, isAuthenticated, isLoading, navigate]);
+
   const errorMessage = mutation.isError
     ? isAxiosError(mutation.error) && mutation.error.response?.status === 401
       ? t("auth.invalidCredentials")
       : t("auth.genericError")
     : null;
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-parchment dark:bg-dark-bg" />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">

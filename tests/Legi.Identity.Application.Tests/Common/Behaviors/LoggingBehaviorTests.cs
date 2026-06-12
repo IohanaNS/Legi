@@ -48,7 +48,8 @@ public class LoggingBehaviorTests
                 "reader",
                 "access-token",
                 "refresh-token",
-                DateTime.UtcNow.AddMinutes(15))),
+                DateTime.UtcNow.AddMinutes(15),
+                DateTime.UtcNow.AddDays(7))),
             CancellationToken.None);
 
         // Assert

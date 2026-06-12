@@ -36,6 +36,7 @@ public class RegisterCommandHandlerTests
             email: "novo@exemplo.com",
             username: "novousr"
         );
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(14);
 
         _userRepositoryMock
             .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -61,6 +62,10 @@ public class RegisterCommandHandlerTests
             .Setup(x => x.HashRefreshToken("refresh_token"))
             .Returns("refresh_token_hash");
 
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(refreshTokenExpiresAt);
+
         User? addedUser = null;
         _userRepositoryMock
             .Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
@@ -76,8 +81,10 @@ public class RegisterCommandHandlerTests
         Assert.Equal(command.Username.ToLowerInvariant(), result.Username);
         Assert.Equal("access_token", result.Token);
         Assert.Equal("refresh_token", result.RefreshToken);
+        Assert.Equal(refreshTokenExpiresAt, result.RefreshTokenExpiresAt);
         Assert.NotNull(addedUser);
         Assert.Contains(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token_hash");
+        Assert.Contains(addedUser.RefreshTokens, t => t.ExpiresAt == refreshTokenExpiresAt);
         Assert.DoesNotContain(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token");
 
         _userRepositoryMock.Verify(
@@ -140,6 +147,10 @@ public class RegisterCommandHandlerTests
             .Setup(x => x.HashRefreshToken("refresh"))
             .Returns("refresh_hash");
 
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(DateTime.UtcNow.AddDays(14));
+
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
@@ -180,6 +191,10 @@ public class RegisterCommandHandlerTests
             .Setup(x => x.HashRefreshToken("refresh_token"))
             .Returns("refresh_token_hash");
 
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(DateTime.UtcNow.AddDays(14));
+
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
@@ -187,5 +202,6 @@ public class RegisterCommandHandlerTests
         _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Once);
         _tokenServiceMock.Verify(x => x.GenerateRefreshToken(), Times.Once);
         _tokenServiceMock.Verify(x => x.HashRefreshToken("refresh_token"), Times.Once);
+        _tokenServiceMock.Verify(x => x.GetRefreshTokenExpiresAt(), Times.Once);
     }
 }

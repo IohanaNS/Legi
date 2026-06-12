@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Legi.Identity.Api.Security;
 using Legi.SharedKernel.Mediator;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
 using Legi.Identity.Application.Users.Queries.GetCurrentUser;
@@ -13,10 +14,12 @@ namespace Legi.Identity.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IHostEnvironment _environment;
 
-    public UsersController(IMediator mediator)
+    public UsersController(IMediator mediator, IHostEnvironment environment)
     {
         _mediator = mediator;
+        _environment = environment;
     }   
 
     /// <summary>
@@ -46,6 +49,7 @@ public class UsersController : ControllerBase
         var userId = GetCurrentUserId();
         var command = new DeleteAccountCommand(userId);
         await _mediator.Send(command, cancellationToken);
+        RefreshTokenCookie.Delete(Response, _environment);
         return NoContent();
     }
 

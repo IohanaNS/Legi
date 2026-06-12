@@ -6,5 +6,6 @@ public record LoginResponse(
     string Username,
     string Token,
     string RefreshToken,
-    DateTime ExpiresAt
+    DateTime ExpiresAt,
+    DateTime RefreshTokenExpiresAt
 );

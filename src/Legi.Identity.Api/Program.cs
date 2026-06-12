@@ -49,7 +49,7 @@ builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>()
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? throw new InvalidOperationException("JWT settings are required.");
-jwtSettings.ValidateAccessTokenLifetime();
+jwtSettings.Validate();
 
 builder.Services.AddAuthentication(options =>
 {

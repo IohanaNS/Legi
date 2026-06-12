@@ -26,10 +26,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 
         var newRefreshTokenValue = _jwtTokenService.GenerateRefreshToken();
         var newRefreshTokenHash = _jwtTokenService.HashRefreshToken(newRefreshTokenValue);
+        var newRefreshTokenExpiresAt = _jwtTokenService.GetRefreshTokenExpiresAt();
         var rotation = await _userRepository.RotateRefreshTokenAsync(
             refreshTokenHash,
             newRefreshTokenHash,
-            DateTime.UtcNow.AddDays(7),
+            newRefreshTokenExpiresAt,
             cancellationToken);
 
         if (rotation.Status is not RefreshTokenRotationStatus.Success || rotation.User is null)
@@ -37,6 +38,13 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 
         var (accessToken, expiresAt) = _jwtTokenService.GenerateAccessToken(rotation.User);
 
-        return new RefreshTokenResponse(accessToken, newRefreshTokenValue, expiresAt);
+        return new RefreshTokenResponse(
+            rotation.User.Id,
+            rotation.User.Email.Value,
+            rotation.User.Username.Value,
+            accessToken,
+            newRefreshTokenValue,
+            expiresAt,
+            newRefreshTokenExpiresAt);
     }
 }

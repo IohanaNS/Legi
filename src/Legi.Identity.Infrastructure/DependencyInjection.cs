@@ -37,8 +37,8 @@ public static class DependencyInjection
         services.AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
             .Validate(
-                JwtSettings.HasValidAccessTokenLifetime,
-                JwtSettings.AccessTokenExpirationValidationMessage)
+                JwtSettings.HasValidSettings,
+                JwtSettings.ValidationMessage)
             .ValidateOnStart();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();

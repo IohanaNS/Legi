@@ -5,6 +5,7 @@ import type { LoginRequest, RegisterRequest } from "./types";
 export interface AuthContextValue {
   user: StoredUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (body: LoginRequest) => Promise<void>;
   register: (body: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;

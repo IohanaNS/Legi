@@ -17,6 +17,17 @@ public class RateLimitConfigurationTests
     }
 
     [Fact]
+    public void IdentityAppSettings_ShouldEnableEndpointRateLimiting()
+    {
+        // Arrange
+        var appSettings = LoadJson("src", "Legi.Identity.Api", "appsettings.json");
+        var ipRateLimiting = appSettings.GetProperty("IpRateLimiting");
+
+        // Assert
+        Assert.True(ipRateLimiting.GetProperty("EnableEndpointRateLimiting").GetBoolean());
+    }
+
+    [Fact]
     public void DockerCompose_ShouldBindIdentityApiToLoopbackOnly()
     {
         // Arrange

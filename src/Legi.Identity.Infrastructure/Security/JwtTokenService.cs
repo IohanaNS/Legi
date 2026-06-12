@@ -54,4 +54,9 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
         return Convert.ToBase64String(hashBytes);
     }
+
+    public DateTime GetRefreshTokenExpiresAt()
+    {
+        return DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
+    }
 }

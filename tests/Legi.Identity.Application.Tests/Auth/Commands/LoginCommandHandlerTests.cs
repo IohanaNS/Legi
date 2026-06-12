@@ -34,6 +34,7 @@ public class LoginCommandHandlerTests
         // Arrange
         var command = new LoginCommand("teste@exemplo.com", "SenhaCorreta123!");
         var user = CreateValidUser();
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(14);
 
         _userRepositoryMock
             .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
@@ -55,6 +56,10 @@ public class LoginCommandHandlerTests
             .Setup(x => x.HashRefreshToken("refresh_token"))
             .Returns("refresh_token_hash");
 
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(refreshTokenExpiresAt);
+
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
@@ -64,6 +69,7 @@ public class LoginCommandHandlerTests
         Assert.Equal(user.Email.Value, result.Email);
         Assert.Equal("access_token", result.Token);
         Assert.Equal("refresh_token", result.RefreshToken);
+        Assert.Equal(refreshTokenExpiresAt, result.RefreshTokenExpiresAt);
 
         _userRepositoryMock.Verify(
             x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
@@ -129,6 +135,7 @@ public class LoginCommandHandlerTests
         var command = LoginCommandFactory.Create();
         var user = CreateValidUser();
         var tokenCountBefore = user.RefreshTokens.Count;
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(14);
 
         _userRepositoryMock
             .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
@@ -150,6 +157,10 @@ public class LoginCommandHandlerTests
             .Setup(x => x.HashRefreshToken("new_refresh_token"))
             .Returns("new_refresh_token_hash");
 
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(refreshTokenExpiresAt);
+
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
@@ -157,6 +168,7 @@ public class LoginCommandHandlerTests
         Assert.Equal("new_refresh_token", result.RefreshToken);
         Assert.Equal(tokenCountBefore + 1, user.RefreshTokens.Count);
         Assert.Contains(user.RefreshTokens, t => t.TokenHash == "new_refresh_token_hash");
+        Assert.Contains(user.RefreshTokens, t => t.ExpiresAt == refreshTokenExpiresAt);
         Assert.DoesNotContain(user.RefreshTokens, t => t.TokenHash == "new_refresh_token");
     }
 
@@ -186,6 +198,10 @@ public class LoginCommandHandlerTests
         _tokenServiceMock
             .Setup(x => x.HashRefreshToken("refresh"))
             .Returns("refresh_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(DateTime.UtcNow.AddDays(14));
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

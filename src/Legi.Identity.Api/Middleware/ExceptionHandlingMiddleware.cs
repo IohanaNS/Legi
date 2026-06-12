@@ -20,8 +20,51 @@ public class ExceptionHandlingMiddleware(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An unhandled exception occurred: {Message}", ex.Message);
+            LogException(context, ex);
             await HandleExceptionAsync(context, ex);
+        }
+    }
+
+    private void LogException(HttpContext context, Exception exception)
+    {
+        switch (exception)
+        {
+            case ValidationException:
+                logger.LogWarning(
+                    "Validation failed for {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+                break;
+
+            case UnauthorizedException:
+            case UnauthorizedAccessException:
+                logger.LogInformation(
+                    "Unauthorized request for {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+                break;
+
+            case ConflictException:
+            case DomainException:
+                logger.LogWarning(
+                    "{ExceptionType} for {Method} {Path}: {Message}",
+                    exception.GetType().Name,
+                    context.Request.Method,
+                    context.Request.Path,
+                    exception.Message);
+                break;
+
+            case NotFoundException:
+                logger.LogInformation(
+                    "Resource not found for {Method} {Path}: {Message}",
+                    context.Request.Method,
+                    context.Request.Path,
+                    exception.Message);
+                break;
+
+            default:
+                logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
+                break;
         }
     }
 

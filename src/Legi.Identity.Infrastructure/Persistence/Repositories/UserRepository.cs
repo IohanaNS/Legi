@@ -47,6 +47,20 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
         DateTime newTokenExpiresAt,
         CancellationToken cancellationToken = default)
     {
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => RotateRefreshTokenInTransactionAsync(
+            currentTokenHash,
+            newTokenHash,
+            newTokenExpiresAt,
+            cancellationToken));
+    }
+
+    private async Task<RefreshTokenRotationResult> RotateRefreshTokenInTransactionAsync(
+        string currentTokenHash,
+        string newTokenHash,
+        DateTime newTokenExpiresAt,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await context.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted,
             cancellationToken);
