@@ -6,6 +6,7 @@ import type {
   FollowedListDto,
   FollowUserDto,
   ListSocialStateDto,
+  ProfileImageUploadResponse,
   SocialPaginatedList,
   UserProfileDto,
 } from "./types";
@@ -15,6 +16,20 @@ export type Resource = "posts" | "lists" | "reviews";
 export const socialApi = {
   getUserProfile: (userId: string) =>
     http.get<UserProfileDto>(`/social/users/${userId}`).then((r) => r.data),
+  uploadProfileAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return http
+      .post<ProfileImageUploadResponse>("/social/users/me/avatar", formData)
+      .then((r) => r.data);
+  },
+  uploadProfileBanner: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return http
+      .post<ProfileImageUploadResponse>("/social/users/me/banner", formData)
+      .then((r) => r.data);
+  },
   searchUsers: (usernamePrefix: string, limit = 10) =>
     http
       .get<FollowUserDto[]>("/social/users/search", { params: { usernamePrefix, limit } })

@@ -306,6 +306,29 @@
         "title": "Perfil",
         "subtitle": "Seu perfil de leitura",
         "editProfile": "Editar perfil",
+        "media": {
+            "editAvatar": "Alterar foto de perfil",
+            "editBanner": "Alterar banner",
+            "avatarTitle": "Enviar foto de perfil",
+            "bannerTitle": "Enviar banner",
+            "fileLabel": "Arquivo de imagem",
+            "fileHelp": "JPG, PNG ou WebP. Até {{size}} MB.",
+            "avatarPreviewAlt": "Prévia da foto de perfil",
+            "bannerPreviewAlt": "Prévia do banner do perfil",
+            "closeDialog": "Fechar envio de imagem",
+            "errors": {
+                "required": "Escolha uma imagem antes de salvar.",
+                "empty": "Escolha uma imagem que não esteja vazia.",
+                "invalidImage": "O arquivo selecionado não é uma imagem válida.",
+                "unsupported": "Use uma imagem JPG, PNG ou WebP.",
+                "tooLarge": "A imagem não pode passar de {{size}} MB.",
+                "tooLargeUnknown": "A imagem é grande demais.",
+                "requestTooLarge": "O servidor recusou o upload por tamanho. Limite desta imagem: {{size}} MB.",
+                "uploadFailed": "Não foi possível enviar a imagem. Tente novamente.",
+                "uploadFailedWithStatus": "Não foi possível enviar a imagem (erro {{status}}).",
+                "uploadFailedWithDetail": "Não foi possível enviar a imagem. Detalhe: {{detail}}"
+            }
+        },
         "stats": {
             "read": "Lidos",
             "followers": "Seguidores",

@@ -43,8 +43,7 @@ public sealed class S3ObjectStorage : IObjectStorage
             BucketName = _options.Bucket,
             Key = key,
             InputStream = stream,
-            ContentType = image.ContentType,
-            DisablePayloadSigning = true
+            ContentType = image.ContentType
         }, cancellationToken);
 
         return $"{_options.PublicBasePath}/{key}";

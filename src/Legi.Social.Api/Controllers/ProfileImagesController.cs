@@ -14,6 +14,15 @@ public class ProfileImagesController : ControllerBase
 {
     private const long MaxAvatarBytes = 2 * 1024 * 1024;  // 2 MB
     private const long MaxBannerBytes = 5 * 1024 * 1024;  // 5 MB
+    private const long MultipartOverheadBytes = 256 * 1024;
+    private const long MaxAvatarRequestBytes = MaxAvatarBytes + MultipartOverheadBytes;
+    private const long MaxBannerRequestBytes = MaxBannerBytes + MultipartOverheadBytes;
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
 
     private readonly IMediator _mediator;
     private readonly IImageProcessor _imageProcessor;
@@ -30,17 +39,19 @@ public class ProfileImagesController : ControllerBase
     }
 
     [HttpPost("avatar")]
-    [RequestSizeLimit(MaxAvatarBytes)]
-    public Task<IActionResult> UploadAvatar(IFormFile file, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxAvatarRequestBytes)]
+    public Task<IActionResult> UploadAvatar([FromForm(Name = "file")] IFormFile? file, CancellationToken cancellationToken)
         => UploadAsync(file, ProfileImageKind.Avatar, MaxAvatarBytes, cancellationToken);
 
     [HttpPost("banner")]
-    [RequestSizeLimit(MaxBannerBytes)]
-    public Task<IActionResult> UploadBanner(IFormFile file, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxBannerRequestBytes)]
+    public Task<IActionResult> UploadBanner([FromForm(Name = "file")] IFormFile? file, CancellationToken cancellationToken)
         => UploadAsync(file, ProfileImageKind.Banner, MaxBannerBytes, cancellationToken);
 
     private async Task<IActionResult> UploadAsync(
-        IFormFile file,
+        IFormFile? file,
         ProfileImageKind kind,
         long maxBytes,
         CancellationToken cancellationToken)
@@ -50,6 +61,9 @@ public class ProfileImagesController : ControllerBase
 
         if (file.Length > maxBytes)
             return BadRequest(new { error = $"Image must not exceed {maxBytes / (1024 * 1024)} MB." });
+
+        if (!AllowedContentTypes.Contains(file.ContentType))
+            return BadRequest(new { error = "Only JPG, PNG, or WebP images are supported." });
 
         var userId = GetUserId();
 

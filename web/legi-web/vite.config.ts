@@ -11,6 +11,11 @@ export default defineConfig({
       "/api/v1/catalog": { target: "http://localhost:5112", changeOrigin: true },
       "/api/v1/library": { target: "http://localhost:5200", changeOrigin: true },
       "/api/v1/social": { target: "http://localhost:5300", changeOrigin: true },
+      "/media": {
+        target: "http://localhost:9000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/media/, "/legi-media"),
+      },
     },
   },
 })

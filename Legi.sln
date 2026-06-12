@@ -93,6 +93,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Messaging", "Messaging", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Legi.Social.Domain.Tests", "tests\Legi.Social.Domain.Tests\Legi.Social.Domain.Tests.csproj", "{E1060FED-6322-42B1-A4BF-64808191ACBB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Legi.Social.Api.Tests", "tests\Legi.Social.Api.Tests\Legi.Social.Api.Tests.csproj", "{37BD208C-D621-42AD-8E94-AC7C6A25E911}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -475,6 +477,18 @@ Global
 		{E1060FED-6322-42B1-A4BF-64808191ACBB}.Release|x64.Build.0 = Release|Any CPU
 		{E1060FED-6322-42B1-A4BF-64808191ACBB}.Release|x86.ActiveCfg = Release|Any CPU
 		{E1060FED-6322-42B1-A4BF-64808191ACBB}.Release|x86.Build.0 = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|x64.Build.0 = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Debug|x86.Build.0 = Debug|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|x64.ActiveCfg = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|x64.Build.0 = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|x86.ActiveCfg = Release|Any CPU
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -523,5 +537,6 @@ Global
 		{20F19274-83A7-4386-8CA5-FC5893A1E766} = {CF53D037-DD82-425C-8CA7-46734057F273}
 		{C709D0CA-ED27-4074-B0BC-6D58C99977DF} = {C9B1000C-B716-4A3D-B19F-80AAFB64023A}
 		{E1060FED-6322-42B1-A4BF-64808191ACBB} = {CF53D037-DD82-425C-8CA7-46734057F273}
+		{37BD208C-D621-42AD-8E94-AC7C6A25E911} = {C9B1000C-B716-4A3D-B19F-80AAFB64023A}
 	EndGlobalSection
 EndGlobal

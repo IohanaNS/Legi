@@ -13,8 +13,10 @@ import { FeedCard } from "../../social/components/FeedCard";
 import { FollowButton } from "../../social/components/FollowButton";
 import { FollowedListsSection } from "../../social/components/FollowedListsSection";
 import { useUserActivity } from "../../social/hooks/useFeed";
+import { useProfileImageUpload, type ProfileImageUploadKind } from "../../social/hooks/useProfileImageUpload";
 import { useUserProfile } from "../../social/hooks/useUserProfile";
 import { feedKeys } from "../../social/queryKeys";
+import { ProfileImageUploadModal } from "./ProfileImageUploadModal";
 import { useProfilePermissions } from "../hooks/useProfilePermissions";
 import { useUserLibraryStats } from "../hooks/useUserLibraryStats";
 import { useUserProfileBooks } from "../hooks/useUserProfileBooks";
@@ -38,6 +40,7 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [uploadKind, setUploadKind] = useState<ProfileImageUploadKind | null>(null);
 
   // Drive the active tab from the URL (?tab=) so links — e.g. "back to lists"
   // from a list detail page — can land directly on the right tab.
@@ -53,6 +56,7 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
   const profileQuery = useUserProfile(targetUserId);
   const statsQuery = useUserLibraryStats(targetUserId);
   const activity = useUserActivity(targetUserId);
+  const profileImageUpload = useProfileImageUpload();
 
   // useUserProfileBooks must run unconditionally; gate the fetch to status tabs.
   const isBooksTab = activeTab !== "lists" && activeTab !== "activity";
@@ -98,11 +102,26 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
   }
 
   const profile = profileQuery.data;
+  const openUploadModal = (kind: ProfileImageUploadKind) => {
+    profileImageUpload.reset();
+    setUploadKind(kind);
+  };
+  const closeUploadModal = () => {
+    if (profileImageUpload.isPending) return;
+    profileImageUpload.reset();
+    setUploadKind(null);
+  };
 
   return (
     <div>
       <ProfileHeader
         profile={profile}
+        onEditAvatar={
+          permissions.canEditProfile ? () => openUploadModal("avatar") : undefined
+        }
+        onEditBanner={
+          permissions.canEditProfile ? () => openUploadModal("banner") : undefined
+        }
         action={
           permissions.canFollow ? (
             <FollowButton userId={profile.userId} isFollowing={profile.isFollowing} />
@@ -222,6 +241,26 @@ export function ProfileExperience({ targetUserId }: ProfileExperienceProps) {
           </>
         )}
       </div>
+
+      {uploadKind && (
+        <ProfileImageUploadModal
+          kind={uploadKind}
+          username={profile.username}
+          currentUrl={uploadKind === "avatar" ? profile.avatarUrl : profile.bannerUrl}
+          isSaving={profileImageUpload.isPending}
+          error={profileImageUpload.error}
+          onCancel={closeUploadModal}
+          onFileSelected={() => profileImageUpload.reset()}
+          onSave={async (file) => {
+            await profileImageUpload.mutateAsync({
+              userId: profile.userId,
+              kind: uploadKind,
+              file,
+            });
+            setUploadKind(null);
+          }}
+        />
+      )}
     </div>
   );
 }

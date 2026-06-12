@@ -306,6 +306,29 @@
         "title": "Profile",
         "subtitle": "Your reading profile",
         "editProfile": "Edit profile",
+        "media": {
+            "editAvatar": "Change profile picture",
+            "editBanner": "Change banner",
+            "avatarTitle": "Upload profile picture",
+            "bannerTitle": "Upload banner",
+            "fileLabel": "Image file",
+            "fileHelp": "JPG, PNG, or WebP. Up to {{size}} MB.",
+            "avatarPreviewAlt": "Profile picture preview",
+            "bannerPreviewAlt": "Profile banner preview",
+            "closeDialog": "Close image upload",
+            "errors": {
+                "required": "Choose an image before saving.",
+                "empty": "Choose a non-empty image file.",
+                "invalidImage": "The selected file is not a valid image.",
+                "unsupported": "Use a JPG, PNG, or WebP image.",
+                "tooLarge": "Image must not exceed {{size}} MB.",
+                "tooLargeUnknown": "The image is too large.",
+                "requestTooLarge": "The server rejected the upload because it was too large. Limit for this image: {{size}} MB.",
+                "uploadFailed": "Couldn't upload the image. Please try again.",
+                "uploadFailedWithStatus": "Couldn't upload the image (error {{status}}).",
+                "uploadFailedWithDetail": "Couldn't upload the image. Detail: {{detail}}"
+            }
+        },
         "stats": {
             "read": "Read",
             "followers": "Followers",

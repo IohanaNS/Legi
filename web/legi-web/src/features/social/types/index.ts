@@ -33,6 +33,10 @@ export interface UserProfileDto {
   createdAt: string;
 }
 
+export interface ProfileImageUploadResponse {
+  url: string;
+}
+
 // Mirrors Legi.Social.Application.Common.DTOs.PaginatedList<T>.
 // IMPORTANT: the Social API's PaginatedList is NOT the same shape as Library's.
 // Social serializes { items, page, pageSize, totalItems, totalPages, hasNext, hasPrevious }
