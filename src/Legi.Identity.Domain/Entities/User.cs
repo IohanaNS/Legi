@@ -16,6 +16,9 @@ public class User : BaseAuditableEntity
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
 
+    private readonly List<PasswordResetToken> _passwordResetTokens = new();
+    public IReadOnlyCollection<PasswordResetToken> PasswordResetTokens => _passwordResetTokens.AsReadOnly();
+
     private User() { }
 
     public static User Create(Email email, Username username, string passwordHash)
@@ -141,5 +144,31 @@ public class User : BaseAuditableEntity
         PasswordHash = newPasswordHash;
         UpdatedAt = DateTime.UtcNow;
         RevokeAllRefreshTokens();
+    }
+
+    public PasswordResetToken AddPasswordResetToken(string tokenHash, DateTime expiresAt)
+    {
+        foreach (var existing in _passwordResetTokens.Where(t => t.IsActive))
+        {
+            existing.MarkUsed();
+        }
+
+        var token = new PasswordResetToken(tokenHash, expiresAt);
+        _passwordResetTokens.Add(token);
+
+        UpdatedAt = DateTime.UtcNow;
+
+        return token;
+    }
+
+    public void RedeemPasswordReset(string tokenHash, string newPasswordHash, DateTime utcNow)
+    {
+        var token = _passwordResetTokens.FirstOrDefault(t => t.TokenHash == tokenHash && t.IsActive);
+
+        if (token is null)
+            throw new DomainException("Invalid or expired reset token");
+
+        token.MarkUsed();
+        UpdatePassword(newPasswordHash);
     }
 }

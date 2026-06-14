@@ -1,8 +1,10 @@
 using System.Security.Claims;
+using Legi.Identity.Application.Auth.Commands.ForgotPassword;
 using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Auth.Commands.Logout;
 using Legi.Identity.Application.Auth.Commands.RefreshToken;
 using Legi.Identity.Application.Auth.Commands.Register;
+using Legi.Identity.Application.Auth.Commands.ResetPassword;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Api.Security;
 using Legi.SharedKernel.Mediator;
@@ -106,6 +108,42 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Requests a password reset link. Always returns 200 to avoid revealing whether an account exists.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new ForgotPasswordCommand(
+            request.Email,
+            request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            request.Language);
+        await _mediator.Send(command, cancellationToken);
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Resets the password using a token from the reset email.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new ResetPasswordCommand(request.Token, request.NewPassword);
+        await _mediator.Send(command, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Invalidates the refresh token (logout)
     /// </summary>
     [Authorize]
@@ -141,4 +179,6 @@ public class AuthController : ControllerBase
 // Request DTOs
 public record RegisterRequest(string Email, string Username, string Password, string? TurnstileToken = null);
 public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
+public record ForgotPasswordRequest(string Email, string? TurnstileToken = null, string? Language = null);
+public record ResetPasswordRequest(string Token, string NewPassword);
 public record AuthSessionResponse(Guid UserId, string Email, string Username, string Token, DateTime ExpiresAt);

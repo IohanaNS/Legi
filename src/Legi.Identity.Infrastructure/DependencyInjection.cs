@@ -3,6 +3,7 @@ using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Domain.Repositories;
+using Legi.Identity.Infrastructure.Email;
 using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Persistence.Repositories;
 using Legi.Identity.Infrastructure.Security;
@@ -68,6 +69,24 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+
+        // Password reset (token factory + email delivery)
+        services.AddOptions<PasswordResetSettings>()
+            .Bind(configuration.GetSection(PasswordResetSettings.SectionName))
+            .Validate(
+                PasswordResetSettings.HasValidSettings,
+                PasswordResetSettings.ValidationMessage)
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<PasswordResetSettings>>().Value);
+
+        services.AddOptions<SmtpSettings>()
+            .Bind(configuration.GetSection(SmtpSettings.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<SmtpSettings>>().Value);
+
+        services.AddScoped<IPasswordResetTokenFactory, PasswordResetTokenFactory>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         // Messaging infrastructure (own outbox + RabbitMQ).
         // Registers IEventBus, OutboxDispatcherWorker, RabbitMQ connection/publisher,

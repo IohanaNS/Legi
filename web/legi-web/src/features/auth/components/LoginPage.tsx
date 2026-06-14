@@ -101,6 +101,11 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-green-700 dark:text-green-400">
+              {t("auth.forgotPassword")}
+            </Link>
+          </div>
           {shouldShowTurnstile && (
             <TurnstileBox
               key={turnstileResetKey}

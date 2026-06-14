@@ -70,6 +70,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Navigation(u => u.RefreshTokens)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(u => u.PasswordResetTokens)
+            .WithOne()
+            .HasForeignKey("UserId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.PasswordResetTokens)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasIndex(u => u.CreatedAt)
             .HasDatabaseName("ix_users_created_at")
             .IsDescending();

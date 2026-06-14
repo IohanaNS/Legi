@@ -11,6 +11,17 @@ export interface RegisterRequest {
   turnstileToken?: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+  turnstileToken?: string;
+  language?: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
 export interface RefreshResponse {
   token: string;
   expiresAt: string;

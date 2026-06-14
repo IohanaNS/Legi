@@ -11,6 +11,7 @@ public class TurnstileSettings
     public string SiteVerifyUrl { get; set; } = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
     public string[] AllowedHostnames { get; set; } = [];
     public bool RequireForRegistration { get; set; } = true;
+    public bool RequireForPasswordReset { get; set; } = true;
     public int LoginFailedAttemptsBeforeRequired { get; set; } = 2;
     public int VerificationTimeoutSeconds { get; set; } = 5;
 

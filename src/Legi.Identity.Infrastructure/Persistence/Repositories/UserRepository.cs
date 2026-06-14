@@ -23,6 +23,18 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
             .FirstOrDefaultAsync(u => u.Email.Value == normalizedEmail, cancellationToken);
     }
 
+    public async Task<User?> GetByEmailWithPasswordResetTokensAsync(
+        string email,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        return await context.Users
+            .Include(u => u.RefreshTokens)
+            .Include(u => u.PasswordResetTokens)
+            .FirstOrDefaultAsync(u => u.Email.Value == normalizedEmail, cancellationToken);
+    }
+
     public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
         var normalizedUsername = username.Trim().ToLowerInvariant();
@@ -39,6 +51,56 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
         return await context.Users
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Email.Value == normalized || u.Username.Value == normalized, cancellationToken);
+    }
+
+    public async Task<bool> RedeemPasswordResetTokenAsync(
+        string tokenHash,
+        string newPasswordHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => RedeemPasswordResetTokenInTransactionAsync(
+            tokenHash,
+            newPasswordHash,
+            utcNow,
+            cancellationToken));
+    }
+
+    private async Task<bool> RedeemPasswordResetTokenInTransactionAsync(
+        string tokenHash,
+        string newPasswordHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted,
+            cancellationToken);
+
+        var resetToken = await context.Set<PasswordResetToken>()
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM password_reset_tokens
+                WHERE token_hash = {tokenHash}
+                FOR UPDATE
+                """)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (resetToken is null)
+            return false;
+
+        var userId = context.Entry(resetToken).Property<Guid>("UserId").CurrentValue;
+        var user = await context.Users
+            .Include(u => u.RefreshTokens)
+            .Include(u => u.PasswordResetTokens)
+            .SingleAsync(u => u.Id == userId, cancellationToken);
+
+        user.RedeemPasswordReset(tokenHash, newPasswordHash, utcNow);
+
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return true;
     }
 
     public async Task<RefreshTokenRotationResult> RotateRefreshTokenAsync(

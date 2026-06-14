@@ -162,6 +162,16 @@ services:
             Turnstile__RequireForRegistration: ${Turnstile__RequireForRegistration:-true}
             Turnstile__LoginFailedAttemptsBeforeRequired: ${Turnstile__LoginFailedAttemptsBeforeRequired:-2}
             Turnstile__VerificationTimeoutSeconds: ${Turnstile__VerificationTimeoutSeconds:-5}
+            Turnstile__RequireForPasswordReset: ${Turnstile__RequireForPasswordReset:-true}
+            PasswordReset__FrontendBaseUrl: ${PasswordReset__FrontendBaseUrl:-http://localhost:3000}
+            PasswordReset__TokenLifetimeMinutes: ${PasswordReset__TokenLifetimeMinutes:-60}
+            Smtp__Host: ${Smtp__Host:-}
+            Smtp__Port: ${Smtp__Port:-587}
+            Smtp__Username: ${Smtp__Username:-}
+            Smtp__Password: ${Smtp__Password:-}
+            Smtp__FromAddress: ${Smtp__FromAddress:-no-reply@bukihub.local}
+            Smtp__FromName: ${Smtp__FromName:-BukiHub}
+            Smtp__UseStartTls: ${Smtp__UseStartTls:-true}
             RabbitMq__Host: rabbitmq
             RabbitMq__Port: 5672
             RabbitMq__VirtualHost: /
