@@ -11,6 +11,7 @@ namespace Legi.Catalog.Application.Books;
 
 public sealed partial class BookImportService(
     IBookRepository bookRepository,
+    IWorkRepository workRepository,
     IBookDataProvider bookDataProvider,
     IBookCoverUrlResolver coverUrlResolver,
     ILogger<BookImportService> logger)
@@ -76,6 +77,7 @@ public sealed partial class BookImportService(
             CreateTags(input.Tags).Take(Book.MaxTags),
             providerWorkKey: externalData?.WorkKey);
 
+        await AssignWorkAsync(book, cancellationToken);
         await bookRepository.AddAsync(book, cancellationToken);
         return book;
     }
@@ -128,6 +130,7 @@ public sealed partial class BookImportService(
                 CreateTags(candidate.Tags).Take(Book.MaxTags),
                 providerWorkKey: candidate.WorkKey);
 
+            await AssignWorkAsync(book, cancellationToken);
             await bookRepository.AddAsync(book, cancellationToken);
             return new BookImportOutcome(BookImportResult.Imported, book.Id);
         }
@@ -232,6 +235,31 @@ public sealed partial class BookImportService(
     private string? ResolveCoverUrl(string? candidateCoverUrl, string isbn)
     {
         return Clean(candidateCoverUrl) ?? coverUrlResolver.ResolveByIsbn(isbn);
+    }
+
+    /// <summary>
+    /// Resolves-or-creates the <see cref="Work"/> for a freshly created edition by
+    /// its already-resolved <see cref="Book.WorkKey"/>, then links the edition to
+    /// it. A new edition contributes its cover as the work's default when the work
+    /// doesn't have one yet. Must run before the book is persisted (the work FK is
+    /// required).
+    /// </summary>
+    private async Task AssignWorkAsync(Book book, CancellationToken cancellationToken)
+    {
+        var work = await workRepository.GetByWorkKeyAsync(book.WorkKey.Value, cancellationToken);
+
+        if (work is null)
+        {
+            work = Work.Create(book.WorkKey, book.Title, book.CoverUrl);
+            await workRepository.AddAsync(work, cancellationToken);
+        }
+        else if (work.DefaultCoverUrl is null && !string.IsNullOrWhiteSpace(book.CoverUrl))
+        {
+            work.EnsureDefaultCover(book.CoverUrl);
+            await workRepository.UpdateAsync(work, cancellationToken);
+        }
+
+        book.AssignWork(work.Id);
     }
 
     private static string? UseUserValueOrFallback(string? userValue, string? externalValue)

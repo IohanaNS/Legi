@@ -46,6 +46,18 @@ export interface BookDetailsDto {
   createdByUserId?: string | null;
   createdAt: string;
   updatedAt: string;
+  workId: string;
+  editions: EditionSummaryDto[];
+}
+
+// Mirrors Legi.Catalog.Application.Books.DTOs.EditionSummaryDto.
+export interface EditionSummaryDto {
+  id: string;
+  isbn: string;
+  title: string;
+  coverUrl?: string | null;
+  publisher?: string | null;
+  pageCount?: number | null;
 }
 
 export interface PaginationMetadata {

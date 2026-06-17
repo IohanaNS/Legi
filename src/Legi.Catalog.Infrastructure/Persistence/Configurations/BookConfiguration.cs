@@ -42,6 +42,18 @@ public class BookConfiguration : IEntityTypeConfiguration<Book>
                 .HasDatabaseName("ix_books_work_key");
         });
 
+        builder.Property(b => b.WorkId)
+            .HasColumnName("work_id")
+            .IsRequired();
+
+        builder.HasOne<Work>()
+            .WithMany()
+            .HasForeignKey(b => b.WorkId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(b => b.WorkId)
+            .HasDatabaseName("ix_books_work_id");
+
         builder.Property(b => b.Title)
             .HasColumnName("title")
             .HasMaxLength(500)

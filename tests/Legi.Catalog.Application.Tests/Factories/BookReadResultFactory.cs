@@ -5,6 +5,7 @@ namespace Legi.Catalog.Application.Tests.Factories;
 public static class BookReadResultFactory
 {
     private static readonly Guid DefaultBookId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid DefaultWorkId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid DefaultCreatedByUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTime DefaultCreatedAt = new(2025, 1, 10, 12, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime DefaultUpdatedAt = new(2025, 1, 11, 12, 0, 0, DateTimeKind.Utc);
@@ -24,7 +25,8 @@ public static class BookReadResultFactory
         List<(string Name, string Slug)>? tags = null,
         Guid? createdByUserId = null,
         DateTime? createdAt = null,
-        DateTime? updatedAt = null)
+        DateTime? updatedAt = null,
+        Guid? workId = null)
     {
         return new BookDetailsResult(
             id ?? DefaultBookId,
@@ -41,7 +43,8 @@ public static class BookReadResultFactory
             tags ?? [("software-engineering", "software-engineering")],
             createdByUserId ?? DefaultCreatedByUserId,
             createdAt ?? DefaultCreatedAt,
-            updatedAt ?? DefaultUpdatedAt
+            updatedAt ?? DefaultUpdatedAt,
+            workId ?? DefaultWorkId
         );
     }
 

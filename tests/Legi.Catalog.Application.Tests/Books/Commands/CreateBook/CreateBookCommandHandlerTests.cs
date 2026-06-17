@@ -5,6 +5,7 @@ using Legi.Catalog.Application.Common.Interfaces;
 using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
+using Legi.Catalog.Domain.ValueObjects;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,6 +15,7 @@ namespace Legi.Catalog.Application.Tests.Books.Commands.CreateBook;
 public class CreateBookCommandHandlerTests
 {
     private readonly Mock<IBookRepository> _bookRepositoryMock;
+    private readonly Mock<IWorkRepository> _workRepositoryMock;
     private readonly Mock<IBookDataProvider> _bookDataProviderMock;
     private readonly Mock<IBookCoverUrlResolver> _bookCoverUrlResolverMock;
     private readonly CreateBookCommandHandler _handler;
@@ -21,6 +23,7 @@ public class CreateBookCommandHandlerTests
     public CreateBookCommandHandlerTests()
     {
         _bookRepositoryMock = new Mock<IBookRepository>();
+        _workRepositoryMock = new Mock<IWorkRepository>();
         _bookDataProviderMock = new Mock<IBookDataProvider>();
         _bookCoverUrlResolverMock = new Mock<IBookCoverUrlResolver>();
 
@@ -41,6 +44,7 @@ public class CreateBookCommandHandlerTests
 
         var bookImportService = new BookImportService(
             _bookRepositoryMock.Object,
+            _workRepositoryMock.Object,
             _bookDataProviderMock.Object,
             _bookCoverUrlResolverMock.Object,
             NullLogger<BookImportService>.Instance);
@@ -82,6 +86,65 @@ public class CreateBookCommandHandlerTests
             x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldCreateAndAssignNewWork_WhenNoWorkExistsForKey()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create();
+        Book? persistedBook = null;
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+        _bookRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
+            .Callback<Book, CancellationToken>((book, _) => persistedBook = book)
+            .Returns(Task.CompletedTask);
+        _workRepositoryMock
+            .Setup(x => x.GetByWorkKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Work?)null);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — a new work is created and the book is linked to it.
+        Assert.NotNull(persistedBook);
+        Assert.NotEqual(Guid.Empty, persistedBook!.WorkId);
+        _workRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<Work>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReuseExistingWork_WhenWorkExistsForKey()
+    {
+        // Arrange
+        var command = CreateBookCommandFactory.Create();
+        var existingWork = Work.Create(WorkKey.Synthesize("Existing", "Author"), "Existing");
+        Book? persistedBook = null;
+
+        _bookRepositoryMock
+            .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Book?)null);
+        _bookRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
+            .Callback<Book, CancellationToken>((book, _) => persistedBook = book)
+            .Returns(Task.CompletedTask);
+        _workRepositoryMock
+            .Setup(x => x.GetByWorkKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingWork);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — the book links to the existing work; no new work is created.
+        Assert.NotNull(persistedBook);
+        Assert.Equal(existingWork.Id, persistedBook!.WorkId);
+        _workRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<Work>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

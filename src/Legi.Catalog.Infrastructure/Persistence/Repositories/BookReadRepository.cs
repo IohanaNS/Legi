@@ -79,7 +79,20 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             query = query.Where(b => b.AverageRating >= minRating.Value);
         }
 
-        // Get a total count before pagination
+        // Collapse editions to one result per work so search returns works, not
+        // duplicate editions of the same book. The representative is the work's
+        // most-rated edition (tie-break: oldest), chosen among the editions that
+        // matched the filters above. On singleton-work data this is a no-op.
+        // (Work-level aggregate rating/title is deferred to the rating→Work step;
+        //  until then the representative edition's own fields stand in.)
+        var filtered = query;
+        query = filtered.Where(b => !filtered.Any(b2 =>
+            b2.WorkId == b.WorkId
+            && b2.Id != b.Id
+            && (b2.RatingsCount > b.RatingsCount
+                || (b2.RatingsCount == b.RatingsCount && b2.CreatedAt < b.CreatedAt))));
+
+        // Get a total count before pagination (now counts distinct matching works)
         var totalCount = await query.CountAsync(cancellationToken);
 
         // Apply sorting
@@ -186,8 +199,26 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             result.Tags.Select(t => (t.Name, t.Slug)).ToList(),
             result.Book.CreatedByUserId,
             result.Book.CreatedAt,
-            result.Book.UpdatedAt
+            result.Book.UpdatedAt,
+            result.Book.WorkId
         );
+    }
+
+    public Task<List<EditionResult>> GetEditionsByWorkIdAsync(
+        Guid workId,
+        CancellationToken cancellationToken = default)
+    {
+        return context.Books
+            .Where(b => b.WorkId == workId)
+            .OrderBy(b => b.CreatedAt)
+            .Select(b => new EditionResult(
+                b.Id,
+                b.Isbn.Value,
+                b.Title,
+                b.CoverUrl,
+                b.Publisher,
+                b.PageCount))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<BookDetailsResult?> GetBookDetailsByIsbnAsync(
@@ -237,7 +268,8 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             result.Tags.Select(t => (t.Name, t.Slug)).ToList(),
             result.Book.CreatedByUserId,
             result.Book.CreatedAt,
-            result.Book.UpdatedAt
+            result.Book.UpdatedAt,
+            result.Book.WorkId
         );
     }
 }

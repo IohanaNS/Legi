@@ -74,5 +74,6 @@ public record BookDetailsResult(
     List<(string Name, string Slug)> Tags,
     Guid? CreatedByUserId,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    Guid WorkId
 );

@@ -23,10 +23,18 @@ public class GetBookDetailsQueryHandlerTests
         // Arrange
         var query = GetBookDetailsQueryFactory.Create();
         var details = BookReadResultFactory.CreateDetails(id: query.BookId);
+        var editions = new List<EditionResult>
+        {
+            new(details.Id, details.Isbn, details.Title, details.CoverUrl, details.Publisher, details.PageCount),
+            new(Guid.NewGuid(), "9781234567897", details.Title, null, "Other Publisher", 320),
+        };
 
         _bookReadRepositoryMock
             .Setup(x => x.GetBookDetailsByIdAsync(query.BookId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(details);
+        _bookReadRepositoryMock
+            .Setup(x => x.GetEditionsByWorkIdAsync(details.WorkId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(editions);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -47,9 +55,16 @@ public class GetBookDetailsQueryHandlerTests
         Assert.Equal(details.UpdatedAt, result.UpdatedAt);
         Assert.Equal(details.Authors.Count, result.Authors.Count);
         Assert.Equal(details.Tags.Count, result.Tags.Count);
+        Assert.Equal(details.WorkId, result.WorkId);
+        Assert.Equal(2, result.Editions.Count);
+        Assert.Equal(details.Id, result.Editions[0].Id);
 
         _bookReadRepositoryMock.Verify(
             x => x.GetBookDetailsByIdAsync(query.BookId, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _bookReadRepositoryMock.Verify(
+            x => x.GetEditionsByWorkIdAsync(details.WorkId, It.IsAny<CancellationToken>()),
             Times.Once
         );
     }

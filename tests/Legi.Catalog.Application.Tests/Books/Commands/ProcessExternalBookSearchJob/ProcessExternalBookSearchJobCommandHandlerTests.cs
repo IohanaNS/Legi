@@ -15,6 +15,7 @@ public class ProcessExternalBookSearchJobCommandHandlerTests
 
     private readonly Mock<IBookDataProvider> _bookDataProviderMock = new();
     private readonly Mock<IBookRepository> _bookRepositoryMock = new();
+    private readonly Mock<IWorkRepository> _workRepositoryMock = new();
     private readonly Mock<IBookSearchAliasWriter> _searchAliasWriterMock = new();
     private readonly Mock<IBookCoverUrlResolver> _coverUrlResolverMock = new();
     private readonly ProcessExternalBookSearchJobCommandHandler _handler;
@@ -27,6 +28,7 @@ public class ProcessExternalBookSearchJobCommandHandlerTests
 
         var bookImportService = new BookImportService(
             _bookRepositoryMock.Object,
+            _workRepositoryMock.Object,
             _bookDataProviderMock.Object,
             _coverUrlResolverMock.Object,
             NullLogger<BookImportService>.Instance);

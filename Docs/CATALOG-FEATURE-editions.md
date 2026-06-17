@@ -157,6 +157,43 @@ perception now. See the placeholder section in
 - **"Add a cover" CTA** — the manual-upload escape hatch (reuses the profile-image
   upload path). Coverless becomes a soft, fixable state.
 
+## Implementation progress
+
+- **DONE (2026-06-16) — WorkKey foundation:** `WorkKey` value object (FromProvider /
+  Synthesize / Resolve), persisted on `Book` (`work_key` col + index), surfaced
+  through provider DTOs + OL mappers, resolved on import. Migration applied;
+  legacy rows backfilled with unique `syn:legacy-{id}` keys.
+- **DONE (2026-06-16) — Work aggregate + Book→Work link:** lean `Work` entity
+  (Id, WorkKey unique, Title, DefaultCoverUrl), `IWorkRepository` /
+  `WorkRepository`, `Book.WorkId` FK. `BookImportService.AssignWorkAsync`
+  resolves-or-creates the work by the edition's `WorkKey` on both create paths
+  (reusing `Book.WorkKey`, no double-compute). Migration `SplitWorkFromBook`
+  applied + integrity-verified (5800 books → 5800 works, 0 null/orphan).
+- **DONE (2026-06-16) — editions on book detail:** `GetBookDetails` now returns
+  `WorkId` + `Editions[]` (the work's editions, oldest-first) via
+  `IBookReadRepository.GetEditionsByWorkIdAsync` + `EditionSummaryDto`. Additive —
+  search and ratings untouched. NOTE: all legacy books are singleton works, so the
+  list shows 1 edition until books sharing a real work key are imported. Frontend
+  not yet wired (defer to read rework; only render when >1 edition).
+- **DONE (2026-06-16) — search collapses editions to one representative per work:**
+  `BookReadRepository.SearchAsync` appends a self-referencing "representative per
+  work" predicate (most-rated edition, tie-break oldest, chosen among filtered
+  editions). Keyed by the representative edition → **no frontend change**, existing
+  `/books/{id}` navigation intact. Verified: 5800 reps = 5800 works on real data;
+  a real-DB integration test (`SearchDedupIntegrationTests`) confirms 2 editions →
+  1 result = most-rated edition (validates EF translation).
+  - **Not yet:** rating/reviews still on `Book`; authors still on `Book`; search
+    sort/display still uses the representative edition's own rating (no work-level
+    aggregate); `Book` not yet renamed to `Edition`; no dedicated work page;
+    Contracts events still carry only `BookId`.
+
+- **ORDERING FINDING (2026-06-16):** work-level **rating aggregation is gated behind
+  Library.** The recompute stages per-(book,user) rows in the change tracker and
+  recomputes in-memory including the un-saved change; aggregating across a work's
+  editions is risky there AND semantically premature — correct per-user-per-work
+  dedup needs Library's `UserBook` to carry `WorkId` first. So the next major step
+  is **Phase 2 (Library + Contracts)**, not more Catalog read-rework.
+
 ## Phasing
 
 0. **Coverless UX** (generated placeholder + upload CTA) — orthogonal, immediate.

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle2, MessageSquare, PenLine } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { BookCover } from "../../../components/ui/BookCover";
 import { StarRating } from "../../../components/ui/StarRating";
+import { cn } from "../../../lib/utils";
 import { StarRatingInput } from "../../../components/ui/StarRatingInput";
 import { useBookDetails } from "../hooks/useBookDetails";
 import {
@@ -262,6 +263,56 @@ export default function BookDetailsPage() {
                   {t(synopsisExpanded ? "bookDetails.readLess" : "bookDetails.readMore")}
                 </button>
               )}
+            </section>
+          )}
+
+          {/* Editions of this work — only when there's more than one. */}
+          {book.editions.length > 1 && (
+            <section className="mt-8">
+              <h2 className="mb-4 text-lg font-semibold text-stone-800 dark:text-stone-100">
+                {t("bookDetails.editions")} ({book.editions.length})
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {book.editions.map((edition) => {
+                  const isCurrent = edition.id === book.id;
+                  return (
+                    <Link
+                      key={edition.id}
+                      to={`/books/${edition.id}`}
+                      className={cn(
+                        "flex gap-3 rounded-lg border p-2 transition-colors",
+                        isCurrent
+                          ? "border-green-600 bg-green-50 dark:border-green-500 dark:bg-green-950/30"
+                          : "border-stone-200 hover:border-stone-300 dark:border-dark-raised dark:hover:border-stone-600",
+                      )}
+                    >
+                      <BookCover
+                        title={edition.title}
+                        coverUrl={edition.coverUrl}
+                        className="h-20 w-14 shrink-0 rounded"
+                      />
+                      <div className="min-w-0 flex-1">
+                        {edition.publisher && (
+                          <p className="truncate text-sm font-medium text-stone-800 dark:text-stone-100">
+                            {edition.publisher}
+                          </p>
+                        )}
+                        {edition.pageCount != null && (
+                          <p className="text-xs text-stone-500 dark:text-stone-400">
+                            {t("bookDetails.pages", { count: edition.pageCount })}
+                          </p>
+                        )}
+                        <p className="truncate text-xs text-stone-400 dark:text-stone-500">{edition.isbn}</p>
+                        {isCurrent && (
+                          <span className="mt-1 inline-block text-xs font-medium text-green-700 dark:text-green-400">
+                            {t("bookDetails.currentEdition")}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             </section>
           )}
 

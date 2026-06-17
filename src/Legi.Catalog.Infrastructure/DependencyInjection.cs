@@ -45,6 +45,7 @@ public static class DependencyInjection
 
         // Repositories
         services.AddScoped<IBookRepository, BookRepository>();
+        services.AddScoped<IWorkRepository, WorkRepository>();
         services.AddScoped<IBookRatingRepository, BookRatingRepository>();
         services.AddScoped<Reconciliation.BookRatingReconciler>();
         services.AddScoped<IBookReadRepository, BookReadRepository>();

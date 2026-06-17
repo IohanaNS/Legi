@@ -37,6 +37,8 @@
         "synopsis": "Synopsis",
         "readMore": "Read more",
         "readLess": "Read less",
+        "editions": "Editions",
+        "currentEdition": "Current edition",
         "reviews": "Reviews",
         "writeReview": "Write review",
         "noReviews": "No reviews yet. Be the first!",

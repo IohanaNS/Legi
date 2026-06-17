@@ -7,6 +7,7 @@ namespace Legi.Catalog.Infrastructure.Persistence;
 
 public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbContext(options)
 {
+    public DbSet<Work> Works => Set<Work>();
     public DbSet<Book> Books => Set<Book>();
     public DbSet<TagEntity> Tags => Set<TagEntity>();
     public DbSet<BookTagEntity> BookTags => Set<BookTagEntity>();

@@ -20,6 +20,13 @@ public class Book : BaseAuditableEntity
     /// </summary>
     public WorkKey WorkKey { get; private set; } = null!;
 
+    /// <summary>
+    /// The <see cref="Work"/> this edition belongs to. Assigned during import via
+    /// <see cref="AssignWork"/> after the work is resolved-or-created by
+    /// <see cref="WorkKey"/>. See Docs/CATALOG-FEATURE-editions.md.
+    /// </summary>
+    public Guid WorkId { get; private set; }
+
     public string Title { get; private set; } = null!;
     public string? Synopsis { get; private set; }
     public int? PageCount { get; private set; }
@@ -113,6 +120,19 @@ public class Book : BaseAuditableEntity
             createdByUserId));
 
         return book;
+    }
+
+    /// <summary>
+    /// Links this edition to its <see cref="Work"/>. Called during import once the
+    /// work has been resolved-or-created from <see cref="WorkKey"/>.
+    /// </summary>
+    public void AssignWork(Guid workId)
+    {
+        if (workId == Guid.Empty)
+            throw new DomainException("WorkId is required");
+
+        WorkId = workId;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     #region Author Management

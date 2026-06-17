@@ -20,6 +20,10 @@ public class GetBookDetailsQueryHandler(IBookReadRepository bookReadRepository)
         if (book == null)
             throw new NotFoundException("Book", request.BookId);
 
+        var editions = await bookReadRepository.GetEditionsByWorkIdAsync(
+            book.WorkId,
+            cancellationToken);
+
         return new GetBookDetailsResponse(
             book.Id,
             book.Isbn,
@@ -35,7 +39,11 @@ public class GetBookDetailsQueryHandler(IBookReadRepository bookReadRepository)
             book.Tags.Select(t => new TagDto(t.Name, t.Slug)).ToList(),
             book.CreatedByUserId,
             book.CreatedAt,
-            book.UpdatedAt
+            book.UpdatedAt,
+            book.WorkId,
+            editions
+                .Select(e => new EditionSummaryDto(e.Id, e.Isbn, e.Title, e.CoverUrl, e.Publisher, e.PageCount))
+                .ToList()
         );
     }
 }

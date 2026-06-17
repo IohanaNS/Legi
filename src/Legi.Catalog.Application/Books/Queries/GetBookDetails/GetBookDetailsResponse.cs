@@ -17,5 +17,7 @@ public record GetBookDetailsResponse(
     List<TagDto> Tags,
     Guid? CreatedByUserId,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    Guid WorkId,
+    List<EditionSummaryDto> Editions
 );
