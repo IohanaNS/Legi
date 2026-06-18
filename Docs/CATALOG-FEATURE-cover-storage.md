@@ -125,6 +125,27 @@ manual escape hatch.
   permanently strand a job. (The analogous `ExternalBookSearchWorker` still has the
   original limitation — out of scope here.)
 
+### Live end-to-end smoke test (2026-06-18)
+Full Docker stack rebuilt (catalog/library/social/web) + `legi-covers` bucket created.
+Verified through the web nginx + live RabbitMQ + MinIO:
+- **Inline acquire → store → serve**: created a book with a real OL cover URL → response
+  `coverUrl=/covers/{isbn}/{guid}.jpg`; blob present in `legi-covers`; **served 200 via
+  nginx** `/covers/…`.
+- **Cover-less path**: book with no real cover → `coverUrl=null` + a **Pending
+  `cover_ingestion_jobs` row** scheduled +1h, `no_cover_attempts=0`; covered book → **no**
+  job. Fan-out tried both the provider URL and the `?default=false` fallback.
+- **Cross-context propagation (retires the standing caveat)**: Catalog `BookCreated`/
+  `BookUpdated` → **Library `book_snapshots` AND Social `book_snapshots` both carry the
+  owned cover URL** (and `work_id`), through the real outbox→RabbitMQ→inbox path.
+- **Manual upload**: `POST /books/{id}/cover` with a JPEG → **200**, re-encoded to
+  `/covers/{bookId}/{guid}.webp`, served via nginx; **re-upload → 409 fill-only**; the
+  upload's `BookUpdated` propagated to the Library snapshot.
+- **🐛 Bug caught + fixed**: the public URL was `/covers/covers/…` — the S3 key repeated
+  the `covers/` segment the bucket+base-path already imply. Fixed `S3BookCoverStorage`
+  (key is now `{ownerKey}/{guid}.ext`) + added `S3BookCoverStorageTests` regression guard.
+  Catalog integration suite now 17 green. *(This one-line fix + test is uncommitted on
+  top of `bcad5e5`.)*
+
 ### Remaining refinements (non-blocking)
 A worker discovery automated test, live-MinIO round-trip test, coverage health metric
 (Plan B §5), and tightening the upload permission model (currently any authed user may

@@ -9,7 +9,7 @@ namespace Legi.Catalog.Infrastructure.Storage;
 
 /// <summary>
 /// Stores book covers in an S3-compatible bucket (MinIO in dev). Object keys are
-/// owned here (<c>covers/{isbn}/{guid}.ext</c>); the persisted URL is the public
+/// owned here (<c>{ownerKey}/{guid}.ext</c>); the persisted URL is the public
 /// path the bucket is served under, so read-side DTOs use it verbatim. Mirrors
 /// the Social profile-image store but against the separate <c>legi-covers</c>
 /// bucket (locked decision 5).
@@ -36,8 +36,11 @@ public sealed class S3BookCoverStorage : IBookCoverStorage
 
     public async Task<string> StoreAsync(string ownerKey, CoverImage image, CancellationToken cancellationToken)
     {
+        // The bucket (legi-covers) is already cover-dedicated and is served under
+        // PublicBasePath (/covers), so the key must NOT repeat a "covers/" segment
+        // — otherwise the public URL doubles to /covers/covers/…
         var normalizedKey = ownerKey.Replace("-", "").Replace(" ", "").Trim();
-        var key = $"covers/{normalizedKey}/{Guid.NewGuid():N}.{image.Extension}";
+        var key = $"{normalizedKey}/{Guid.NewGuid():N}.{image.Extension}";
 
         using var stream = new MemoryStream(image.Bytes, writable: false);
 
