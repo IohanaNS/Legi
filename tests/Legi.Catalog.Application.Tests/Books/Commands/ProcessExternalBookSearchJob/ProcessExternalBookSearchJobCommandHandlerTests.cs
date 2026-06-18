@@ -1,6 +1,7 @@
 using Legi.Catalog.Application.Books;
 using Legi.Catalog.Application.Books.Commands.ProcessExternalBookSearchJob;
 using Legi.Catalog.Application.Common.Interfaces;
+using Legi.Catalog.Application.Common.Storage;
 using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
@@ -18,6 +19,8 @@ public class ProcessExternalBookSearchJobCommandHandlerTests
     private readonly Mock<IWorkRepository> _workRepositoryMock = new();
     private readonly Mock<IBookSearchAliasWriter> _searchAliasWriterMock = new();
     private readonly Mock<IBookCoverUrlResolver> _coverUrlResolverMock = new();
+    private readonly Mock<IBookCoverAcquisition> _coverAcquisitionMock = new();
+    private readonly Mock<ICoverIngestionQueue> _coverIngestionQueueMock = new();
     private readonly ProcessExternalBookSearchJobCommandHandler _handler;
 
     public ProcessExternalBookSearchJobCommandHandlerTests()
@@ -26,11 +29,22 @@ public class ProcessExternalBookSearchJobCommandHandlerTests
             .Setup(r => r.ResolveByIsbn(It.IsAny<string>()))
             .Returns(IsbnCoverUrl);
 
+        // Stand-in for acquire-cover: validate+store the first usable candidate and
+        // return its (owned) URL. Echoing the first non-blank candidate lets these
+        // tests assert which cover flowed through (candidate vs. ISBN fallback).
+        _coverAcquisitionMock
+            .Setup(x => x.AcquireAsync(
+                It.IsAny<string>(), It.IsAny<IReadOnlyList<string?>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, IReadOnlyList<string?> candidates, CancellationToken _) =>
+                candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)));
+
         var bookImportService = new BookImportService(
             _bookRepositoryMock.Object,
             _workRepositoryMock.Object,
             _bookDataProviderMock.Object,
             _coverUrlResolverMock.Object,
+            _coverAcquisitionMock.Object,
+            _coverIngestionQueueMock.Object,
             NullLogger<BookImportService>.Instance);
 
         _handler = new ProcessExternalBookSearchJobCommandHandler(

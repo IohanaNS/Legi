@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Legi.Catalog.Application.Books.Commands.CreateBook;
 using Legi.Catalog.Application.Books.Commands.DeleteBook;
+using Legi.Catalog.Application.Books.Commands.SetBookCover;
 using Legi.Catalog.Application.Books.Commands.UpdateBook;
 using Legi.Catalog.Application.Books.Queries.GetBookDetails;
 using Legi.Catalog.Application.Books.Queries.SearchBooks;
+using Legi.Catalog.Application.Common.Storage;
 using Legi.Catalog.Domain.Repositories;
 using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
@@ -15,11 +17,27 @@ namespace Legi.Catalog.Api.Controllers;
 [Route("api/v1/catalog/books")]
 public class BooksController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private const long MaxCoverBytes = 5 * 1024 * 1024; // 5 MB
+    private const long MaxCoverRequestBytes = MaxCoverBytes + 256 * 1024; // + multipart overhead
+    private static readonly HashSet<string> AllowedCoverContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
 
-    public BooksController(IMediator mediator)
+    private readonly IMediator _mediator;
+    private readonly IBookCoverImageProcessor _coverImageProcessor;
+    private readonly IBookCoverStorage _coverStorage;
+
+    public BooksController(
+        IMediator mediator,
+        IBookCoverImageProcessor coverImageProcessor,
+        IBookCoverStorage coverStorage)
     {
         _mediator = mediator;
+        _coverImageProcessor = coverImageProcessor;
+        _coverStorage = coverStorage;
     }
 
     /// <summary>
@@ -148,6 +166,54 @@ public class BooksController : ControllerBase
         var command = new DeleteBookCommand(bookId);
         await _mediator.Send(command, cancellationToken);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Manually upload a cover for a cover-less book — the escape hatch for the
+    /// long tail no provider has a cover for. Fill-only: 409 if a cover exists.
+    /// </summary>
+    [Authorize]
+    [HttpPost("{bookId:guid}/cover")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxCoverRequestBytes)]
+    [ProducesResponseType(typeof(SetBookCoverResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UploadCover(
+        Guid bookId,
+        [FromForm(Name = "file")] IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "A non-empty image file is required." });
+
+        if (file.Length > MaxCoverBytes)
+            return BadRequest(new { error = $"Image must not exceed {MaxCoverBytes / (1024 * 1024)} MB." });
+
+        if (!AllowedCoverContentTypes.Contains(file.ContentType))
+            return BadRequest(new { error = "Only JPG, PNG, or WebP images are supported." });
+
+        await using var stream = file.OpenReadStream();
+        var image = await _coverImageProcessor.ProcessAsync(stream, cancellationToken);
+
+        // Store the blob first (keyed by book id), then persist the URL. If the
+        // command rejects (book gone / already has a cover), clean up the orphan
+        // so a failed upload never leaves a dangling object in the bucket.
+        var coverUrl = await _coverStorage.StoreAsync(bookId.ToString("N"), image, cancellationToken);
+        try
+        {
+            var result = await _mediator.Send(
+                new SetBookCoverCommand(bookId, GetAuthenticatedUserId(), coverUrl),
+                cancellationToken);
+            return Ok(result);
+        }
+        catch
+        {
+            await _coverStorage.DeleteByUrlAsync(coverUrl, cancellationToken);
+            throw;
+        }
     }
 
     private Guid GetAuthenticatedUserId()

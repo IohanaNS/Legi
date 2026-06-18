@@ -1,6 +1,138 @@
 # Book Cover Storage — Implementation Plan
 
-> Status: approved, not yet building. Date: 2026-06-12.
+> Status: **built (all 4 increments)**. Date: 2026-06-12; completed 2026-06-17.
+
+## Implementation progress
+
+- **Increment 1 — acquire-cover foundation DONE + verified (2026-06-17).**
+  Infrastructure-only building blocks, not yet wired into import (behavior-neutral).
+  - Application abstractions (`Legi.Catalog.Application/Common/Storage/`):
+    `CoverImage` (validated bytes + content-type + extension), `IBookCoverSource`
+    (fan-out fetch+validate → `CoverImage?`), `IBookCoverStorage` (upload → blob
+    URL; delete-by-url), `IBookCoverAcquisition` (the one acquire-cover op:
+    source→storage, never throws → blob URL or null).
+  - Infrastructure (`Legi.Catalog.Infrastructure/Storage/`): `CatalogStorageOptions`
+    (`Storage` section, separate `legi-covers` bucket, `/covers` public base),
+    `CoverSourceOptions` (`CoverSource` section: host allowlist, per-fetch timeout,
+    byte floor/ceiling, min dimension), `S3BookCoverStorage` (mirrors Social's
+    `S3ObjectStorage`; keyed S3 client `catalog-covers`; key `covers/{isbn}/{guid}.ext`),
+    `HttpBookCoverSource` (named HttpClient `book-cover-source`; SSRF allowlist +
+    http(s)-only + ImageSharp decode/dimension/size validation; content-type &
+    extension derived from the *decoded* format, not headers; all failures → null),
+    `BookCoverAcquisition` (swallows MinIO/unexpected errors → null).
+  - Wiring: csproj +AWSSDK.S3 +SixLabors.ImageSharp; DI registers options, keyed
+    S3 client, named HttpClient, and the 3 services. Config: Catalog
+    `appsettings.Development.json` `Storage` section (localhost MinIO); compose
+    injects `Storage__*` into catalog-api + `depends_on minio`; minio-init creates
+    + publicly-reads `legi-covers`; nginx proxies `/covers/ → minio/legi-covers/`.
+  - Verified: full solution builds; 5 new `HttpBookCoverSourceTests` (fan-out picks
+    first valid, skips too-small & falls through, rejects non-image 200, rejects
+    non-allowlisted host *without* fetching, treats non-200 as no-cover) all green.
+  - NOT yet done here: inline acquire in `BookImportService` (increment 2),
+    durable retry job/worker (increment 3), manual upload endpoint (increment 4).
+
+- **Increment 2 — inline acquire wired into import DONE + verified (2026-06-17).**
+  `BookImportService` now owns covers instead of persisting external URLs.
+  - Ctor gains `IBookCoverAcquisition`. New private `AcquireCoverAsync(preferred,
+    isbn, ct)` builds the candidate fan-out `[Clean(preferred), resolver.ResolveByIsbn(isbn)]`
+    and calls acquisition → owned blob URL or null. Replaces the old `ResolveCoverUrl`
+    (which returned a raw/unvalidated URL — gone, per locked decision 2).
+  - All three paths use it: `CreateManualAsync` (inline — user already waits on the
+    provider lookup), `ImportCandidateAsync` (inside the external-search worker),
+    `EnrichExistingBookAsync` (backfill a missing cover with an owned one; the
+    existing `RaiseUpdatedEvent` republishes the blob URL to Library/Social snapshots).
+  - Behavior: covers become `/covers/...` blob URLs; if acquisition returns null
+    (no real cover / MinIO down / timeout) the book saves cover-less → frontend
+    placeholder. Never blocks the book.
+  - Tests: `CreateBookCommandHandlerTests` + `ProcessExternalBookSearchJobCommandHandlerTests`
+    construct `BookImportService` with a mocked `IBookCoverAcquisition` (echo-first-
+    candidate stand-in for "validate+store"); two cover assertions reworked to prove
+    the preferred candidate flows in and the owned URL is persisted. Catalog
+    Application 113 green; full solution builds; cover-source 5/5 green.
+  - Honest caveat: the actual MinIO round-trip is exercised only through the mock —
+    not yet against live MinIO. Fan-out is bounded by per-fetch timeout × 2 candidates
+    (~6s worst case); a single overall cap (~5s) is a possible refinement.
+
+- **Increment 3 — durable cover discovery DONE + verified (2026-06-17).**
+  Bounded decaying retry for books imported cover-less.
+  - Schema (3A): `CoverIngestionJobEntity` (BookId, Isbn, Status {Pending, Processing,
+    Succeeded, Exhausted}, NoCoverAttempts, TransientFailures, NextRetryAt, timestamps,
+    LastError) + config (partial unique index on BookId for active statuses + a
+    (status, next_retry_at) index) + DbSet + migration `AddCoverIngestionJobs`. Applied
+    to catalog-db (5433) and verified (columns, defaults, partial-unique index present).
+  - `CoverRetryPolicy` (pure): budget = **5 confirmed no-cover probes**; decaying
+    cadence 1h→6h→1d→3d→7d; transient (provider-unreachable) backoff 30m that does
+    **not** consume budget (the "don't penalize outages" rule).
+  - `ICoverIngestionQueue` (Application) + `CoverIngestionQueue` (Infra): adds one
+    Pending job per book, deduped via the partial unique index (mirrors
+    `ExternalBookSearchQueue`'s unique-violation swallow); first probe scheduled one
+    cadence out (the inline acquire just failed).
+  - `CoverIngestionWorker : BackgroundService`: claims due jobs (FOR UPDATE SKIP
+    LOCKED), re-probes the provider (lookup throwing = transient → reschedule, no
+    budget hit), runs acquire-cover; on a real cover updates the book +
+    `RaiseUpdatedEvent` (snapshots get the blob URL) + backfills the work's default
+    cover; on confirmed no-cover increments the budget → reschedule or Exhausted.
+  - Enqueue hook: `BookImportService` enqueues discovery when a book ends up
+    cover-less (both create paths + the enrich path), best-effort (never fails import).
+  - Wiring: `ICoverIngestionQueue` scoped + worker hosted service in Catalog Infra DI;
+    `BookImportService` ctor gains the queue (2 handler-test ctors updated).
+  - Tests: 4 `CoverRetryPolicyTests` (cadence, saturation, exhaustion boundary,
+    transient-doesn't-consume-budget) + 1 DB-backed `CoverIngestionQueueIntegrationTests`
+    (one Pending job, scheduled ~1h out, repeat enqueue deduped). Catalog App 113,
+    all 16 Catalog integration tests green, full solution builds.
+  - Honest caveat: the worker's claim+discovery loop isn't directly automated-tested
+    (it structurally mirrors the proven `ExternalBookSearchWorker`; the policy, queue,
+    and partial-unique index are tested). A worker discovery test could be added.
+
+- **Increment 4 — manual cover upload DONE + verified (2026-06-17).** The escape hatch.
+  - Application: `IBookCoverImageProcessor` + `SetBookCoverCommand`/Handler/Response.
+    Handler is **fill-only**: NotFound if the book's gone, **409 Conflict if a cover
+    already exists** (no overwriting good covers), else store → persist blob URL +
+    `RaiseUpdatedEvent` + backfill the work's default cover.
+  - **Permission decision (deviates from the doc's "creator/admin"):** `Book.CreatedByUserId`
+    is nullable and usually system/null for imported books (the actual cover-less long
+    tail), so a creator-only rule would block fixing exactly those. Chose **any
+    authenticated user may fill a *missing* cover, cannot overwrite**. Tradeoff: a light
+    moderation surface (same as profile images); fine pre-production. Tighten later if needed.
+  - Infra: `ImageSharpCoverProcessor` (decode, min-100px, downscale to ≤1000px wide
+    preserving aspect, re-encode WebP → strips EXIF/neutralizes payloads). Registered.
+  - Api: `POST /api/v1/catalog/books/{bookId}/cover` (multipart, `[Authorize]`, 5 MB
+    cap, JPG/PNG/WebP allow-list); controller processes the file → `SetBookCoverCommand`.
+  - Frontend: `catalogApi.uploadBookCover` + `useUploadBookCover` (optimistic cache
+    patch + invalidate) + an "Add a cover" CTA on `BookDetailsPage` shown only when
+    `!book.coverUrl` (hidden file input); i18n `bookDetails.cover.*` (en + pt-BR).
+  - Verified: Catalog App 116 green (+3 `SetBookCoverCommandHandlerTests`: fills when
+    missing, 409 when present, NotFound when gone), full solution builds, frontend builds.
+
+## Feature complete
+
+All four increments are built and verified. Covers are now owned (MinIO `legi-covers`),
+validated-before-store, never block a book, self-heal via bounded discovery, and have a
+manual escape hatch.
+
+### Post-review fixes (2026-06-18)
+- **Image bytes no longer flow through the mediator.** `SetBookCoverCommand` carries
+  only the resulting URL; the controller now does the store (the `LoggingBehavior`
+  `{@Request}` dump would otherwise log the whole byte array on every upload). The
+  controller deletes the just-stored blob if the command rejects (404/410), so a
+  rejected upload leaves no orphan. `IBookCoverStorage.StoreAsync` takes a generic
+  `ownerKey` (ISBN on import, book id on manual upload).
+- **Overall fan-out cap.** `CoverSourceOptions.OverallTimeoutSeconds` (5s) bounds the
+  whole candidate fan-out, not just per-fetch — the inline manual-add path can't stack
+  up to N×per-fetch.
+- **Stale-`Processing` reclaim.** The cover worker's claim query also picks up
+  `Processing` rows whose `updated_at` is older than 10 min, so a crashed worker can't
+  permanently strand a job. (The analogous `ExternalBookSearchWorker` still has the
+  original limitation — out of scope here.)
+
+### Remaining refinements (non-blocking)
+A worker discovery automated test, live-MinIO round-trip test, coverage health metric
+(Plan B §5), and tightening the upload permission model (currently any authed user may
+fill a missing cover).
+
+---
+
+> Original plan (approved 2026-06-12) follows.
 
 Move book covers from fragile third-party hotlinked URLs to **self-owned blobs in
 MinIO**, the same way profile pictures and banners are already stored. The goal is

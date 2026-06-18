@@ -268,10 +268,13 @@ perception now. See the placeholder section in
 
 ## Aggregation status (rating + reviews both at Work)
 
-Book details now surfaces the **work's** `AverageRating` / `RatingsCount` /
-`ReviewsCount`. Per-edition `Book.*` counters are still maintained (transitional,
-unused by reads). Search still shows the representative edition's rating (not the
-work's) — the one remaining read inconsistency.
+Book details **and search** now surface the **work's** `AverageRating` /
+`RatingsCount` (+ details: `ReviewsCount`). Search additionally **sorts and
+minRating-filters by the work's rating** (correlated subquery on `works`). Per-
+edition `Book.*` counters are still maintained (transitional, unused by reads).
+**The read model is fully work-level now** — no remaining read inconsistency.
+Integration-verified: a work rated 4.5/3 with its representative edition rated
+2.0/5 shows **4.5/3** in search.
 
 ## Phasing
 

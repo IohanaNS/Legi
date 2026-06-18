@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CheckCircle2, MessageSquare, PenLine } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ImagePlus, MessageSquare, PenLine } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { BookCover } from "../../../components/ui/BookCover";
@@ -9,6 +9,7 @@ import { StarRating } from "../../../components/ui/StarRating";
 import { cn } from "../../../lib/utils";
 import { StarRatingInput } from "../../../components/ui/StarRatingInput";
 import { useBookDetails } from "../hooks/useBookDetails";
+import { useUploadBookCover } from "../hooks/useUploadBookCover";
 import {
   useMyUserBookByBook,
   useRateBook,
@@ -49,6 +50,8 @@ export default function BookDetailsPage() {
   const rateBook = useRateBook(bookId ?? "", userBook?.userBookId);
   const markAsRead = useMarkBookAsRead();
   const updateStatus = useUpdateBookStatus();
+  const uploadCover = useUploadBookCover(bookId ?? "");
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [showProgress, setShowProgress] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -125,6 +128,35 @@ export default function BookDetailsPage() {
           <div className="aspect-[2/3] overflow-hidden rounded-xl">
             <BookCover title={book.title} author={authors} coverUrl={book.coverUrl} />
           </div>
+
+          {/* Cover-less is a soft, fixable state — let anyone add the missing cover. */}
+          {!book.coverUrl && (
+            <div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadCover.mutate(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={uploadCover.isPending}
+                onClick={() => coverInputRef.current?.click()}
+              >
+                <ImagePlus size={14} />
+                {uploadCover.isPending ? t("bookDetails.cover.uploading") : t("bookDetails.cover.add")}
+              </Button>
+              {uploadCover.isError && (
+                <p className="mt-1 text-xs text-red-600">{t("bookDetails.cover.error")}</p>
+              )}
+            </div>
+          )}
 
           {userBook ? (
             <>

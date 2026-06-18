@@ -39,6 +39,11 @@
         "readLess": "Ler menos",
         "editions": "Edições",
         "currentEdition": "Edição atual",
+        "cover": {
+          "add": "Adicionar capa",
+          "uploading": "Enviando…",
+          "error": "Não foi possível enviar a capa. Tente um JPG, PNG ou WebP de até 5 MB."
+        },
         "reviews": "Resenhas",
         "writeReview": "Escrever resenha",
         "noReviews": "Ainda não há resenhas. Seja o primeiro!",

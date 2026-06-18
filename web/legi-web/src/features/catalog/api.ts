@@ -26,6 +26,14 @@ export const catalogApi = {
   createBook: (body: CreateBookRequest) =>
     http.post<CreateBookResponse>("/catalog/books", body).then((r) => r.data),
 
+  uploadBookCover: (bookId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return http
+      .post<{ coverUrl: string }>(`/catalog/books/${bookId}/cover`, formData)
+      .then((r) => r.data);
+  },
+
   getPopularTags: () =>
     http
       .get<SearchTagsResponse>("/catalog/tags/popular", { params: { limit: 20 } })

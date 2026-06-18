@@ -2,6 +2,7 @@ using Legi.Catalog.Application.Books;
 using Legi.Catalog.Application.Books.Commands.CreateBook;
 using Legi.Catalog.Application.Common.Exceptions;
 using Legi.Catalog.Application.Common.Interfaces;
+using Legi.Catalog.Application.Common.Storage;
 using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
@@ -18,6 +19,8 @@ public class CreateBookCommandHandlerTests
     private readonly Mock<IWorkRepository> _workRepositoryMock;
     private readonly Mock<IBookDataProvider> _bookDataProviderMock;
     private readonly Mock<IBookCoverUrlResolver> _bookCoverUrlResolverMock;
+    private readonly Mock<IBookCoverAcquisition> _coverAcquisitionMock;
+    private readonly Mock<ICoverIngestionQueue> _coverIngestionQueueMock;
     private readonly CreateBookCommandHandler _handler;
 
     public CreateBookCommandHandlerTests()
@@ -26,6 +29,8 @@ public class CreateBookCommandHandlerTests
         _workRepositoryMock = new Mock<IWorkRepository>();
         _bookDataProviderMock = new Mock<IBookDataProvider>();
         _bookCoverUrlResolverMock = new Mock<IBookCoverUrlResolver>();
+        _coverAcquisitionMock = new Mock<IBookCoverAcquisition>();
+        _coverIngestionQueueMock = new Mock<ICoverIngestionQueue>();
 
         _bookDataProviderMock
             .Setup(x => x.GetByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -42,11 +47,20 @@ public class CreateBookCommandHandlerTests
             .Setup(x => x.ResolveByIsbn(It.IsAny<string>()))
             .Returns((string?)null);
 
+        // Default: no cover acquired (cover-less). Tests that care about the cover
+        // override this to return an owned blob URL.
+        _coverAcquisitionMock
+            .Setup(x => x.AcquireAsync(
+                It.IsAny<string>(), It.IsAny<IReadOnlyList<string?>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
         var bookImportService = new BookImportService(
             _bookRepositoryMock.Object,
             _workRepositoryMock.Object,
             _bookDataProviderMock.Object,
             _bookCoverUrlResolverMock.Object,
+            _coverAcquisitionMock.Object,
+            _coverIngestionQueueMock.Object,
             NullLogger<BookImportService>.Instance);
 
         _handler = new CreateBookCommandHandler(bookImportService);
@@ -200,6 +214,7 @@ public class CreateBookCommandHandlerTests
             .Build();
 
         Book? persistedBook = null;
+        IReadOnlyList<string?>? acquiredCandidates = null;
 
         _bookRepositoryMock
             .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
@@ -208,6 +223,14 @@ public class CreateBookCommandHandlerTests
         _bookDataProviderMock
             .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
             .ReturnsAsync(externalData);
+
+        // Acquire returns the owned blob URL; capture the candidates so we can
+        // assert the user's cover was preferred over the external one.
+        _coverAcquisitionMock
+            .Setup(x => x.AcquireAsync(
+                It.IsAny<string>(), It.IsAny<IReadOnlyList<string?>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<string?>, CancellationToken>((_, candidates, _) => acquiredCandidates = candidates)
+            .ReturnsAsync("/covers/9780321125217/owned.png");
 
         _bookRepositoryMock
             .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
@@ -223,7 +246,11 @@ public class CreateBookCommandHandlerTests
         Assert.Equal("User synopsis", result.Synopsis);
         Assert.Equal(321, result.PageCount);
         Assert.Equal("User Publisher", result.Publisher);
-        Assert.Equal("https://example.com/user-cover.jpg", result.CoverUrl);
+        // The persisted cover is the owned blob URL, not the raw external URL.
+        Assert.Equal("/covers/9780321125217/owned.png", result.CoverUrl);
+        // ...and the user's cover was the preferred candidate fed to acquisition.
+        Assert.NotNull(acquiredCandidates);
+        Assert.Equal("https://example.com/user-cover.jpg", acquiredCandidates![0]);
         Assert.Equal("user-tag", result.Tags.Single().Slug);
 
         Assert.NotNull(persistedBook);
@@ -248,6 +275,8 @@ public class CreateBookCommandHandlerTests
             .WithCoverUrl("https://example.com/external-cover.jpg")
             .Build();
 
+        IReadOnlyList<string?>? acquiredCandidates = null;
+
         _bookRepositoryMock
             .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Book?)null);
@@ -255,6 +284,14 @@ public class CreateBookCommandHandlerTests
         _bookDataProviderMock
             .Setup(x => x.GetByIsbnAsync(command.Isbn, It.IsAny<CancellationToken>()))
             .ReturnsAsync(externalData);
+
+        // The external cover is the preferred candidate (no user-supplied one) and
+        // the persisted cover is the owned blob URL acquisition returns.
+        _coverAcquisitionMock
+            .Setup(x => x.AcquireAsync(
+                It.IsAny<string>(), It.IsAny<IReadOnlyList<string?>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<string?>, CancellationToken>((_, candidates, _) => acquiredCandidates = candidates)
+            .ReturnsAsync("/covers/owned.png");
 
         _bookRepositoryMock
             .Setup(x => x.AddAsync(It.IsAny<Book>(), It.IsAny<CancellationToken>()))
@@ -269,7 +306,9 @@ public class CreateBookCommandHandlerTests
         Assert.Equal("External synopsis", result.Synopsis);
         Assert.Equal(500, result.PageCount);
         Assert.Equal("External Publisher", result.Publisher);
-        Assert.Equal("https://example.com/external-cover.jpg", result.CoverUrl);
+        Assert.Equal("/covers/owned.png", result.CoverUrl);
+        Assert.NotNull(acquiredCandidates);
+        Assert.Equal("https://example.com/external-cover.jpg", acquiredCandidates![0]);
         Assert.Empty(result.Tags);
     }
 

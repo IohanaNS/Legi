@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Legi.Catalog.Application.Common.Exceptions;
 using Legi.Catalog.Application.Common.Interfaces;
+using Legi.Catalog.Application.Common.Storage;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
 using Legi.Catalog.Domain.ValueObjects;
@@ -14,6 +15,8 @@ public sealed partial class BookImportService(
     IWorkRepository workRepository,
     IBookDataProvider bookDataProvider,
     IBookCoverUrlResolver coverUrlResolver,
+    IBookCoverAcquisition coverAcquisition,
+    ICoverIngestionQueue coverIngestionQueue,
     ILogger<BookImportService> logger)
 {
     public async Task<Book> CreateManualAsync(
@@ -37,9 +40,14 @@ public sealed partial class BookImportService(
         var synopsis = UseUserValueOrFallback(input.Synopsis, externalData?.Synopsis);
         var pageCount = input.PageCount ?? externalData?.PageCount;
         var publisher = UseUserValueOrFallback(input.Publisher, externalData?.Publisher);
-        var coverUrl = ResolveCoverUrl(
+        // Acquire-cover inline: validate the candidate URLs by fetching and store
+        // the first real one to the owned bucket. The user deliberately added one
+        // book and already waits on the provider lookup, so ~1-3s is acceptable.
+        // Returns an owned blob URL or null (cover-less is a valid, complete book).
+        var coverUrl = await AcquireCoverAsync(
             UseUserValueOrFallback(input.CoverUrl, externalData?.CoverUrl),
-            isbn.Value);
+            isbn.Value,
+            cancellationToken);
 
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -87,6 +95,7 @@ public sealed partial class BookImportService(
             workId: workId);
 
         await bookRepository.AddAsync(book, cancellationToken);
+        await EnqueueCoverDiscoveryIfMissingAsync(book, coverUrl, cancellationToken);
         return book;
     }
 
@@ -126,7 +135,9 @@ public sealed partial class BookImportService(
 
         try
         {
-            var coverUrl = ResolveCoverUrl(candidate.CoverUrl, isbn.Value);
+            // Runs inside the external-search background worker, so acquire-cover
+            // here isn't blocking a user request — store the owned cover inline.
+            var coverUrl = await AcquireCoverAsync(candidate.CoverUrl, isbn.Value, cancellationToken);
             var workId = await ResolveWorkIdAsync(
                 candidate.WorkKey, title, authors[0].Name, coverUrl, cancellationToken);
 
@@ -144,6 +155,7 @@ public sealed partial class BookImportService(
                 workId: workId);
 
             await bookRepository.AddAsync(book, cancellationToken);
+            await EnqueueCoverDiscoveryIfMissingAsync(book, coverUrl, cancellationToken);
             return new BookImportOutcome(BookImportResult.Imported, book.Id);
         }
         catch (DomainException ex)
@@ -165,8 +177,10 @@ public sealed partial class BookImportService(
         var synopsis = string.IsNullOrWhiteSpace(book.Synopsis) ? Clean(candidate.Synopsis) : null;
         var pageCount = book.PageCount.HasValue ? null : candidate.PageCount;
         var publisher = string.IsNullOrWhiteSpace(book.Publisher) ? Clean(candidate.Publisher) : null;
+        // Only backfill a cover when the book has none; acquire+store an owned one
+        // so the RaiseUpdatedEvent below republishes the blob URL to Library/Social.
         var coverUrl = string.IsNullOrWhiteSpace(book.CoverUrl)
-            ? ResolveCoverUrl(candidate.CoverUrl, book.Isbn.Value)
+            ? await AcquireCoverAsync(candidate.CoverUrl, book.Isbn.Value, cancellationToken)
             : null;
         var tags = CreateTags(candidate.Tags)
             .Where(tag => book.Tags.All(existing => existing.Slug != tag.Slug))
@@ -204,7 +218,32 @@ public sealed partial class BookImportService(
         }
 
         await bookRepository.UpdateAsync(book, cancellationToken);
+        await EnqueueCoverDiscoveryIfMissingAsync(book, book.CoverUrl, cancellationToken);
         return BookImportResult.Updated;
+    }
+
+    /// <summary>
+    /// When a book ends up cover-less after import, enqueue a durable discovery job
+    /// (idempotent per book) so the worker re-probes the providers later — the
+    /// safety net for a transient miss or a cover the providers add afterwards.
+    /// Never lets a queue hiccup fail the import.
+    /// </summary>
+    private async Task EnqueueCoverDiscoveryIfMissingAsync(
+        Book book,
+        string? coverUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(coverUrl))
+            return;
+
+        try
+        {
+            await coverIngestionQueue.EnqueueAsync(book.Id, book.Isbn.Value, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to enqueue cover discovery for book {BookId}", book.Id);
+        }
     }
 
     private static ConflictException DuplicateBookConflict(string message, Guid existingBookId)
@@ -244,9 +283,26 @@ public sealed partial class BookImportService(
         return string.IsNullOrWhiteSpace(value) ? null : WhitespaceRegex().Replace(value.Trim(), " ");
     }
 
-    private string? ResolveCoverUrl(string? candidateCoverUrl, string isbn)
+    /// <summary>
+    /// The acquire-cover operation for the import paths: fan out across the
+    /// preferred cover URL (user/provider) and the ISBN-addressable fallback,
+    /// validate by fetching, and on success store to the owned bucket — returning
+    /// the blob URL or null. Never throws; a null result is a valid cover-less
+    /// book (eligible for later background discovery). We deliberately no longer
+    /// persist an unvalidated external URL (locked decision 2).
+    /// </summary>
+    private async Task<string?> AcquireCoverAsync(
+        string? preferredCoverUrl,
+        string isbn,
+        CancellationToken cancellationToken)
     {
-        return Clean(candidateCoverUrl) ?? coverUrlResolver.ResolveByIsbn(isbn);
+        var candidates = new List<string?>
+        {
+            Clean(preferredCoverUrl),
+            coverUrlResolver.ResolveByIsbn(isbn)
+        };
+
+        return await coverAcquisition.AcquireAsync(isbn, candidates, cancellationToken);
     }
 
     /// <summary>

@@ -135,6 +135,8 @@ services:
             mc alias set local http://minio:9000 ${Storage__AccessKey:-legi} ${Storage__SecretKey:-legi_minio_dev};
             mc mb --ignore-existing local/${Storage__Bucket:-legi-media};
             mc anonymous set download local/${Storage__Bucket:-legi-media};
+            mc mb --ignore-existing local/${Storage__CoversBucket:-legi-covers};
+            mc anonymous set download local/${Storage__CoversBucket:-legi-covers};
             "
         networks:
             - legi-network
@@ -205,6 +207,11 @@ services:
             Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-7}
             ExternalServices__GoogleBooks__Enabled: ${ExternalServices__GoogleBooks__Enabled:-true}
             ExternalServices__GoogleBooks__ApiKey: ${ExternalServices__GoogleBooks__ApiKey:-}
+            Storage__Endpoint: http://minio:9000
+            Storage__Bucket: ${Storage__CoversBucket:-legi-covers}
+            Storage__AccessKey: ${Storage__AccessKey:-legi}
+            Storage__SecretKey: ${Storage__SecretKey:-legi_minio_dev}
+            Storage__PublicBasePath: /covers
             RabbitMq__Host: rabbitmq
             RabbitMq__Port: 5672
             RabbitMq__VirtualHost: /
@@ -217,6 +224,8 @@ services:
             identity-db:
                 condition: service_healthy
             rabbitmq:
+                condition: service_healthy
+            minio:
                 condition: service_healthy
         networks:
             - legi-network

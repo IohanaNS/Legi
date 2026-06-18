@@ -76,15 +76,18 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
 
         if (minRating.HasValue)
         {
-            query = query.Where(b => b.AverageRating >= minRating.Value);
+            // Filter by the work's aggregate rating (what search displays/sorts on).
+            query = query.Where(b =>
+                context.Works.Where(w => w.Id == b.WorkId).Select(w => w.AverageRating).FirstOrDefault()
+                >= minRating.Value);
         }
 
         // Collapse editions to one result per work so search returns works, not
         // duplicate editions of the same book. The representative is the work's
         // most-rated edition (tie-break: oldest), chosen among the editions that
         // matched the filters above. On singleton-work data this is a no-op.
-        // (Work-level aggregate rating/title is deferred to the rating→Work step;
-        //  until then the representative edition's own fields stand in.)
+        // Display/sort use the work's aggregate rating; the representative edition
+        // supplies the title/cover/isbn shown for the work.
         var filtered = query;
         query = filtered.Where(b => !filtered.Any(b2 =>
             b2.WorkId == b.WorkId
@@ -102,11 +105,11 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
                 ? query.OrderByDescending(b => b.Title)
                 : query.OrderBy(b => b.Title),
             BookSortBy.AverageRating => sortDescending
-                ? query.OrderByDescending(b => b.AverageRating)
-                : query.OrderBy(b => b.AverageRating),
+                ? query.OrderByDescending(b => context.Works.Where(w => w.Id == b.WorkId).Select(w => w.AverageRating).FirstOrDefault())
+                : query.OrderBy(b => context.Works.Where(w => w.Id == b.WorkId).Select(w => w.AverageRating).FirstOrDefault()),
             BookSortBy.RatingsCount => sortDescending
-                ? query.OrderByDescending(b => b.RatingsCount)
-                : query.OrderBy(b => b.RatingsCount),
+                ? query.OrderByDescending(b => context.Works.Where(w => w.Id == b.WorkId).Select(w => w.RatingsCount).FirstOrDefault())
+                : query.OrderBy(b => context.Works.Where(w => w.Id == b.WorkId).Select(w => w.RatingsCount).FirstOrDefault()),
             BookSortBy.CreatedAt => sortDescending
                 ? query.OrderByDescending(b => b.CreatedAt)
                 : query.OrderBy(b => b.CreatedAt),
@@ -122,6 +125,11 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             .Select(b => new
             {
                 Book = b,
+                // Display the work's aggregate rating, not the representative edition's.
+                Work = context.Works
+                    .Where(w => w.Id == b.WorkId)
+                    .Select(w => new { w.AverageRating, w.RatingsCount })
+                    .FirstOrDefault(),
                 Authors = context.BookAuthors
                     .Where(ba => ba.BookId == b.Id)
                     .OrderBy(ba => ba.Order)
@@ -146,8 +154,8 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             b.Book.Title,
             b.Authors.Select(a => (a.Name, a.Slug)).ToList(),
             b.Book.CoverUrl,
-            b.Book.AverageRating,
-            b.Book.RatingsCount,
+            b.Work?.AverageRating ?? b.Book.AverageRating,
+            b.Work?.RatingsCount ?? b.Book.RatingsCount,
             b.Tags.Select(t => (t.Name, t.Slug)).ToList()
         )).ToList();
 

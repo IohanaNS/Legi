@@ -39,6 +39,11 @@
         "readLess": "Read less",
         "editions": "Editions",
         "currentEdition": "Current edition",
+        "cover": {
+          "add": "Add a cover",
+          "uploading": "Uploading…",
+          "error": "Couldn't upload the cover. Please try a JPG, PNG, or WebP under 5 MB."
+        },
         "reviews": "Reviews",
         "writeReview": "Write review",
         "noReviews": "No reviews yet. Be the first!",

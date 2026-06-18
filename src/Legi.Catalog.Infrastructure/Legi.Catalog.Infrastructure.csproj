@@ -8,6 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Legi.Catalog.Integration.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Legi.Catalog.Application\Legi.Catalog.Application.csproj"/>
         <ProjectReference Include="..\Legi.Catalog.Domain\Legi.Catalog.Domain.csproj"/>
         <ProjectReference Include="..\Legi.Messaging\Legi.Messaging.csproj"/>
@@ -15,6 +19,8 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="AWSSDK.S3" Version="3.7.416.7"/>
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
             <PrivateAssets>all</PrivateAssets>

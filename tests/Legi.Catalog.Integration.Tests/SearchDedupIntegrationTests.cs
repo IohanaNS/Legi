@@ -50,13 +50,16 @@ public class SearchDedupIntegrationTests
             var books = scope.ServiceProvider.GetRequiredService<IBookRepository>();
 
             var work = Work.Create(WorkKey.Synthesize(marker, "Dedup Author"), marker);
+            // Work rating deliberately differs from the representative edition's own
+            // Book rating, to prove search displays the WORK's aggregate.
+            work.RecalculateRating(4.5m, 3);
             await works.AddAsync(work);
 
             // Edition A: more rated → should be the surviving representative.
             var editionA = Book.Create(
                 Isbn.Create(NewIsbn13()), marker, [Author.Create("Dedup Author")], Guid.NewGuid());
             editionA.AssignWork(work.Id);
-            editionA.RecalculateRating(4.0m, 5);
+            editionA.RecalculateRating(2.0m, 5);
             await books.AddAsync(editionA);
             highRatedEditionId = editionA.Id;
 
@@ -85,6 +88,9 @@ public class SearchDedupIntegrationTests
             Assert.Equal(1, totalCount);
             Assert.Single(results);
             Assert.Equal(highRatedEditionId, results[0].Id);
+            // ...displaying the WORK's aggregate rating (4.5 / 3), not edition A's (2.0 / 5).
+            Assert.Equal(4.5m, results[0].AverageRating);
+            Assert.Equal(3, results[0].RatingsCount);
         }
     }
 
