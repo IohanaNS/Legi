@@ -10,5 +10,6 @@ public sealed record ReadingPostDeletedIntegrationEvent(
     Guid PostId,
     Guid UserId,
     Guid BookId = default,
+    Guid WorkId = default,
     bool IsReview = false
 ) : IIntegrationEvent;

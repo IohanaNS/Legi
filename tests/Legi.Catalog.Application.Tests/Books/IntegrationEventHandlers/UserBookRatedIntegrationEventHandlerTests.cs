@@ -2,6 +2,7 @@ using Legi.Catalog.Application.Books.IntegrationEventHandlers;
 using Legi.Catalog.Application.Tests.Factories;
 using Legi.Catalog.Domain.Entities;
 using Legi.Catalog.Domain.Repositories;
+using Legi.Catalog.Domain.ValueObjects;
 using Legi.Contracts.Library;
 using Legi.SharedKernel;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,13 +13,14 @@ namespace Legi.Catalog.Application.Tests.Books.IntegrationEventHandlers;
 public class UserBookRatedIntegrationEventHandlerTests
 {
     private readonly Mock<IBookRepository> _bookRepo = new();
+    private readonly Mock<IWorkRepository> _workRepo = new();
     private readonly Mock<IBookRatingRepository> _ratingRepo = new();
     private readonly UserBookRatedIntegrationEventHandler _handler;
 
     public UserBookRatedIntegrationEventHandlerTests()
     {
         _handler = new UserBookRatedIntegrationEventHandler(
-            _bookRepo.Object, _ratingRepo.Object,
+            _bookRepo.Object, _workRepo.Object, _ratingRepo.Object,
             NullLogger<UserBookRatedIntegrationEventHandler>.Instance);
     }
 
@@ -27,18 +29,23 @@ public class UserBookRatedIntegrationEventHandlerTests
     {
         var book = DomainBookFactory.Create();
         var userId = Guid.NewGuid();
+        var work = Work.Create(WorkKey.Synthesize("t", "a"), "t");
         _bookRepo.Setup(r => r.GetByIdAsync(book.Id, It.IsAny<CancellationToken>())).ReturnsAsync(book);
+        _workRepo.Setup(r => r.GetByIdAsync(book.WorkId, It.IsAny<CancellationToken>())).ReturnsAsync(work);
         _ratingRepo
             .Setup(r => r.StageRatingAsync(book.Id, userId, 8, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BookRatingAggregate(4.0m, 2));
 
         await _handler.Handle(
-            new UserBookRatedIntegrationEvent(book.Id, userId, Rating: 8, PreviousRating: null),
+            new UserBookRatedIntegrationEvent(book.Id, userId, Rating: 8, PreviousRating: null, WorkId: Guid.NewGuid()),
             CancellationToken.None);
 
         // Handler applies exactly what the recompute returned onto the tracked Book.
         Assert.Equal(4.0m, book.AverageRating);
         Assert.Equal(2, book.RatingsCount);
+        // Single-edition work → work rating equals the edition's.
+        Assert.Equal(4.0m, work.AverageRating);
+        Assert.Equal(2, work.RatingsCount);
         _ratingRepo.Verify(r => r.StageRatingAsync(book.Id, userId, 8, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -56,7 +63,7 @@ public class UserBookRatedIntegrationEventHandlerTests
             .ReturnsAsync(new BookRatingAggregate(4.5m, 1));
 
         await _handler.Handle(
-            new UserBookRatedIntegrationEvent(book.Id, userId, Rating: 9, PreviousRating: 6),
+            new UserBookRatedIntegrationEvent(book.Id, userId, Rating: 9, PreviousRating: 6, WorkId: Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.Equal(4.5m, book.AverageRating);
@@ -70,7 +77,7 @@ public class UserBookRatedIntegrationEventHandlerTests
             .ReturnsAsync((Book?)null);
 
         await Assert.ThrowsAsync<TransientMessagingException>(() => _handler.Handle(
-            new UserBookRatedIntegrationEvent(Guid.NewGuid(), Guid.NewGuid(), 8, null),
+            new UserBookRatedIntegrationEvent(Guid.NewGuid(), Guid.NewGuid(), 8, null, Guid.NewGuid()),
             CancellationToken.None));
 
         _ratingRepo.Verify(

@@ -7,6 +7,7 @@ public sealed class ReadingProgressCreatedDomainEvent(
     Guid userBookId,
     Guid userId,
     Guid bookId,
+    Guid workId,
     string? content,
     int? progressValue,
     string? progressType,
@@ -17,6 +18,7 @@ public sealed class ReadingProgressCreatedDomainEvent(
     public Guid UserBookId { get; } = userBookId;
     public Guid UserId { get; } = userId;
     public Guid BookId { get; } = bookId;
+    public Guid WorkId { get; } = workId;
     public string? Content { get; } = content;
     public int? ProgressValue { get; } = progressValue;
     public bool IsSpoiler { get; } = isSpoiler;

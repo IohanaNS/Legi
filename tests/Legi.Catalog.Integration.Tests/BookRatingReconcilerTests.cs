@@ -41,7 +41,15 @@ public class BookRatingReconcilerTests
         {
             var ctx = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
             var repo = scope.ServiceProvider.GetRequiredService<IBookRepository>();
-            var book = Book.Create(Isbn.Create(NewIsbn13()), "Reconcile Probe", [Author.Create("Test Author")], Guid.NewGuid());
+
+            // Every book requires a work (FK).
+            var work = Work.Create(
+                WorkKey.Synthesize("Reconcile Probe " + Guid.NewGuid().ToString("N"), "Test Author"),
+                "Reconcile Probe");
+            ctx.Works.Add(work);
+            await ctx.SaveChangesAsync();
+
+            var book = Book.Create(Isbn.Create(NewIsbn13()), "Reconcile Probe", [Author.Create("Test Author")], Guid.NewGuid(), workId: work.Id);
             bookId = book.Id;
             await repo.AddAsync(book);
 

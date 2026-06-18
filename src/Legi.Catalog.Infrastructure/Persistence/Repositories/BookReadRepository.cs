@@ -163,6 +163,12 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             .Select(b => new
             {
                 Book = b,
+                // The rating shown on the book page is the work's aggregate across
+                // its editions (attachment map: rating → Work).
+                Work = context.Works
+                    .Where(w => w.Id == b.WorkId)
+                    .Select(w => new { w.AverageRating, w.RatingsCount, w.ReviewsCount })
+                    .FirstOrDefault(),
                 Authors = context.BookAuthors
                     .Where(ba => ba.BookId == b.Id)
                     .OrderBy(ba => ba.Order)
@@ -193,9 +199,9 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             result.Book.PageCount,
             result.Book.Publisher,
             result.Book.CoverUrl,
-            result.Book.AverageRating,
-            result.Book.RatingsCount,
-            result.Book.ReviewsCount,
+            result.Work?.AverageRating ?? result.Book.AverageRating,
+            result.Work?.RatingsCount ?? result.Book.RatingsCount,
+            result.Work?.ReviewsCount ?? result.Book.ReviewsCount,
             result.Tags.Select(t => (t.Name, t.Slug)).ToList(),
             result.Book.CreatedByUserId,
             result.Book.CreatedAt,
@@ -232,6 +238,10 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             .Select(b => new
             {
                 Book = b,
+                Work = context.Works
+                    .Where(w => w.Id == b.WorkId)
+                    .Select(w => new { w.AverageRating, w.RatingsCount, w.ReviewsCount })
+                    .FirstOrDefault(),
                 Authors = context.BookAuthors
                     .Where(ba => ba.BookId == b.Id)
                     .OrderBy(ba => ba.Order)
@@ -262,9 +272,9 @@ public class BookReadRepository(CatalogDbContext context) : IBookReadRepository
             result.Book.PageCount,
             result.Book.Publisher,
             result.Book.CoverUrl,
-            result.Book.AverageRating,
-            result.Book.RatingsCount,
-            result.Book.ReviewsCount,
+            result.Work?.AverageRating ?? result.Book.AverageRating,
+            result.Work?.RatingsCount ?? result.Book.RatingsCount,
+            result.Work?.ReviewsCount ?? result.Book.ReviewsCount,
             result.Tags.Select(t => (t.Name, t.Slug)).ToList(),
             result.Book.CreatedByUserId,
             result.Book.CreatedAt,

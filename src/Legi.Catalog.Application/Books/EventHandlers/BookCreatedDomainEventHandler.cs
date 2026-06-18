@@ -41,7 +41,8 @@ public sealed class BookCreatedDomainEventHandler
             Title: domainEvent.Title,
             Authors: domainEvent.Authors.ToList(),
             CoverUrl: domainEvent.CoverUrl,
-            PageCount: domainEvent.PageCount);
+            PageCount: domainEvent.PageCount,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

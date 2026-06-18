@@ -29,6 +29,7 @@ namespace Legi.Catalog.Application.Books.IntegrationEventHandlers;
 /// </summary>
 public sealed class UserBookRatedIntegrationEventHandler(
     IBookRepository bookRepository,
+    IWorkRepository workRepository,
     IBookRatingRepository bookRatingRepository,
     ILogger<UserBookRatedIntegrationEventHandler> logger)
     : INotificationHandler<UserBookRatedIntegrationEvent>
@@ -55,6 +56,10 @@ public sealed class UserBookRatedIntegrationEventHandler(
             cancellationToken);
 
         book.RecalculateRating(aggregate.Average, aggregate.Count);
+
+        // Roll the edition's new aggregate up to its work (the rating shown on the
+        // book page is the work's).
+        await WorkRatingRecalculator.RecalculateAsync(book, bookRepository, workRepository, cancellationToken);
 
         logger.LogDebug(
             "Recomputed rating for book {BookId} after rating by user {UserId}: avg {Average}, count {Count}",

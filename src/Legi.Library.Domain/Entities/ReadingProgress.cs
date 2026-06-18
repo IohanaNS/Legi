@@ -13,6 +13,13 @@ public class ReadingProgress : BaseAuditableEntity
     public Guid UserBookId { get; private set; }
     public Guid UserId { get; private set; }
     public Guid BookId { get; private set; }
+
+    /// <summary>
+    /// The Catalog work this post/review's book (edition) belongs to. Denormalized
+    /// from the owning <c>UserBook.WorkId</c> at creation, so reviews/posts fan out
+    /// at the work level. See Docs/CATALOG-FEATURE-editions.md.
+    /// </summary>
+    public Guid WorkId { get; private set; }
     public string? Content { get; private set; }
     public bool IsSpoiler { get; private set; }
     public Progress? CurrentProgress { get; private set; }
@@ -39,6 +46,7 @@ public class ReadingProgress : BaseAuditableEntity
         Guid userBookId,
         Guid userId,
         Guid bookId,
+        Guid workId,
         string content,
         Rating rating,
         bool isSpoiler = false)
@@ -56,6 +64,7 @@ public class ReadingProgress : BaseAuditableEntity
             UserBookId = userBookId,
             UserId = userId,
             BookId = bookId,
+            WorkId = workId,
             Content = content,
             IsSpoiler = isSpoiler,
             CurrentProgress = null,
@@ -73,6 +82,7 @@ public class ReadingProgress : BaseAuditableEntity
                 review.Id,
                 review.UserId,
                 review.BookId,
+                review.WorkId,
                 review.Content,
                 rating.Value,
                 review.IsSpoiler));
@@ -83,6 +93,7 @@ public class ReadingProgress : BaseAuditableEntity
         Guid userBookId,
         Guid userId,
         Guid bookId,
+        Guid workId,
         string? content,
         Progress? progress,
         DateOnly? readingDate = null,
@@ -100,6 +111,7 @@ public class ReadingProgress : BaseAuditableEntity
             UserBookId = userBookId,
             UserId = userId,
             BookId = bookId,
+            WorkId = workId,
             Content = content,
             IsSpoiler = isSpoiler,
             CurrentProgress = progress,
@@ -116,6 +128,7 @@ public class ReadingProgress : BaseAuditableEntity
                 readingPost.UserBookId,
                 readingPost.UserId,
                 readingPost.BookId,
+                readingPost.WorkId,
                 readingPost.Content,
                 readingPost.CurrentProgress?.Value,
                 readingPost.CurrentProgress?.Type.ToString(),
@@ -158,7 +171,7 @@ public class ReadingProgress : BaseAuditableEntity
     public void Delete()
     {
         AddDomainEvent(
-            new ReadingPostDeletedDomainEvent(Id, UserId, BookId, IsReview));
+            new ReadingPostDeletedDomainEvent(Id, UserId, BookId, WorkId, IsReview));
     }
 
     private static void ValidateContent(string content)

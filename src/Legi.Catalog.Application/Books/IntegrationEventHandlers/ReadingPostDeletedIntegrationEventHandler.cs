@@ -18,6 +18,7 @@ namespace Legi.Catalog.Application.Books.IntegrationEventHandlers;
 /// </summary>
 public sealed class ReadingPostDeletedIntegrationEventHandler(
     IBookRepository bookRepository,
+    IWorkRepository workRepository,
     ILogger<ReadingPostDeletedIntegrationEventHandler> logger)
     : INotificationHandler<ReadingPostDeletedIntegrationEvent>
 {
@@ -38,6 +39,9 @@ public sealed class ReadingPostDeletedIntegrationEventHandler(
         }
 
         book.DecrementReviewsCount();
+
+        var work = await workRepository.GetByIdAsync(book.WorkId, cancellationToken);
+        work?.DecrementReviewsCount();
 
         logger.LogDebug(
             "Decremented ReviewsCount on book {BookId} (now {ReviewsCount}) after review {PostId} deleted",

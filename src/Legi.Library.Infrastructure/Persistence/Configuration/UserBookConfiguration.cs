@@ -24,6 +24,13 @@ public class UserBookConfiguration : IEntityTypeConfiguration<UserBook>
             .HasColumnName("book_id")
             .IsRequired();
 
+        builder.Property(ub => ub.WorkId)
+            .HasColumnName("work_id")
+            .IsRequired();
+
+        builder.HasIndex(ub => ub.WorkId)
+            .HasDatabaseName("ix_user_books_work_id");
+
         builder.Property(ub => ub.Status)
             .HasColumnName("status")
             .HasConversion<string>()

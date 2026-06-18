@@ -39,7 +39,7 @@ public class ReadingStatusChangedIntegrationEventHandlerTests
             .Returns(Task.CompletedTask);
 
         var evt = new ReadingStatusChangedIntegrationEvent(
-            _userId, _bookId, OldStatus: "Reading", NewStatus: "Finished", ChangedAt: DateTime.UtcNow);
+            _userId, _bookId, OldStatus: "Reading", NewStatus: "Finished", ChangedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -61,7 +61,7 @@ public class ReadingStatusChangedIntegrationEventHandlerTests
     public async Task Handle_NonFinishedStatus_StagesNothing(string newStatus)
     {
         var evt = new ReadingStatusChangedIntegrationEvent(
-            _userId, _bookId, OldStatus: "Reading", NewStatus: newStatus, ChangedAt: DateTime.UtcNow);
+            _userId, _bookId, OldStatus: "Reading", NewStatus: newStatus, ChangedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 

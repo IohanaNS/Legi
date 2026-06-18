@@ -8,6 +8,7 @@ public sealed class UserBookBuilder
 {
     private Guid _userId = LibraryTestIds.UserId;
     private Guid _bookId = LibraryTestIds.BookId;
+    private Guid _workId = LibraryTestIds.WorkId;
     private bool _wishList;
     private ReadingStatus? _status;
     private Progress? _progress;
@@ -25,6 +26,12 @@ public sealed class UserBookBuilder
     public UserBookBuilder WithBookId(Guid bookId)
     {
         _bookId = bookId;
+        return this;
+    }
+
+    public UserBookBuilder WithWorkId(Guid workId)
+    {
+        _workId = workId;
         return this;
     }
 
@@ -60,7 +67,7 @@ public sealed class UserBookBuilder
 
     public UserBook Build()
     {
-        var userBook = UserBook.Create(_userId, _bookId, _wishList);
+        var userBook = UserBook.Create(_userId, _bookId, _workId, _wishList);
 
         if (_status.HasValue)
             userBook.ChangeReadingStatus(_status.Value);

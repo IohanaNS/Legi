@@ -69,6 +69,7 @@ public class CreateReadingPostCommandHandler
             request.UserBookId,
             userBook.UserId,
             userBook.BookId,
+            userBook.WorkId,
             request.Content,
             progress,
             request.ReadingDate,

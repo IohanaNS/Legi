@@ -12,6 +12,11 @@ public class WorkRepository(CatalogDbContext context) : IWorkRepository
             .FirstOrDefaultAsync(w => w.WorkKey.Value == workKey, cancellationToken);
     }
 
+    public Task<Work?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return context.Works.FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
+    }
+
     public async Task AddAsync(Work work, CancellationToken cancellationToken = default)
     {
         await context.Works.AddAsync(work, cancellationToken);

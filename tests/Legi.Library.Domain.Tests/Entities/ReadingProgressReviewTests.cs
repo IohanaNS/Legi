@@ -14,6 +14,7 @@ public class ReadingProgressReviewTests
             LibraryTestIds.UserBookId,
             LibraryTestIds.UserId,
             LibraryTestIds.BookId,
+            LibraryTestIds.WorkId,
             content!,
             RatingFactory.Create(8),
             isSpoiler);

@@ -33,6 +33,7 @@ public class RatingRecomputeIntegrationTests
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
         services.AddDbContext<CatalogDbContext>(o => o.UseNpgsql(connectionString));
         services.AddScoped<IBookRepository, BookRepository>();
+        services.AddScoped<IWorkRepository, WorkRepository>();
         services.AddScoped<IBookRatingRepository, BookRatingRepository>();
         services.AddCatalogApplication(); // IMediator + the INotificationHandler<> consumers
         services.AddSingleton<IntegrationEventDispatcher<CatalogDbContext>>();
@@ -42,12 +43,22 @@ public class RatingRecomputeIntegrationTests
     private static async Task<Guid> SeedBookAsync(ServiceProvider sp)
     {
         using var scope = sp.CreateScope();
+        var works = scope.ServiceProvider.GetRequiredService<IWorkRepository>();
         var repo = scope.ServiceProvider.GetRequiredService<IBookRepository>();
+
+        // Every book requires a work (FK). Create one (unique key per seed so the
+        // works.work_key unique index isn't hit across tests).
+        var work = Work.Create(
+            WorkKey.Synthesize("Integration Test Book " + Guid.NewGuid().ToString("N"), "Test Author"),
+            "Integration Test Book");
+        await works.AddAsync(work);
+
         var book = Book.Create(
             Isbn.Create(NewIsbn13()),
             "Integration Test Book",
             [Author.Create("Test Author")],
-            Guid.NewGuid());
+            Guid.NewGuid(),
+            workId: work.Id);
         await repo.AddAsync(book);
         return book.Id;
     }
@@ -56,7 +67,7 @@ public class RatingRecomputeIntegrationTests
         ServiceProvider sp, Guid messageId, Guid bookId, Guid userId, int rating, int? previous = null)
     {
         var dispatcher = sp.GetRequiredService<IntegrationEventDispatcher<CatalogDbContext>>();
-        var evt = new UserBookRatedIntegrationEvent(bookId, userId, rating, previous);
+        var evt = new UserBookRatedIntegrationEvent(bookId, userId, rating, previous, WorkId: Guid.NewGuid());
         await dispatcher.DispatchAsync(messageId, typeof(UserBookRatedIntegrationEvent).AssemblyQualifiedName!, evt);
     }
 
@@ -64,7 +75,7 @@ public class RatingRecomputeIntegrationTests
         ServiceProvider sp, Guid messageId, Guid bookId, Guid userId, int removedRating)
     {
         var dispatcher = sp.GetRequiredService<IntegrationEventDispatcher<CatalogDbContext>>();
-        var evt = new UserBookRatingRemovedIntegrationEvent(bookId, userId, removedRating);
+        var evt = new UserBookRatingRemovedIntegrationEvent(bookId, userId, removedRating, WorkId: Guid.NewGuid());
         await dispatcher.DispatchAsync(messageId, typeof(UserBookRatingRemovedIntegrationEvent).AssemblyQualifiedName!, evt);
     }
 

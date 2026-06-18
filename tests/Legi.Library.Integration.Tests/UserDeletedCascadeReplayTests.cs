@@ -43,10 +43,10 @@ public class UserDeletedCascadeReplayTests
         var lists = scope.ServiceProvider.GetRequiredService<IUserListRepository>();
 
         var bookId = Guid.NewGuid();
-        var userBook = UserBook.Create(userId, bookId);
+        var userBook = UserBook.Create(userId, bookId, Guid.NewGuid());
         await userBooks.AddAsync(userBook);
-        await userBooks.AddAsync(UserBook.Create(userId, Guid.NewGuid()));
-        await posts.AddAsync(ReadingProgress.Create(userBook.Id, userId, bookId, "seed post", null));
+        await userBooks.AddAsync(UserBook.Create(userId, Guid.NewGuid(), Guid.NewGuid()));
+        await posts.AddAsync(ReadingProgress.Create(userBook.Id, userId, bookId, Guid.NewGuid(), "seed post", null));
         await lists.AddAsync(UserList.Create(userId, "My List", "desc"));
         return userId;
     }

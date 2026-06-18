@@ -55,7 +55,8 @@ public class Book : BaseAuditableEntity
         string? publisher = null,
         string? coverUrl = null,
         IEnumerable<Tag>? tags = null,
-        string? providerWorkKey = null)
+        string? providerWorkKey = null,
+        Guid workId = default)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new DomainException("Title is required");
@@ -83,6 +84,7 @@ public class Book : BaseAuditableEntity
             Id = Guid.NewGuid(),
             Isbn = isbn,
             WorkKey = WorkKey.Resolve(providerWorkKey, trimmedTitle, authorsList[0].Name),
+            WorkId = workId,
             Title = trimmedTitle,
             Synopsis = synopsis?.Trim(),
             PageCount = pageCount,
@@ -117,7 +119,8 @@ public class Book : BaseAuditableEntity
             book._authors.Select(a => a.Name).ToList(),
             book.CoverUrl,
             book.PageCount,
-            createdByUserId));
+            createdByUserId,
+            book.WorkId));
 
         return book;
     }
@@ -310,7 +313,8 @@ public class Book : BaseAuditableEntity
             Title,
             _authors.Select(a => a.Name).ToList(),
             CoverUrl,
-            PageCount));
+            PageCount,
+            WorkId));
     }
 
     #endregion

@@ -12,7 +12,8 @@ public static class CatalogIntegrationEventFactory
         string title = "Clean Code",
         List<string>? authors = null,
         string? coverUrl = "https://example.com/clean-code.jpg",
-        int? pageCount = 464)
+        int? pageCount = 464,
+        Guid? workId = null)
     {
         return new BookCreatedIntegrationEvent(
             bookId ?? LibraryTestIds.BookId,
@@ -20,7 +21,8 @@ public static class CatalogIntegrationEventFactory
             title,
             authors ?? ["Robert C. Martin"],
             coverUrl,
-            pageCount);
+            pageCount,
+            workId ?? LibraryTestIds.WorkId);
     }
 
     public static BookUpdatedIntegrationEvent BookUpdated(
@@ -29,7 +31,8 @@ public static class CatalogIntegrationEventFactory
         string title = "Clean Code",
         List<string>? authors = null,
         string? coverUrl = "https://example.com/clean-code.jpg",
-        int? pageCount = 464)
+        int? pageCount = 464,
+        Guid? workId = null)
     {
         return new BookUpdatedIntegrationEvent(
             bookId ?? LibraryTestIds.BookId,
@@ -37,7 +40,8 @@ public static class CatalogIntegrationEventFactory
             title,
             authors ?? ["Robert C. Martin"],
             coverUrl,
-            pageCount);
+            pageCount,
+            workId ?? LibraryTestIds.WorkId);
     }
 }
 

@@ -25,6 +25,7 @@ namespace Legi.Catalog.Application.Books.IntegrationEventHandlers;
 /// </summary>
 public sealed class UserBookRatingRemovedIntegrationEventHandler(
     IBookRepository bookRepository,
+    IWorkRepository workRepository,
     IBookRatingRepository bookRatingRepository,
     ILogger<UserBookRatingRemovedIntegrationEventHandler> logger)
     : INotificationHandler<UserBookRatingRemovedIntegrationEvent>
@@ -49,6 +50,8 @@ public sealed class UserBookRatingRemovedIntegrationEventHandler(
             cancellationToken);
 
         book.RecalculateRating(aggregate.Average, aggregate.Count);
+
+        await WorkRatingRecalculator.RecalculateAsync(book, bookRepository, workRepository, cancellationToken);
 
         logger.LogDebug(
             "Recomputed rating for book {BookId} after rating removal by user {UserId}: avg {Average}, count {Count}",

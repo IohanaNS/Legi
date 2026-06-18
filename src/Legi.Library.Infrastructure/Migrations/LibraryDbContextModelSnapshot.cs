@@ -53,7 +53,14 @@ namespace Legi.Library.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<Guid?>("WorkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_id");
+
                     b.HasKey("BookId");
+
+                    b.HasIndex("WorkId")
+                        .HasDatabaseName("ix_book_snapshots_work_id");
 
                     b.ToTable("book_snapshots", (string)null);
                 });
@@ -117,6 +124,10 @@ namespace Legi.Library.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<Guid>("WorkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("UserBookId")
@@ -124,6 +135,9 @@ namespace Legi.Library.Infrastructure.Migrations
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_reading_posts_user_id");
+
+                    b.HasIndex("WorkId")
+                        .HasDatabaseName("ix_reading_posts_work_id");
 
                     b.HasIndex("UserBookId", "ReadingDate")
                         .IsDescending(false, true)
@@ -174,10 +188,17 @@ namespace Legi.Library.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("wishlist");
 
+                    b.Property<Guid>("WorkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_user_books_user_id");
+
+                    b.HasIndex("WorkId")
+                        .HasDatabaseName("ix_user_books_work_id");
 
                     b.HasIndex("UserId", "BookId")
                         .IsUnique()

@@ -28,6 +28,13 @@ public class ReadingPostConfiguration : IEntityTypeConfiguration<ReadingProgress
             .HasColumnName("book_id")
             .IsRequired();
 
+        builder.Property(rp => rp.WorkId)
+            .HasColumnName("work_id")
+            .IsRequired();
+
+        builder.HasIndex(rp => rp.WorkId)
+            .HasDatabaseName("ix_reading_posts_work_id");
+
         builder.Property(rp => rp.Content)
             .HasColumnName("content")
             .HasMaxLength(ReadingProgress.MaxContentLength);

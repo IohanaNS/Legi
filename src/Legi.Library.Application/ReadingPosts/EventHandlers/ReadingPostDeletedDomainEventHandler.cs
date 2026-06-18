@@ -35,6 +35,7 @@ public sealed class ReadingPostDeletedDomainEventHandler
             PostId: domainEvent.ReadingPostId,
             UserId: domainEvent.UserId,
             BookId: domainEvent.BookId,
+            WorkId: domainEvent.WorkId,
             IsReview: domainEvent.IsReview);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);

@@ -43,7 +43,8 @@ public sealed class UserBookRatingRemovedDomainEventHandler
         var integrationEvent = new UserBookRatingRemovedIntegrationEvent(
             BookId: domainEvent.BookId,
             UserId: domainEvent.UserId,
-            RemovedRating: domainEvent.OldRating.Value);
+            RemovedRating: domainEvent.OldRating.Value,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

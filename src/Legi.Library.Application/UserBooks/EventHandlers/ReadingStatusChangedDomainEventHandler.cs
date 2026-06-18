@@ -39,7 +39,8 @@ public sealed class ReadingStatusChangedDomainEventHandler
             BookId: domainEvent.BookId,
             OldStatus: domainEvent.OldStatus.ToString(),
             NewStatus: domainEvent.NewStatus.ToString(),
-            ChangedAt: domainEvent.OccurredOn);
+            ChangedAt: domainEvent.OccurredOn,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

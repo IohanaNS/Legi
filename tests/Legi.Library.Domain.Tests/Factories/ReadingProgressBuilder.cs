@@ -8,6 +8,7 @@ public sealed class ReadingProgressBuilder
     private Guid _userBookId = LibraryTestIds.UserBookId;
     private Guid _userId = LibraryTestIds.UserId;
     private Guid _bookId = LibraryTestIds.BookId;
+    private Guid _workId = LibraryTestIds.WorkId;
     private string? _content = "Halfway through, still engaged.";
     private Progress? _progress = Progress.CreatePercentage(50);
     private DateOnly? _readingDate = new(2026, 1, 15);
@@ -31,6 +32,12 @@ public sealed class ReadingProgressBuilder
     public ReadingProgressBuilder WithBookId(Guid bookId)
     {
         _bookId = bookId;
+        return this;
+    }
+
+    public ReadingProgressBuilder WithWorkId(Guid workId)
+    {
+        _workId = workId;
         return this;
     }
 
@@ -82,6 +89,7 @@ public sealed class ReadingProgressBuilder
             _userBookId,
             _userId,
             _bookId,
+            _workId,
             _content,
             _progress,
             _readingDate,

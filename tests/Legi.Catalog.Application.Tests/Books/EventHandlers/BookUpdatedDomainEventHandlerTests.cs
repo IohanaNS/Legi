@@ -24,13 +24,15 @@ public class BookUpdatedDomainEventHandlerTests
     {
         // Arrange
         var bookId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var workId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
         var domainEvent = new BookUpdatedDomainEvent(
             bookId,
             "9780132350884",
             "Refactoring",
             ["Martin Fowler"],
             null,
-            448);
+            448,
+            workId);
 
         // Act
         await _handler.Handle(domainEvent, CancellationToken.None);
@@ -44,7 +46,8 @@ public class BookUpdatedDomainEventHandlerTests
                     e.Title == "Refactoring" &&
                     e.Authors.SequenceEqual(domainEvent.Authors) &&
                     e.CoverUrl == null &&
-                    e.PageCount == 448),
+                    e.PageCount == 448 &&
+                    e.WorkId == workId),
                 It.IsAny<CancellationToken>()),
             Times.Once);
 

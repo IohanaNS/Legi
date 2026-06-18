@@ -65,19 +65,27 @@ public sealed partial class BookImportService(
                 duplicateByTitleAndAuthor.Id);
         }
 
+        var authorObjs = authorNames.Select(Author.Create).ToList();
+
+        // Resolve-or-create the work BEFORE the book so the work id is known at
+        // creation time and flows into BookCreatedDomainEvent (→ the integration
+        // event consumers project from).
+        var workId = await ResolveWorkIdAsync(
+            externalData?.WorkKey, title, authorObjs[0].Name, coverUrl, cancellationToken);
+
         var book = Book.Create(
             isbn,
             title,
-            authorNames.Select(Author.Create).ToList(),
+            authorObjs,
             input.CreatedByUserId,
             synopsis,
             pageCount,
             publisher,
             coverUrl,
             CreateTags(input.Tags).Take(Book.MaxTags),
-            providerWorkKey: externalData?.WorkKey);
+            providerWorkKey: externalData?.WorkKey,
+            workId: workId);
 
-        await AssignWorkAsync(book, cancellationToken);
         await bookRepository.AddAsync(book, cancellationToken);
         return book;
     }
@@ -118,6 +126,10 @@ public sealed partial class BookImportService(
 
         try
         {
+            var coverUrl = ResolveCoverUrl(candidate.CoverUrl, isbn.Value);
+            var workId = await ResolveWorkIdAsync(
+                candidate.WorkKey, title, authors[0].Name, coverUrl, cancellationToken);
+
             var book = Book.Create(
                 isbn,
                 title,
@@ -126,11 +138,11 @@ public sealed partial class BookImportService(
                 Clean(candidate.Synopsis),
                 candidate.PageCount,
                 Clean(candidate.Publisher),
-                ResolveCoverUrl(candidate.CoverUrl, isbn.Value),
+                coverUrl,
                 CreateTags(candidate.Tags).Take(Book.MaxTags),
-                providerWorkKey: candidate.WorkKey);
+                providerWorkKey: candidate.WorkKey,
+                workId: workId);
 
-            await AssignWorkAsync(book, cancellationToken);
             await bookRepository.AddAsync(book, cancellationToken);
             return new BookImportOutcome(BookImportResult.Imported, book.Id);
         }
@@ -238,28 +250,35 @@ public sealed partial class BookImportService(
     }
 
     /// <summary>
-    /// Resolves-or-creates the <see cref="Work"/> for a freshly created edition by
-    /// its already-resolved <see cref="Book.WorkKey"/>, then links the edition to
-    /// it. A new edition contributes its cover as the work's default when the work
-    /// doesn't have one yet. Must run before the book is persisted (the work FK is
-    /// required).
+    /// Resolves-or-creates the <see cref="Work"/> for an edition about to be
+    /// created, by the work key computed identically to <see cref="Book.Create"/>
+    /// (so <c>Book.WorkKey</c> and <c>Work.WorkKey</c> agree), and returns its id.
+    /// A new edition contributes its cover as the work's default when the work
+    /// doesn't have one yet. Runs before <see cref="Book.Create"/> so the work id
+    /// is known at creation time (it flows into <c>BookCreatedDomainEvent</c>).
     /// </summary>
-    private async Task AssignWorkAsync(Book book, CancellationToken cancellationToken)
+    private async Task<Guid> ResolveWorkIdAsync(
+        string? providerWorkKey,
+        string title,
+        string primaryAuthorName,
+        string? coverUrl,
+        CancellationToken cancellationToken)
     {
-        var work = await workRepository.GetByWorkKeyAsync(book.WorkKey.Value, cancellationToken);
+        var workKey = WorkKey.Resolve(providerWorkKey, title.Trim(), primaryAuthorName);
+        var work = await workRepository.GetByWorkKeyAsync(workKey.Value, cancellationToken);
 
         if (work is null)
         {
-            work = Work.Create(book.WorkKey, book.Title, book.CoverUrl);
+            work = Work.Create(workKey, title, coverUrl);
             await workRepository.AddAsync(work, cancellationToken);
         }
-        else if (work.DefaultCoverUrl is null && !string.IsNullOrWhiteSpace(book.CoverUrl))
+        else if (work.DefaultCoverUrl is null && !string.IsNullOrWhiteSpace(coverUrl))
         {
-            work.EnsureDefaultCover(book.CoverUrl);
+            work.EnsureDefaultCover(coverUrl);
             await workRepository.UpdateAsync(work, cancellationToken);
         }
 
-        book.AssignWork(work.Id);
+        return work.Id;
     }
 
     private static string? UseUserValueOrFallback(string? userValue, string? externalValue)

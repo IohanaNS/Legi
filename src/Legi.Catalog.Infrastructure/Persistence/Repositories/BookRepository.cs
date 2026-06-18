@@ -82,6 +82,17 @@ public class BookRepository(CatalogDbContext context) : IBookRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<EditionRatingTotals> GetEditionRatingTotalsForWorkAsync(
+        Guid workId, Guid excludeBookId, CancellationToken cancellationToken = default)
+    {
+        var siblings = context.Books.Where(b => b.WorkId == workId && b.Id != excludeBookId);
+
+        var count = await siblings.SumAsync(b => b.RatingsCount, cancellationToken);
+        var weighted = await siblings.SumAsync(b => b.AverageRating * b.RatingsCount, cancellationToken);
+
+        return new EditionRatingTotals(count, weighted);
+    }
+
     public Task<int> AnonymizeCreatorsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return context.Books

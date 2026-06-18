@@ -35,7 +35,9 @@ public sealed class BookUpdatedIntegrationEventHandler(
             title: integrationEvent.Title,
             authorDisplay: authorDisplay,
             coverUrl: integrationEvent.CoverUrl,
-            pageCount: integrationEvent.PageCount);
+            pageCount: integrationEvent.PageCount,
+            // Guid.Empty only from old in-flight messages predating the split.
+            workId: integrationEvent.WorkId == Guid.Empty ? null : integrationEvent.WorkId);
 
         await bookSnapshotRepository.StageAddOrUpdateAsync(snapshot, cancellationToken);
 

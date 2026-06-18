@@ -41,7 +41,7 @@ public class UserBookRatedIntegrationEventHandlerTests
             .Returns(Task.CompletedTask);
 
         // half-star int 9 → 4.5 display stars
-        var evt = new UserBookRatedIntegrationEvent(_bookId, _userId, Rating: 9, PreviousRating: 6);
+        var evt = new UserBookRatedIntegrationEvent(_bookId, _userId, Rating: 9, PreviousRating: 6, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -62,7 +62,7 @@ public class UserBookRatedIntegrationEventHandlerTests
         _profiles.Setup(r => r.GetByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserProfile?)null);
 
-        var evt = new UserBookRatedIntegrationEvent(_bookId, _userId, Rating: 8, PreviousRating: null);
+        var evt = new UserBookRatedIntegrationEvent(_bookId, _userId, Rating: 8, PreviousRating: null, WorkId: Guid.NewGuid());
 
         await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));

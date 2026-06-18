@@ -43,7 +43,8 @@ public sealed class ReadingProgressCreatedDomainEventHandler
             ProgressValue: domainEvent.ProgressValue,
             ProgressType: domainEvent.ProgressType,
             IsSpoiler: domainEvent.IsSpoiler,
-            CreatedAt: domainEvent.OccurredOn);
+            CreatedAt: domainEvent.OccurredOn,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

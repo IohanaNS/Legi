@@ -9,6 +9,14 @@ public class UserBook : BaseAuditableEntity
 {
     public Guid UserId { get; private set; }
     public Guid BookId { get; private set; }
+
+    /// <summary>
+    /// The Catalog work this book (edition) belongs to. Identity for work-level
+    /// aggregation/grouping. Sourced from the book's <c>BookSnapshot.WorkId</c> at
+    /// add time. See Docs/CATALOG-FEATURE-editions.md.
+    /// </summary>
+    public Guid WorkId { get; private set; }
+
     public ReadingStatus Status { get; private set; }
     public Progress? CurrentProgress { get; private set; }
     public bool WishList { get; private set; }
@@ -26,13 +34,17 @@ public class UserBook : BaseAuditableEntity
     
     public bool IsDeleted => DeletedAt.HasValue;
 
-    public static UserBook Create(Guid userId, Guid bookId, bool wishList = false)
+    public static UserBook Create(Guid userId, Guid bookId, Guid workId, bool wishList = false)
     {
+        if (workId == Guid.Empty)
+            throw new DomainException("WorkId is required");
+
         var userBook = new UserBook
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             BookId = bookId,
+            WorkId = workId,
             Status = ReadingStatus.NotStarted,
             WishList = wishList,
             CreatedAt = DateTime.UtcNow,
@@ -40,7 +52,7 @@ public class UserBook : BaseAuditableEntity
         };
         
         userBook.AddDomainEvent(
-            new BookAddedToLibraryDomainEvent(userBook.Id, userId, bookId, wishList));
+            new BookAddedToLibraryDomainEvent(userBook.Id, userId, bookId, workId, wishList));
         return userBook;
     }
 
@@ -78,7 +90,7 @@ public class UserBook : BaseAuditableEntity
         var oldStatus = Status;
         Status = readingStatus;
         
-        AddDomainEvent(new ReadingStatusChangedDomainEvent(UserId, BookId, oldStatus, Status));
+        AddDomainEvent(new ReadingStatusChangedDomainEvent(UserId, BookId, WorkId, oldStatus, Status));
     }
 
     public void SetWishList(bool wishList)
@@ -118,7 +130,7 @@ public class UserBook : BaseAuditableEntity
         var oldRating = CurrentRating;
         CurrentRating = rating;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new UserBookRatedDomainEvent(UserId, BookId, oldRating, CurrentRating, isPartOfReview));
+        AddDomainEvent(new UserBookRatedDomainEvent(UserId, BookId, WorkId, oldRating, CurrentRating, isPartOfReview));
     }
 
     public void RemoveRating()
@@ -131,7 +143,7 @@ public class UserBook : BaseAuditableEntity
         UpdatedAt = DateTime.UtcNow;
         
         AddDomainEvent(
-            new UserBookRatingRemovedDomainEvent(UserId, BookId, oldRating));
+            new UserBookRatingRemovedDomainEvent(UserId, BookId, WorkId, oldRating));
     }
 
     /// <summary>

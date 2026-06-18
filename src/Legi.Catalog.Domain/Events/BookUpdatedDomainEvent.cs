@@ -10,6 +10,7 @@ public sealed class BookUpdatedDomainEvent : IDomainEvent
     public IReadOnlyList<string> Authors { get; }
     public string? CoverUrl { get; }
     public int? PageCount { get; }
+    public Guid WorkId { get; }
     public DateTime OccurredOn { get; }
 
     public BookUpdatedDomainEvent(
@@ -18,7 +19,8 @@ public sealed class BookUpdatedDomainEvent : IDomainEvent
         string title,
         IReadOnlyList<string> authors,
         string? coverUrl,
-        int? pageCount)
+        int? pageCount,
+        Guid workId)
     {
         BookId = bookId;
         Isbn = isbn;
@@ -26,6 +28,7 @@ public sealed class BookUpdatedDomainEvent : IDomainEvent
         Authors = authors;
         CoverUrl = coverUrl;
         PageCount = pageCount;
+        WorkId = workId;
         OccurredOn = DateTime.UtcNow;
     }
 }

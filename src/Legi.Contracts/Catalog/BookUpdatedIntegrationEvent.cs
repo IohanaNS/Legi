@@ -16,11 +16,13 @@ namespace Legi.Contracts.Catalog;
 /// <param name="Authors">List of author names in order.</param>
 /// <param name="CoverUrl">URL of the cover image, if known.</param>
 /// <param name="PageCount">Number of pages, if known.</param>
+/// <param name="WorkId">The work this book (edition) belongs to.</param>
 public sealed record BookUpdatedIntegrationEvent(
     Guid BookId,
     string Isbn,
     string Title,
     List<string> Authors,
     string? CoverUrl,
-    int? PageCount
+    int? PageCount,
+    Guid WorkId
 ) : IIntegrationEvent;

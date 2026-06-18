@@ -12,13 +12,14 @@ namespace Legi.Catalog.Application.Tests.Books.IntegrationEventHandlers;
 public class UserBookRatingRemovedIntegrationEventHandlerTests
 {
     private readonly Mock<IBookRepository> _bookRepo = new();
+    private readonly Mock<IWorkRepository> _workRepo = new();
     private readonly Mock<IBookRatingRepository> _ratingRepo = new();
     private readonly UserBookRatingRemovedIntegrationEventHandler _handler;
 
     public UserBookRatingRemovedIntegrationEventHandlerTests()
     {
         _handler = new UserBookRatingRemovedIntegrationEventHandler(
-            _bookRepo.Object, _ratingRepo.Object,
+            _bookRepo.Object, _workRepo.Object, _ratingRepo.Object,
             NullLogger<UserBookRatingRemovedIntegrationEventHandler>.Instance);
     }
 
@@ -33,7 +34,7 @@ public class UserBookRatingRemovedIntegrationEventHandlerTests
             .ReturnsAsync(new BookRatingAggregate(3.0m, 1));
 
         await _handler.Handle(
-            new UserBookRatingRemovedIntegrationEvent(book.Id, userId, RemovedRating: 8),
+            new UserBookRatingRemovedIntegrationEvent(book.Id, userId, RemovedRating: 8, WorkId: Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.Equal(3.0m, book.AverageRating);
@@ -52,7 +53,7 @@ public class UserBookRatingRemovedIntegrationEventHandlerTests
             .ReturnsAsync(new BookRatingAggregate(0m, 0));
 
         await _handler.Handle(
-            new UserBookRatingRemovedIntegrationEvent(book.Id, userId, RemovedRating: 6),
+            new UserBookRatingRemovedIntegrationEvent(book.Id, userId, RemovedRating: 6, WorkId: Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.Equal(0m, book.AverageRating);
@@ -66,7 +67,7 @@ public class UserBookRatingRemovedIntegrationEventHandlerTests
             .ReturnsAsync((Book?)null);
 
         await Assert.ThrowsAsync<TransientMessagingException>(() => _handler.Handle(
-            new UserBookRatingRemovedIntegrationEvent(Guid.NewGuid(), Guid.NewGuid(), 6),
+            new UserBookRatingRemovedIntegrationEvent(Guid.NewGuid(), Guid.NewGuid(), 6, Guid.NewGuid()),
             CancellationToken.None));
 
         _ratingRepo.Verify(

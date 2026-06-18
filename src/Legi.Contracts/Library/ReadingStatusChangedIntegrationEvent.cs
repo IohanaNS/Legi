@@ -13,5 +13,6 @@ public sealed record ReadingStatusChangedIntegrationEvent(
     Guid BookId,
     string OldStatus,
     string NewStatus,
-    DateTime ChangedAt
+    DateTime ChangedAt,
+    Guid WorkId
 ) : IIntegrationEvent;

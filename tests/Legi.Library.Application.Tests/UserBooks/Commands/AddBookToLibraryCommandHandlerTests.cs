@@ -46,6 +46,7 @@ public class AddBookToLibraryCommandHandlerTests
         Assert.NotNull(addedUserBook);
         Assert.Equal(command.UserId, addedUserBook.UserId);
         Assert.Equal(command.BookId, addedUserBook.BookId);
+        Assert.Equal(snapshot.WorkId, addedUserBook.WorkId);
         Assert.True(addedUserBook.WishList);
         Assert.Equal(ReadingStatus.NotStarted, addedUserBook.Status);
 
@@ -62,6 +63,25 @@ public class AddBookToLibraryCommandHandlerTests
         _bookSnapshotRepository
             .Setup(r => r.GetByBookIdAsync(command.BookId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((BookSnapshot?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            _handler.Handle(command, CancellationToken.None));
+
+        _userBookRepository.Verify(
+            r => r.AddAsync(It.IsAny<UserBook>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_SnapshotHasNoWorkId_ThrowsNotFoundException()
+    {
+        var command = AddBookToLibraryCommandBuilder.Valid().Build();
+        // A legacy snapshot with no work id yet (pre-split, not re-projected).
+        var snapshotWithoutWork = BookSnapshot.Create(
+            command.BookId, "Title", "Author", coverUrl: null, pageCount: null, workId: null);
+        _bookSnapshotRepository
+            .Setup(r => r.GetByBookIdAsync(command.BookId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(snapshotWithoutWork);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             _handler.Handle(command, CancellationToken.None));

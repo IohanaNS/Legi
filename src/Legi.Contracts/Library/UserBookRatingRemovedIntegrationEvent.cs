@@ -15,5 +15,6 @@ namespace Legi.Contracts.Library;
 public sealed record UserBookRatingRemovedIntegrationEvent(
     Guid BookId,
     Guid UserId,
-    int RemovedRating
+    int RemovedRating,
+    Guid WorkId
 ) : IIntegrationEvent;

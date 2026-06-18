@@ -9,13 +9,15 @@ public static class BookSnapshotFactory
         string title = "Clean Code",
         string authorDisplay = "Robert C. Martin",
         string? coverUrl = "https://example.com/clean-code.jpg",
-        int? pageCount = 464)
+        int? pageCount = 464,
+        Guid? workId = null)
     {
         return BookSnapshot.Create(
             bookId ?? LibraryTestIds.BookId,
             title,
             authorDisplay,
             coverUrl,
-            pageCount);
+            pageCount,
+            workId ?? LibraryTestIds.WorkId);
     }
 }

@@ -20,5 +20,6 @@ public sealed record UserBookRatedIntegrationEvent(
     Guid UserId,
     int Rating,
     int? PreviousRating,
+    Guid WorkId,
     bool IsPartOfReview = false
 ) : IIntegrationEvent;

@@ -55,7 +55,7 @@ public class FeedReplayDedupTests
     {
         var dispatcher = sp.GetRequiredService<IntegrationEventDispatcher<SocialDbContext>>();
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), userId, bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), userId, bookId, Wishlist: false, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
         await dispatcher.DispatchAsync(
             messageId, typeof(BookAddedToLibraryIntegrationEvent).AssemblyQualifiedName!, evt);
     }

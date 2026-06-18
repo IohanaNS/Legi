@@ -12,6 +12,7 @@ public sealed class ReviewCreatedDomainEvent(
     Guid reviewId,
     Guid userId,
     Guid bookId,
+    Guid workId,
     string content,
     int stars,
     bool isSpoiler = false)
@@ -20,6 +21,7 @@ public sealed class ReviewCreatedDomainEvent(
     public Guid ReviewId { get; } = reviewId;
     public Guid UserId { get; } = userId;
     public Guid BookId { get; } = bookId;
+    public Guid WorkId { get; } = workId;
     public string Content { get; } = content;
 
     /// <summary>Half-star rating value in [1, 10].</summary>

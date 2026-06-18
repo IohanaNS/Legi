@@ -194,6 +194,85 @@ perception now. See the placeholder section in
   dedup needs Library's `UserBook` to carry `WorkId` first. So the next major step
   is **Phase 2 (Library + Contracts)**, not more Catalog read-rework.
 
+## Phase 2 progress
+
+- **DONE (2026-06-17) — 2A: WorkId flows Catalog → Library BookSnapshot.**
+  `BookCreated`/`BookUpdated` integration events (+ the Catalog domain events) now
+  carry `WorkId`. `Book.Create` takes a `workId` (resolved-or-created *before*
+  create in `BookImportService.ResolveWorkIdAsync`, so it's in the create event);
+  `RaiseUpdatedEvent` reads `this.WorkId`. Library `BookSnapshot` gained a
+  **nullable** `WorkId`, populated by the projection handlers (Guid.Empty→null for
+  old in-flight messages; `Update` never regresses a known id to null). Library
+  migration applied. Catalog 96/110 + Library 78/116 tests green.
+  - **Re-projection prerequisite for 2B:** existing snapshots have `WorkId = null`
+    (they predate the split). Before `UserBook` can *require* `WorkId`, Catalog must
+    re-publish `BookUpdated` for all books to backfill snapshot work ids. Not yet
+    exercised end-to-end through RabbitMQ (handler logic is unit-tested).
+
+- **DONE (2026-06-17) — 2B: UserBook.WorkId.** Backfilled `book_snapshots.work_id`
+  from Catalog (cross-db dev substitute for re-projection; 5871/5874, 3 orphan
+  snapshots for deleted books). `UserBook` gained **`WorkId` (required)**, sourced
+  from `BookSnapshot.WorkId` in `AddBookToLibraryCommandHandler` (guards null →
+  NotFound). Migration backfilled `user_books.work_id` from snapshots → NOT NULL;
+  verified 36/36, 0 null, 0 mismatch vs snapshot. Library 78/117 green.
+  - **Deferred:** nullable `EditionId` / work-level add (needs API + frontend) —
+    `UserBook.BookId` remains the edition reference, required, for now.
+  - **Rating→Work is now unblocked:** `UserBook` carries `WorkId`; Catalog can also
+    map book→work locally. Next: 2C (Library outgoing events carry `WorkId`) and/or
+    the rating aggregation.
+
+- **DONE (2026-06-17) — 2C (partial): UserBook-sourced Library events carry WorkId.**
+  `BookAddedToLibrary`, `ReadingStatusChanged`, `UserBookRated`,
+  `UserBookRatingRemoved` (domain + integration events) now carry `WorkId`, sourced
+  from `UserBook.WorkId`. Pure wire-format change — no migration; consumers (Social,
+  Catalog) ignore it until they use it. Builds + Library 78/117, Catalog 110, Social
+  70 green.
+  - **2C remaining:** `ReadingProgress`-sourced events (`ReviewCreated`,
+    `ReadingPostCreated`, `ReadingPostDeleted`) — need `ReadingProgress.WorkId` first.
+  - **Rating→Work now fully unblocked:** `UserBookRated` carries `WorkId` (and Catalog
+    can map book→work locally).
+
+- **DONE (2026-06-17) — rating aggregation to Work.** `Work` gained
+  `AverageRating`/`RatingsCount` + `RecalculateRating`. The Catalog rating handlers
+  (`UserBookRated`/`UserBookRatingRemoved`) recompute the work after the book via
+  `WorkRatingRecalculator` — composing per-edition aggregates (the just-rated
+  edition's tracked values + a SQL sum over its siblings; a weighted average across
+  editions, no cross-edition per-user dedup — exact for single-edition works).
+  Migration backfilled `works.average_rating/ratings_count` from editions (0
+  mismatch). **Book details now shows the work's rating** (read repo joins works).
+  Integration-verified: two editions of one work rated by two users → work 4.5 /
+  count 2. Fixed pre-existing integration seeds (every book needs a work FK now).
+  - **Attachment-map "rating → Work" is now real.** Single-edition works (all
+    current data) read identically; multi-edition works aggregate.
+  - **Not done:** search still shows the representative edition's rating (not the
+    work's); work-level **ReviewsCount** (needs `ReadingProgress.WorkId` + the
+    ReviewCreated/ReadingPost events — 2C remainder); nullable `EditionId`.
+
+- **DONE (2026-06-18) — 2C complete: ReadingProgress.WorkId + review/post events.**
+  `ReadingProgress` gained `WorkId` (denormalized from `UserBook.WorkId` at create);
+  `ReviewCreated`, `ReadingPostCreated`, `ReadingPostDeleted` (domain + integration
+  events) now carry it. Migration backfilled `reading_posts.work_id` from snapshots;
+  6 orphan legacy posts got placeholder works → NOT NULL (18/18, 0 mismatch on
+  resolvable). All Library outgoing events are now work-aware. Library 78/117,
+  Social 70, Catalog 110 + Library integration 4 green.
+  - **Now possible:** work-level **ReviewsCount** (Catalog `ReviewCreated`/
+    `ReadingPostDeleted` handlers can increment a `Work.ReviewsCount`, mirroring the
+    rating rollup) + Social work-level review feeds.
+
+- **DONE (2026-06-18) — work-level ReviewsCount.** `Work.ReviewsCount` +
+  Increment/Decrement; Catalog `ReviewCreated`/`ReadingPostDeleted` handlers now
+  roll the count up to the work (via `book.WorkId`) alongside the per-edition
+  `Book.ReviewsCount`. Migration backfilled `works.reviews_count` from editions (0
+  mismatch). Book details surfaces the work's reviews count. +3 rollup unit tests;
+  Catalog 113 green. **"Aggregate at Work" is now symmetric (rating + reviews).**
+
+## Aggregation status (rating + reviews both at Work)
+
+Book details now surfaces the **work's** `AverageRating` / `RatingsCount` /
+`ReviewsCount`. Per-edition `Book.*` counters are still maintained (transitional,
+unused by reads). Search still shows the representative edition's rating (not the
+work's) — the one remaining read inconsistency.
+
 ## Phasing
 
 0. **Coverless UX** (generated placeholder + upload CTA) — orthogonal, immediate.

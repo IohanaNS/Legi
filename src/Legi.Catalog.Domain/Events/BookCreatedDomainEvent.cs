@@ -11,6 +11,7 @@ public sealed class BookCreatedDomainEvent : IDomainEvent
     public string? CoverUrl { get; }
     public int? PageCount { get; }
     public Guid CreatedByUserId { get; }
+    public Guid WorkId { get; }
     public DateTime OccurredOn { get; }
 
     public BookCreatedDomainEvent(
@@ -20,7 +21,8 @@ public sealed class BookCreatedDomainEvent : IDomainEvent
         IReadOnlyList<string> authors,
         string? coverUrl,
         int? pageCount,
-        Guid createdByUserId)
+        Guid createdByUserId,
+        Guid workId)
     {
         BookId = bookId;
         Isbn = isbn;
@@ -29,6 +31,7 @@ public sealed class BookCreatedDomainEvent : IDomainEvent
         CoverUrl = coverUrl;
         PageCount = pageCount;
         CreatedByUserId = createdByUserId;
+        WorkId = workId;
         OccurredOn = DateTime.UtcNow;
     }
 }

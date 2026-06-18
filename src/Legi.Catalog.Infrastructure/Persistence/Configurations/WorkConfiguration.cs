@@ -38,6 +38,19 @@ public class WorkConfiguration : IEntityTypeConfiguration<Work>
             .HasColumnName("default_cover_url")
             .HasMaxLength(500);
 
+        builder.Property(w => w.AverageRating)
+            .HasColumnName("average_rating")
+            .HasPrecision(3, 2)
+            .HasDefaultValue(0);
+
+        builder.Property(w => w.RatingsCount)
+            .HasColumnName("ratings_count")
+            .HasDefaultValue(0);
+
+        builder.Property(w => w.ReviewsCount)
+            .HasColumnName("reviews_count")
+            .HasDefaultValue(0);
+
         builder.Property(w => w.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

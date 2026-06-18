@@ -52,7 +52,8 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
             _postId, _userId, _bookId,
             Content: "Halfway through, love it",
             ProgressValue: 50, ProgressType: "Percentage",
-            CreatedAt: DateTime.UtcNow);
+            CreatedAt: DateTime.UtcNow,
+            WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -94,7 +95,8 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
             _postId, _userId, _bookId,
             Content: "Just a thought, no progress yet",
             ProgressValue: null, ProgressType: null,
-            CreatedAt: DateTime.UtcNow);
+            CreatedAt: DateTime.UtcNow,
+            WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -123,6 +125,7 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
             Content: "The ending changes everything",
             ProgressValue: 80, ProgressType: "Percentage",
             CreatedAt: DateTime.UtcNow,
+            WorkId: Guid.NewGuid(),
             IsSpoiler: true);
 
         await _handler.Handle(evt, CancellationToken.None);
@@ -143,7 +146,7 @@ public class ReadingPostCreatedIntegrationEventHandlerTests
             .ReturnsAsync((BookSnapshot?)null);
 
         var evt = new ReadingPostCreatedIntegrationEvent(
-            _postId, _userId, _bookId, "hi", 10, "Page", DateTime.UtcNow);
+            _postId, _userId, _bookId, "hi", 10, "Page", DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));

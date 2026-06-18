@@ -21,6 +21,7 @@ namespace Legi.Catalog.Application.Books.IntegrationEventHandlers;
 /// </summary>
 public sealed class ReviewCreatedIntegrationEventHandler(
     IBookRepository bookRepository,
+    IWorkRepository workRepository,
     ILogger<ReviewCreatedIntegrationEventHandler> logger)
     : INotificationHandler<ReviewCreatedIntegrationEvent>
 {
@@ -40,6 +41,10 @@ public sealed class ReviewCreatedIntegrationEventHandler(
         }
 
         book.IncrementReviewsCount();
+
+        // The reviews count shown on the book page is the work's (across editions).
+        var work = await workRepository.GetByIdAsync(book.WorkId, cancellationToken);
+        work?.IncrementReviewsCount();
 
         logger.LogDebug(
             "Incremented ReviewsCount on book {BookId} (now {ReviewsCount})",

@@ -17,6 +17,14 @@ public class BookSnapshotConfiguration : IEntityTypeConfiguration<BookSnapshot>
             .HasColumnName("book_id")
             .ValueGeneratedNever();
 
+        // Nullable: snapshots projected before the Work/Edition split have no
+        // work id until Catalog re-projects (BookUpdated).
+        builder.Property(bs => bs.WorkId)
+            .HasColumnName("work_id");
+
+        builder.HasIndex(bs => bs.WorkId)
+            .HasDatabaseName("ix_book_snapshots_work_id");
+
         builder.Property(bs => bs.Title)
             .HasColumnName("title")
             .HasMaxLength(500)

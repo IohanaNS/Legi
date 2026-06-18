@@ -38,7 +38,8 @@ public sealed class ReviewCreatedDomainEventHandler
             Content: domainEvent.Content,
             Stars: domainEvent.Stars,
             IsSpoiler: domainEvent.IsSpoiler,
-            CreatedAt: domainEvent.OccurredOn);
+            CreatedAt: domainEvent.OccurredOn,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

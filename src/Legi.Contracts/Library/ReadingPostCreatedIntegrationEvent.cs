@@ -20,5 +20,6 @@ public sealed record ReadingPostCreatedIntegrationEvent(
     int? ProgressValue,
     string? ProgressType,
     DateTime CreatedAt,
+    Guid WorkId,
     bool IsSpoiler = false
 ) : IIntegrationEvent;

@@ -13,5 +13,6 @@ public sealed record BookAddedToLibraryIntegrationEvent(
     Guid UserId,
     Guid BookId,
     bool Wishlist,
-    DateTime AddedAt
+    DateTime AddedAt,
+    Guid WorkId
 ) : IIntegrationEvent;

@@ -22,5 +22,6 @@ public sealed record ReviewCreatedIntegrationEvent(
     string Content,
     int Stars,
     DateTime CreatedAt,
+    Guid WorkId,
     bool IsSpoiler = false
 ) : IIntegrationEvent;

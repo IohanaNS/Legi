@@ -55,7 +55,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
             .Returns(Task.CompletedTask);
 
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -77,7 +77,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
     public async Task Handle_WishlistAdd_StagesNothing_AndSkipsLookups()
     {
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), _userId, _bookId, Wishlist: true, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), _userId, _bookId, Wishlist: true, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -93,7 +93,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
             .ReturnsAsync((UserProfile?)null);
 
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
@@ -109,7 +109,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
             .ReturnsAsync((BookSnapshot?)null);
 
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await Assert.ThrowsAsync<TransientMessagingException>(
             () => _handler.Handle(evt, CancellationToken.None));
@@ -126,7 +126,7 @@ public class BookAddedToLibraryIntegrationEventHandlerTests
         _ = CaptureStagedFeedItem();
 
         var evt = new BookAddedToLibraryIntegrationEvent(
-            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow);
+            Guid.NewGuid(), _userId, _bookId, Wishlist: false, AddedAt: DateTime.UtcNow, WorkId: Guid.NewGuid());
 
         await _handler.Handle(evt, CancellationToken.None);
         await _handler.Handle(evt, CancellationToken.None);

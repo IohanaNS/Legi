@@ -39,7 +39,22 @@ public interface IBookRepository
     /// </summary>
     /// <returns>The number of books anonymized.</returns>
     Task<int> AnonymizeCreatorsAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rating totals for a work's editions EXCLUDING one edition (the one currently
+    /// being recomputed, whose new aggregate is read from its tracked entity). Used
+    /// to compose the work-level rating as a weighted average across editions.
+    /// </summary>
+    Task<EditionRatingTotals> GetEditionRatingTotalsForWorkAsync(
+        Guid workId, Guid excludeBookId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Summed ratings across a set of editions: total ratings and the sum of
+/// <c>average_rating * ratings_count</c> (so a weighted average is
+/// <c>WeightedRatingSum / RatingsCount</c>).
+/// </summary>
+public readonly record struct EditionRatingTotals(int RatingsCount, decimal WeightedRatingSum);
 
 
 /// <summary>

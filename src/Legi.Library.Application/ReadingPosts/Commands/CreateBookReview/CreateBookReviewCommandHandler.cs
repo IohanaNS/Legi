@@ -48,6 +48,7 @@ public class CreateBookReviewCommandHandler
             userBook.Id,
             userBook.UserId,
             userBook.BookId,
+            userBook.WorkId,
             request.Content,
             rating,
             request.IsSpoiler);

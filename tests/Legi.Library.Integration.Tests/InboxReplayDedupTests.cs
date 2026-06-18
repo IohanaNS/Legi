@@ -45,7 +45,7 @@ public class InboxReplayDedupTests
         using var scope = sp.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();
         var post = ReadingProgress.Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "replay-dedup seed", null);
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "replay-dedup seed", null);
         ctx.ReadingPosts.Add(post);
         await ctx.SaveChangesAsync();
         return post.Id;

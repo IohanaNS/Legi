@@ -40,7 +40,8 @@ public sealed class BookAddedToLibraryDomainEventHandler
             UserId: domainEvent.UserId,
             BookId: domainEvent.BookId,
             Wishlist: domainEvent.WishList,
-            AddedAt: domainEvent.OccurredOn);
+            AddedAt: domainEvent.OccurredOn,
+            WorkId: domainEvent.WorkId);
 
         await _eventBus.PublishAsync(integrationEvent, cancellationToken);
 

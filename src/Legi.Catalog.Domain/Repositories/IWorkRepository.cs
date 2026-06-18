@@ -10,6 +10,13 @@ namespace Legi.Catalog.Domain.Repositories;
 public interface IWorkRepository
 {
     Task<Work?> GetByWorkKeyAsync(string workKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Loads a work by id as a tracked entity (so a recompute committed by the
+    /// IntegrationEventDispatcher's single SaveChanges flows through).
+    /// </summary>
+    Task<Work?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task AddAsync(Work work, CancellationToken cancellationToken = default);
     Task UpdateAsync(Work work, CancellationToken cancellationToken = default);
 }

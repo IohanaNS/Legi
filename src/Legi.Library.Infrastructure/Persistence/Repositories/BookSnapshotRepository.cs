@@ -49,7 +49,8 @@ public class BookSnapshotRepository : IBookSnapshotRepository
                 snapshot.Title,
                 snapshot.AuthorDisplay,
                 snapshot.CoverUrl,
-                snapshot.PageCount);
+                snapshot.PageCount,
+                snapshot.WorkId);
         }
     }
 }

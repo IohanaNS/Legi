@@ -23,11 +23,17 @@ public class AddBookToLibraryCommandHandler : IRequestHandler<AddBookToLibraryCo
         if (bookSnapshot is null)
             throw new NotFoundException("Book", request.BookId);
 
+        // The work must be known (snapshots projected after the Work/Edition split
+        // carry it; legacy snapshots are backfilled). Guard rather than persist an
+        // empty work id.
+        if (bookSnapshot.WorkId is null)
+            throw new NotFoundException("Work for book", request.BookId);
+
         var existing = await _userBookRepository.GetByUserAndBookAsync(request.UserId, request.BookId, cancellationToken);
         if(existing != null)
             throw new ConflictException($"Book with ID {request.BookId} is already in the user's library.");
-        
-        var userBook = UserBook.Create(request.UserId, request.BookId, request.Wishlist);
+
+        var userBook = UserBook.Create(request.UserId, request.BookId, bookSnapshot.WorkId.Value, request.Wishlist);
         
         await _userBookRepository.AddAsync(userBook, cancellationToken);
         
