@@ -15,10 +15,12 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "../features/auth/useAuth";
+import { useUserProfile } from "../features/social/hooks/useUserProfile";
 import { useTheme } from "../hooks/useTheme";
 import { GlobalSearch } from "../features/search/components/GlobalSearch";
 import { NotificationBell } from "../features/notifications/components/NotificationBell";
 import { Logo } from "../components/ui/Logo";
+import { Avatar } from "../components/ui/Avatar";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -35,6 +37,10 @@ export default function Layout() {
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const profileQuery = useUserProfile(user?.userId);
+  const viewerProfile = profileQuery.data;
+  const displayUsername = viewerProfile?.username ?? user?.username ?? "";
+  const displayAvatarUrl = viewerProfile?.avatarUrl ?? undefined;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -105,12 +111,15 @@ export default function Layout() {
             <div className="absolute bottom-full left-2 right-2 mb-1 rounded-xl bg-forest-900 dark:bg-dark-card border border-white/10 shadow-2xl overflow-hidden">
               {/* User info */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-                <div className="w-10 h-10 bg-green-800 rounded-full flex items-center justify-center text-sm font-semibold text-green-100 uppercase shrink-0">
-                  {user?.username?.charAt(0) ?? "?"}
-                </div>
+                <Avatar
+                  src={displayAvatarUrl}
+                  fallback={displayUsername}
+                  size="md"
+                  className="shrink-0 bg-green-800 text-green-100"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">
-                    {user?.username ?? ""}
+                    {displayUsername}
                   </p>
                   <p className="text-xs text-green-400 truncate">{user?.email ?? ""}</p>
                 </div>
@@ -176,12 +185,15 @@ export default function Layout() {
             onClick={() => setUserMenuOpen((o) => !o)}
             className="flex w-full items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
           >
-            <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center text-xs font-semibold text-green-100 uppercase shrink-0">
-              {user?.username?.charAt(0) ?? "?"}
-            </div>
+            <Avatar
+              src={displayAvatarUrl}
+              fallback={displayUsername}
+              size="sm"
+              className="shrink-0 bg-green-800 text-green-100"
+            />
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-green-100 truncate">
-                @{user?.username ?? ""}
+                @{displayUsername}
               </p>
             </div>
             <ChevronUp

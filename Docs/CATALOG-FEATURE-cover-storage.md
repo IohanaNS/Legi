@@ -374,12 +374,23 @@ an SSRF surface. Guard it:
 - **Manual cover upload** endpoint + frontend (reuse profile-image upload path).
 - **Coverage health metric** + per-provider error-rate signal.
 
-## Open questions / deferred
+## Open questions / deferred — resolved (2026-06-18)
 
-- Exact retry cadence + the confirmed-no-cover budget (N) before `Exhausted`.
-- Whether to also re-check on "added to library" / "detail page view", or rely
-  solely on the external-search enrich path.
-- Migration of existing rows: leave legacy external URLs as-is and let natural
-  touchpoints upgrade them, or run a one-off backfill job.
+- **Retry cadence + confirmed-no-cover budget (N): RESOLVED.** 1h→6h→1d→3d→7d, N=5
+  confirmed misses → `Exhausted` (`CoverRetryPolicy`).
+- **Migration of existing rows: WON'T DO.** The service is **not published anywhere**
+  and has no real users — the catalog will be wiped and reseeded, so every book is
+  imported fresh through the new acquire path. No backfill job needed.
+- **Extra re-check touchpoints (added-to-library / detail-page view): not pursued.**
+  The bounded worker retry + the external-search enrich path are enough; revisit only
+  if cover-less books prove sticky in practice.
+- **"Read-time resolution" DTO fallback (`CoverUrl ?? resolveIsbnFallback(isbn)`):
+  WON'T DO.** It conflicts with the locked "never serve unvalidated URLs" decision and
+  is superseded by the generated placeholder being the resting state for cover-less books.
+
+### Truly remaining (all optional polish)
+- Coverage health metric + per-provider error-rate signal (observability / Plan B §5).
+- Tighten the upload permission model (currently any authed user may fill a missing cover).
+- Automated test for the worker claim/discovery loop (smoke-tested only).
 </content>
 </invoke>
