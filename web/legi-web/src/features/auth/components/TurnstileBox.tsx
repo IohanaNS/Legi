@@ -27,7 +27,7 @@ declare global {
 }
 
 interface TurnstileBoxProps {
-  action: "login" | "register" | "password_reset";
+  action: "login" | "register" | "password_reset" | "email_confirmation";
   onVerify: (token: string) => void;
   onReset: () => void;
 }

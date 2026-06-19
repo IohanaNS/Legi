@@ -218,6 +218,82 @@ public class LoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldThrowEmailConfirmationRequired_WhenPasswordIsCorrectAndEmailIsUnconfirmed()
+    {
+        // Arrange
+        var command = LoginCommandFactory.Create();
+        var user = UserFactory.Create(emailConfirmed: false);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Returns(true);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await Assert.ThrowsAsync<EmailConfirmationRequiredException>(act);
+
+        Assert.Equal(0, user.FailedLoginAttempts);
+        Assert.Null(user.LastFailedLoginAt);
+        Assert.Null(user.LoginLockoutEndsAt);
+        Assert.Empty(user.RefreshTokens);
+        _loginAttemptRepositoryMock.Verify(
+            x => x.ClearAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _userRepositoryMock.Verify(
+            x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _tokenServiceMock.Verify(
+            x => x.GenerateAccessToken(It.IsAny<User>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowUnauthorizedException_WhenPasswordIsIncorrectAndEmailIsUnconfirmed()
+    {
+        // Arrange
+        var command = LoginCommandFactory.Create(password: "SenhaErrada!");
+        var user = UserFactory.Create(emailConfirmed: false);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Returns(false);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
+        Assert.Equal("Invalid credentials", exception.Message);
+        _loginAttemptRepositoryMock.Verify(
+            x => x.RecordFailedAttemptAsync(
+                command.EmailOrUsername,
+                _loginLockoutSettings.MaxFailedAttempts,
+                _loginLockoutSettings.FailureWindow,
+                _loginLockoutSettings.LockoutDuration,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _userRepositoryMock.Verify(
+            x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Handle_ShouldRejectLockedAccountWithoutCheckingPassword()
     {
         // Arrange

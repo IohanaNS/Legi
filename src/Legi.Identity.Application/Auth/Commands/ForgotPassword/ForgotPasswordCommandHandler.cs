@@ -11,7 +11,7 @@ namespace Legi.Identity.Application.Auth.Commands.ForgotPassword;
 
 public class ForgotPasswordCommandHandler(
     IUserRepository userRepository,
-    IPasswordResetTokenFactory tokenFactory,
+    ISecureTokenFactory tokenFactory,
     IEmailSender emailSender,
     PasswordResetSettings passwordResetSettings,
     TurnstileSettings turnstileSettings,

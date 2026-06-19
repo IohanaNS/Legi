@@ -1,10 +1,12 @@
 using Legi.Identity.Application.Auth.Commands.Register;
+using Legi.Identity.Application.Common.Email;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Application.Tests.Factories;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Legi.Identity.Application.Tests.Auth.Commands;
@@ -13,8 +15,10 @@ public class RegisterCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
-    private readonly Mock<IJwtTokenService> _tokenServiceMock;
+    private readonly Mock<ISecureTokenFactory> _tokenFactoryMock;
+    private readonly Mock<IEmailSender> _emailSenderMock;
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
+    private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly RegisterCommandHandler _handler;
 
@@ -22,8 +26,14 @@ public class RegisterCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
-        _tokenServiceMock = new Mock<IJwtTokenService>();
+        _tokenFactoryMock = new Mock<ISecureTokenFactory>();
+        _emailSenderMock = new Mock<IEmailSender>();
         _humanVerificationServiceMock = new Mock<IHumanVerificationService>();
+        _emailConfirmationSettings = new EmailConfirmationSettings
+        {
+            FrontendBaseUrl = "https://bukihub.test",
+            TokenLifetimeMinutes = 1440
+        };
         _turnstileSettings = new TurnstileSettings
         {
             Enabled = false,
@@ -33,9 +43,12 @@ public class RegisterCommandHandlerTests
         _handler = new RegisterCommandHandler(
             _userRepositoryMock.Object,
             _passwordHasherMock.Object,
-            _tokenServiceMock.Object,
+            _tokenFactoryMock.Object,
+            _emailSenderMock.Object,
+            _emailConfirmationSettings,
             _turnstileSettings,
-            _humanVerificationServiceMock.Object
+            _humanVerificationServiceMock.Object,
+            NullLogger<RegisterCommandHandler>.Instance
         );
     }
 
@@ -45,37 +58,13 @@ public class RegisterCommandHandlerTests
         // Arrange
         var command = RegisterCommandFactory.Create(
             email: "novo@exemplo.com",
-            username: "novousr"
+            username: "novousr",
+            language: "pt-BR"
         );
-        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(14);
 
-        _userRepositoryMock
-            .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _userRepositoryMock
-            .Setup(x => x.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _passwordHasherMock
-            .Setup(x => x.Hash(command.Password))
-            .Returns("hashed_password");
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateAccessToken(It.IsAny<User>()))
-            .Returns(("access_token", DateTime.UtcNow.AddHours(1)));
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateRefreshToken())
-            .Returns("refresh_token");
-
-        _tokenServiceMock
-            .Setup(x => x.HashRefreshToken("refresh_token"))
-            .Returns("refresh_token_hash");
-
-        _tokenServiceMock
-            .Setup(x => x.GetRefreshTokenExpiresAt())
-            .Returns(refreshTokenExpiresAt);
+        SetupNoExistingUser(command);
+        _passwordHasherMock.Setup(x => x.Hash(command.Password)).Returns("hashed_password");
+        _tokenFactoryMock.Setup(x => x.Create()).Returns(("raw-token", "token-hash"));
 
         User? addedUser = null;
         _userRepositoryMock
@@ -90,16 +79,31 @@ public class RegisterCommandHandlerTests
         Assert.NotNull(result);
         Assert.Equal(command.Email.ToLowerInvariant(), result.Email);
         Assert.Equal(command.Username.ToLowerInvariant(), result.Username);
-        Assert.Equal("access_token", result.Token);
-        Assert.Equal("refresh_token", result.RefreshToken);
-        Assert.Equal(refreshTokenExpiresAt, result.RefreshTokenExpiresAt);
+        Assert.True(result.EmailConfirmationRequired);
         Assert.NotNull(addedUser);
-        Assert.Contains(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token_hash");
-        Assert.Contains(addedUser.RefreshTokens, t => t.ExpiresAt == refreshTokenExpiresAt);
-        Assert.DoesNotContain(addedUser.RefreshTokens, t => t.TokenHash == "refresh_token");
+        Assert.False(addedUser.IsEmailConfirmed);
+        Assert.Empty(addedUser.RefreshTokens);
+        var confirmationToken = Assert.Single(addedUser.EmailConfirmationTokens);
+        Assert.Equal("token-hash", confirmationToken.TokenHash);
+        Assert.True(confirmationToken.IsActive);
+        Assert.NotNull(confirmationToken.SentAt);
 
+        _emailSenderMock.Verify(
+            x => x.SendAsync(
+                addedUser.Email.Value,
+                It.Is<EmailContent>(c =>
+                    c.Subject == "Confirme seu e-mail do BukiHub" &&
+                    c.HtmlBody.Contains("https://bukihub.test/confirm-email?token=raw-token") &&
+                    c.TextBody.Contains("https://bukihub.test/confirm-email?token=raw-token") &&
+                    c.InlineImages != null && c.InlineImages.Count == 1),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         _userRepositoryMock.Verify(
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _userRepositoryMock.Verify(
+            x => x.UpdateAsync(addedUser, It.IsAny<CancellationToken>()),
             Times.Once
         );
     }
@@ -126,6 +130,9 @@ public class RegisterCommandHandlerTests
             x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
+        _emailSenderMock.Verify(
+            x => x.SendAsync(It.IsAny<string>(), It.IsAny<EmailContent>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -165,34 +172,9 @@ public class RegisterCommandHandlerTests
         _humanVerificationServiceMock
             .Setup(x => x.VerifyAsync("turnstile-token", null, HumanVerificationActions.Register, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-
-        _userRepositoryMock
-            .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _userRepositoryMock
-            .Setup(x => x.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _passwordHasherMock
-            .Setup(x => x.Hash(command.Password))
-            .Returns("hashed_password");
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateAccessToken(It.IsAny<User>()))
-            .Returns(("access_token", DateTime.UtcNow.AddHours(1)));
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateRefreshToken())
-            .Returns("refresh_token");
-
-        _tokenServiceMock
-            .Setup(x => x.HashRefreshToken("refresh_token"))
-            .Returns("refresh_token_hash");
-
-        _tokenServiceMock
-            .Setup(x => x.GetRefreshTokenExpiresAt())
-            .Returns(DateTime.UtcNow.AddDays(14));
+        SetupNoExistingUser(command);
+        _passwordHasherMock.Setup(x => x.Hash(command.Password)).Returns("hashed_password");
+        _tokenFactoryMock.Setup(x => x.Create()).Returns(("raw-token", "token-hash"));
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
@@ -210,33 +192,9 @@ public class RegisterCommandHandlerTests
         // Arrange
         var command = RegisterCommandFactory.Create(password: "SenhaSuperSecreta123!");
 
-        _userRepositoryMock
-            .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _userRepositoryMock
-            .Setup(x => x.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _passwordHasherMock
-            .Setup(x => x.Hash(command.Password))
-            .Returns("hashed_password");
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateAccessToken(It.IsAny<User>()))
-            .Returns(("token", DateTime.UtcNow.AddHours(1)));
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateRefreshToken())
-            .Returns("refresh");
-
-        _tokenServiceMock
-            .Setup(x => x.HashRefreshToken("refresh"))
-            .Returns("refresh_hash");
-
-        _tokenServiceMock
-            .Setup(x => x.GetRefreshTokenExpiresAt())
-            .Returns(DateTime.UtcNow.AddDays(14));
+        SetupNoExistingUser(command);
+        _passwordHasherMock.Setup(x => x.Hash(command.Password)).Returns("hashed_password");
+        _tokenFactoryMock.Setup(x => x.Create()).Returns(("raw-token", "token-hash"));
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
@@ -249,46 +207,49 @@ public class RegisterCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ShouldGenerateTokensForNewUser()
+    public async Task Handle_ShouldCreateAccount_WhenConfirmationEmailSendFails()
     {
         // Arrange
         var command = RegisterCommandFactory.Create();
 
+        SetupNoExistingUser(command);
+        _passwordHasherMock.Setup(x => x.Hash(command.Password)).Returns("hashed_password");
+        _tokenFactoryMock.Setup(x => x.Create()).Returns(("raw-token", "token-hash"));
+        _emailSenderMock
+            .Setup(x => x.SendAsync(It.IsAny<string>(), It.IsAny<EmailContent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("SMTP unavailable"));
+
+        User? addedUser = null;
         _userRepositoryMock
-            .Setup(x => x.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _userRepositoryMock
-            .Setup(x => x.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
-
-        _passwordHasherMock
-            .Setup(x => x.Hash(It.IsAny<string>()))
-            .Returns("hash");
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateAccessToken(It.IsAny<User>()))
-            .Returns(("access_token", DateTime.UtcNow.AddHours(1)));
-
-        _tokenServiceMock
-            .Setup(x => x.GenerateRefreshToken())
-            .Returns("refresh_token");
-
-        _tokenServiceMock
-            .Setup(x => x.HashRefreshToken("refresh_token"))
-            .Returns("refresh_token_hash");
-
-        _tokenServiceMock
-            .Setup(x => x.GetRefreshTokenExpiresAt())
-            .Returns(DateTime.UtcNow.AddDays(14));
+            .Setup(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((user, _) => addedUser = user)
+            .Returns(Task.CompletedTask);
 
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Once);
-        _tokenServiceMock.Verify(x => x.GenerateRefreshToken(), Times.Once);
-        _tokenServiceMock.Verify(x => x.HashRefreshToken("refresh_token"), Times.Once);
-        _tokenServiceMock.Verify(x => x.GetRefreshTokenExpiresAt(), Times.Once);
+        Assert.True(result.EmailConfirmationRequired);
+        Assert.NotNull(addedUser);
+        Assert.Null(addedUser.EmailConfirmationTokens.Single().SentAt);
+        _userRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        _userRepositoryMock.Verify(
+            x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    private void SetupNoExistingUser(RegisterCommand command)
+    {
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByUsernameAsync(command.Username, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
     }
 }

@@ -1,0 +1,37 @@
+using Legi.SharedKernel;
+
+namespace Legi.Identity.Domain.Entities;
+
+public class EmailConfirmationToken : BaseEntity
+{
+    public string TokenHash { get; private set; }
+    public DateTime ExpiresAt { get; private set; }
+    public DateTime CreatedAt { get; private set; }
+    public DateTime? SentAt { get; private set; }
+    public DateTime? UsedAt { get; private set; }
+
+    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
+    public bool IsUsed => UsedAt.HasValue;
+    public bool IsActive => !IsExpired && !IsUsed;
+
+    internal EmailConfirmationToken(string tokenHash, DateTime expiresAt)
+    {
+        Id = Guid.NewGuid();
+        TokenHash = tokenHash;
+        ExpiresAt = expiresAt;
+        CreatedAt = DateTime.UtcNow;
+    }
+
+    internal void MarkUsed()
+    {
+        if (IsUsed)
+            throw new DomainException("Confirmation token has already been used");
+
+        UsedAt = DateTime.UtcNow;
+    }
+
+    internal void MarkSent(DateTime utcNow)
+    {
+        SentAt ??= utcNow;
+    }
+}

@@ -22,6 +22,50 @@ namespace Legi.Identity.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Legi.Identity.Domain.Entities.EmailConfirmationToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_confirmation_tokens_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_email_confirmation_tokens_user_id");
+
+                    b.ToTable("email_confirmation_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Legi.Identity.Domain.Entities.LoginAttempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -155,6 +199,10 @@ namespace Legi.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTime?>("EmailConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_confirmed_at");
+
                     b.Property<int>("FailedLoginAttempts")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -248,6 +296,15 @@ namespace Legi.Identity.Infrastructure.Persistence.Migrations
                     b.ToTable("outbox_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Legi.Identity.Domain.Entities.EmailConfirmationToken", b =>
+                {
+                    b.HasOne("Legi.Identity.Domain.Entities.User", null)
+                        .WithMany("EmailConfirmationTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Legi.Identity.Domain.Entities.PasswordResetToken", b =>
                 {
                     b.HasOne("Legi.Identity.Domain.Entities.User", null)
@@ -321,6 +378,8 @@ namespace Legi.Identity.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Legi.Identity.Domain.Entities.User", b =>
                 {
+                    b.Navigation("EmailConfirmationTokens");
+
                     b.Navigation("PasswordResetTokens");
 
                     b.Navigation("RefreshTokens");

@@ -456,6 +456,17 @@
         "requestNewLink": "Request a new link",
         "passwordsDoNotMatch": "Passwords don't match.",
         "passwordTooShort": "Password must be at least 8 characters.",
-        "passwordRequirements": "Password must be at least 8 characters and include an uppercase letter and a number."
+        "passwordRequirements": "Password must be at least 8 characters and include an uppercase letter and a number.",
+        "registrationSuccess": "Account created for {{email}}. Check your inbox to confirm your email.",
+        "registrationSuccessHint": "You can sign in after confirming your email address.",
+        "emailConfirmationRequired": "Confirm your email before signing in.",
+        "emailConfirmationHint": "We created your account, but this email still needs to be confirmed.",
+        "resendConfirmation": "Resend confirmation email",
+        "confirmationResent": "If this account still needs confirmation, we've sent a new link.",
+        "confirmEmailTitle": "Confirm your email",
+        "confirmEmailLoading": "Confirming your email...",
+        "confirmEmailSuccess": "Your email has been confirmed. You can now sign in.",
+        "confirmEmailInvalid": "This confirmation link is invalid or has expired.",
+        "confirmEmailError": "We couldn't confirm your email. Please try again."
     }
 }

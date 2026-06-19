@@ -1,6 +1,7 @@
 using System.Data;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
+using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Legi.Identity.Infrastructure.Persistence.Repositories;
@@ -53,6 +54,18 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
             .FirstOrDefaultAsync(u => u.Email.Value == normalized || u.Username.Value == normalized, cancellationToken);
     }
 
+    public async Task<User?> GetByEmailOrUsernameWithEmailConfirmationTokensAsync(
+        string emailOrUsername,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = emailOrUsername.Trim().ToLowerInvariant();
+
+        return await context.Users
+            .Include(u => u.RefreshTokens)
+            .Include(u => u.EmailConfirmationTokens)
+            .FirstOrDefaultAsync(u => u.Email.Value == normalized || u.Username.Value == normalized, cancellationToken);
+    }
+
     public async Task<bool> RedeemPasswordResetTokenAsync(
         string tokenHash,
         string newPasswordHash,
@@ -96,6 +109,59 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
             .SingleAsync(u => u.Id == userId, cancellationToken);
 
         user.RedeemPasswordReset(tokenHash, newPasswordHash, utcNow);
+
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return true;
+    }
+
+    public async Task<bool> ConfirmEmailAsync(
+        string tokenHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => ConfirmEmailInTransactionAsync(
+            tokenHash,
+            utcNow,
+            cancellationToken));
+    }
+
+    private async Task<bool> ConfirmEmailInTransactionAsync(
+        string tokenHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted,
+            cancellationToken);
+
+        var confirmationToken = await context.Set<EmailConfirmationToken>()
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM email_confirmation_tokens
+                WHERE token_hash = {tokenHash}
+                FOR UPDATE
+                """)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (confirmationToken is null)
+            return false;
+
+        var userId = context.Entry(confirmationToken).Property<Guid>("UserId").CurrentValue;
+        var user = await context.Users
+            .Include(u => u.EmailConfirmationTokens)
+            .SingleAsync(u => u.Id == userId, cancellationToken);
+
+        try
+        {
+            user.ConfirmEmail(tokenHash, utcNow);
+        }
+        catch (DomainException)
+        {
+            return false;
+        }
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -153,6 +219,9 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
         }
 
         if (currentToken.IsExpired)
+            return RefreshTokenRotationResult.Invalid();
+
+        if (!user.IsEmailConfirmed)
             return RefreshTokenRotationResult.Invalid();
 
         user.RevokeRefreshToken(currentTokenHash);

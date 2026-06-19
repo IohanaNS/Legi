@@ -4,7 +4,7 @@ using Legi.Identity.Application.Common.Interfaces;
 
 namespace Legi.Identity.Infrastructure.Security;
 
-public class PasswordResetTokenFactory : IPasswordResetTokenFactory
+public class SecureTokenFactory : ISecureTokenFactory
 {
     private const int TokenByteLength = 32;
 

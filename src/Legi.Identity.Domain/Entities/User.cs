@@ -12,12 +12,17 @@ public class User : BaseAuditableEntity
     public int FailedLoginAttempts { get; private set; }
     public DateTime? LastFailedLoginAt { get; private set; }
     public DateTime? LoginLockoutEndsAt { get; private set; }
+    public DateTime? EmailConfirmedAt { get; private set; }
+    public bool IsEmailConfirmed => EmailConfirmedAt.HasValue;
 
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
 
     private readonly List<PasswordResetToken> _passwordResetTokens = new();
     public IReadOnlyCollection<PasswordResetToken> PasswordResetTokens => _passwordResetTokens.AsReadOnly();
+
+    private readonly List<EmailConfirmationToken> _emailConfirmationTokens = new();
+    public IReadOnlyCollection<EmailConfirmationToken> EmailConfirmationTokens => _emailConfirmationTokens.AsReadOnly();
 
     private User() { }
 
@@ -170,5 +175,46 @@ public class User : BaseAuditableEntity
 
         token.MarkUsed();
         UpdatePassword(newPasswordHash);
+    }
+
+    public EmailConfirmationToken AddEmailConfirmationToken(string tokenHash, DateTime expiresAt)
+    {
+        foreach (var existing in _emailConfirmationTokens.Where(t => t.IsActive))
+        {
+            existing.MarkUsed();
+        }
+
+        var token = new EmailConfirmationToken(tokenHash, expiresAt);
+        _emailConfirmationTokens.Add(token);
+
+        UpdatedAt = DateTime.UtcNow;
+
+        return token;
+    }
+
+    public void ConfirmEmail(string tokenHash, DateTime utcNow)
+    {
+        var token = _emailConfirmationTokens.FirstOrDefault(t =>
+            t.TokenHash == tokenHash &&
+            !t.IsUsed &&
+            t.ExpiresAt > utcNow);
+
+        if (token is null)
+            throw new DomainException("Invalid or expired email confirmation token");
+
+        token.MarkUsed();
+        EmailConfirmedAt ??= utcNow;
+        UpdatedAt = utcNow;
+    }
+
+    public void MarkEmailConfirmationTokenSent(string tokenHash, DateTime utcNow)
+    {
+        var token = _emailConfirmationTokens.FirstOrDefault(t => t.TokenHash == tokenHash);
+
+        if (token is null)
+            throw new DomainException("Confirmation token not found");
+
+        token.MarkSent(utcNow);
+        UpdatedAt = utcNow;
     }
 }

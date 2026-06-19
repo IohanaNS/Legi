@@ -54,6 +54,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.LoginLockoutEndsAt)
             .HasColumnName("login_lockout_ends_at");
 
+        builder.Property(u => u.EmailConfirmedAt)
+            .HasColumnName("email_confirmed_at");
+
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -76,6 +79,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Navigation(u => u.PasswordResetTokens)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(u => u.EmailConfirmationTokens)
+            .WithOne()
+            .HasForeignKey("UserId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.EmailConfirmationTokens)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(u => u.CreatedAt)

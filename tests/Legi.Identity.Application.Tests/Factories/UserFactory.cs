@@ -8,13 +8,22 @@ public static class UserFactory
     public static User Create(
         Email? email = null,
         Username? username = null,
-        string? passwordHash = null)
+        string? passwordHash = null,
+        bool emailConfirmed = true)
     {
-        return User.Create(
+        var user = User.Create(
             email ?? Email.Create("teste@exemplo.com"),
             username ?? Username.Create("testusr"),
             passwordHash ?? "hashed_password"
         );
+
+        if (emailConfirmed)
+        {
+            user.AddEmailConfirmationToken("confirmed_email_token_hash", DateTime.UtcNow.AddDays(1));
+            user.ConfirmEmail("confirmed_email_token_hash", DateTime.UtcNow);
+        }
+
+        return user;
     }
 
     public static User CreateWithEmail(string email)

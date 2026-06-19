@@ -9,14 +9,16 @@ public static class RegisterCommandFactory
         string? username = null,
         string? password = null,
         string? turnstileToken = null,
-        string? remoteIpAddress = null)
+        string? remoteIpAddress = null,
+        string? language = null)
     {
         return new RegisterCommand(
             email ?? "teste@exemplo.com",
             username ?? "testusr",
             password ?? "Senha123!",
             turnstileToken,
-            remoteIpAddress
+            remoteIpAddress,
+            language
         );
     }
 

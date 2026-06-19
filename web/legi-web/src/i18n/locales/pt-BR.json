@@ -456,6 +456,17 @@
         "requestNewLink": "Solicitar um novo link",
         "passwordsDoNotMatch": "As senhas não coincidem.",
         "passwordTooShort": "A senha deve ter pelo menos 8 caracteres.",
-        "passwordRequirements": "A senha deve ter pelo menos 8 caracteres e incluir uma letra maiúscula e um número."
+        "passwordRequirements": "A senha deve ter pelo menos 8 caracteres e incluir uma letra maiúscula e um número.",
+        "registrationSuccess": "Conta criada para {{email}}. Verifique sua caixa de entrada para confirmar seu e-mail.",
+        "registrationSuccessHint": "Você poderá entrar depois de confirmar seu endereço de e-mail.",
+        "emailConfirmationRequired": "Confirme seu e-mail antes de entrar.",
+        "emailConfirmationHint": "Sua conta foi criada, mas este e-mail ainda precisa ser confirmado.",
+        "resendConfirmation": "Reenviar e-mail de confirmação",
+        "confirmationResent": "Se esta conta ainda precisa de confirmação, enviamos um novo link.",
+        "confirmEmailTitle": "Confirmar seu e-mail",
+        "confirmEmailLoading": "Confirmando seu e-mail...",
+        "confirmEmailSuccess": "Seu e-mail foi confirmado. Agora você pode entrar.",
+        "confirmEmailInvalid": "Este link de confirmação é inválido ou expirou.",
+        "confirmEmailError": "Não foi possível confirmar seu e-mail. Tente novamente."
     }
 }

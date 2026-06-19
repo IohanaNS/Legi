@@ -5,6 +5,7 @@ import LoginPage from "../features/auth/components/LoginPage";
 import RegisterPage from "../features/auth/components/RegisterPage";
 import ForgotPasswordPage from "../features/auth/components/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/components/ResetPasswordPage";
+import ConfirmEmailPage from "../features/auth/components/ConfirmEmailPage";
 import FeedPage from "../features/social/components/FeedPage";
 import UserProfilePage from "../features/social/components/UserProfilePage";
 import FollowListPage from "../features/social/components/FollowListPage";
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
   { path: "/register", element: <RegisterPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
+  { path: "/confirm-email", element: <ConfirmEmailPage /> },
   {
     path: "/",
     element: (

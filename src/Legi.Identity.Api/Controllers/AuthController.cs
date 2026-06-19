@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using Legi.Identity.Application.Auth.Commands.ConfirmEmail;
 using Legi.Identity.Application.Auth.Commands.ForgotPassword;
 using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Auth.Commands.Logout;
 using Legi.Identity.Application.Auth.Commands.RefreshToken;
 using Legi.Identity.Application.Auth.Commands.Register;
+using Legi.Identity.Application.Auth.Commands.ResendConfirmation;
 using Legi.Identity.Application.Auth.Commands.ResetPassword;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Api.Security;
@@ -30,10 +32,10 @@ public class AuthController : ControllerBase
     /// Registers a new user
     /// </summary>
     [HttpPost("register")]
-    [ProducesResponseType(typeof(AuthSessionResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(RegistrationCreatedResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<AuthSessionResponse>> Register(
+    public async Task<ActionResult<RegistrationCreatedResponse>> Register(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
@@ -42,17 +44,15 @@ public class AuthController : ControllerBase
             request.Username,
             request.Password,
             request.TurnstileToken,
-            HttpContext.Connection.RemoteIpAddress?.ToString());
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            request.Language);
         var result = await _mediator.Send(command, cancellationToken);
 
-        RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
-
-        return StatusCode(StatusCodes.Status201Created, new AuthSessionResponse(
+        return StatusCode(StatusCodes.Status201Created, new RegistrationCreatedResponse(
             result.UserId,
             result.Email,
             result.Username,
-            result.Token,
-            result.ExpiresAt));
+            result.EmailConfirmationRequired));
     }
 
     /// <summary>
@@ -144,6 +144,41 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Confirms a user's email address using a token from the confirmation email.
+    /// </summary>
+    [HttpPost("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmEmail(
+        [FromBody] ConfirmEmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new ConfirmEmailCommand(request.Token);
+        await _mediator.Send(command, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Requests another email confirmation link. Always returns 204 to avoid account enumeration.
+    /// </summary>
+    [HttpPost("resend-confirmation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ResendConfirmation(
+        [FromBody] ResendConfirmationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new ResendConfirmationCommand(
+            request.EmailOrUsername,
+            request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            request.Language);
+        await _mediator.Send(command, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Invalidates the refresh token (logout)
     /// </summary>
     [Authorize]
@@ -177,8 +212,16 @@ public class AuthController : ControllerBase
 }
 
 // Request DTOs
-public record RegisterRequest(string Email, string Username, string Password, string? TurnstileToken = null);
+public record RegisterRequest(
+    string Email,
+    string Username,
+    string Password,
+    string? TurnstileToken = null,
+    string? Language = null);
 public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
 public record ForgotPasswordRequest(string Email, string? TurnstileToken = null, string? Language = null);
 public record ResetPasswordRequest(string Token, string NewPassword);
+public record ConfirmEmailRequest(string Token);
+public record ResendConfirmationRequest(string EmailOrUsername, string? TurnstileToken = null, string? Language = null);
+public record RegistrationCreatedResponse(Guid UserId, string Email, string Username, bool EmailConfirmationRequired);
 public record AuthSessionResponse(Guid UserId, string Email, string Username, string Token, DateTime ExpiresAt);

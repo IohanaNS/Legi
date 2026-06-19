@@ -4,8 +4,5 @@ public record RegisterResponse(
     Guid UserId,
     string Email,
     string Username,
-    string Token,
-    string RefreshToken,
-    DateTime ExpiresAt,
-    DateTime RefreshTokenExpiresAt
+    bool EmailConfirmationRequired
 );

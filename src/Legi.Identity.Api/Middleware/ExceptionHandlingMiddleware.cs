@@ -45,8 +45,10 @@ public class ExceptionHandlingMiddleware(
                 break;
 
             case HumanVerificationRequiredException:
+            case EmailConfirmationRequiredException:
                 logger.LogInformation(
-                    "Human verification required for {Method} {Path}",
+                    "{ExceptionType} for {Method} {Path}",
+                    exception.GetType().Name,
                     context.Request.Method,
                     context.Request.Path);
                 break;
@@ -112,6 +114,17 @@ public class ExceptionHandlingMiddleware(
                 Extensions =
                 {
                     ["captchaRequired"] = true
+                }
+            },
+
+            EmailConfirmationRequiredException emailConfirmationEx => new ProblemDetails
+            {
+                Status = (int)HttpStatusCode.Forbidden,
+                Title = "Email Confirmation Required",
+                Detail = emailConfirmationEx.Message,
+                Extensions =
+                {
+                    ["emailConfirmationRequired"] = true
                 }
             },
 

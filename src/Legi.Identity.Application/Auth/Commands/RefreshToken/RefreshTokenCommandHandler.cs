@@ -36,6 +36,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
         if (rotation.Status is not RefreshTokenRotationStatus.Success || rotation.User is null)
             throw new UnauthorizedException("Invalid or expired refresh token.");
 
+        if (!rotation.User.IsEmailConfirmed)
+            throw new UnauthorizedException("Invalid or expired refresh token.");
+
         var (accessToken, expiresAt) = _jwtTokenService.GenerateAccessToken(rotation.User);
 
         return new RefreshTokenResponse(

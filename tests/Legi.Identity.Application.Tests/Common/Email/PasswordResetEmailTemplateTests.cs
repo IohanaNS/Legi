@@ -67,4 +67,15 @@ public class PasswordResetEmailTemplateTests
         Assert.NotEmpty(logo.Content);
         Assert.Contains($"cid:{logo.ContentId}", content.HtmlBody);
     }
+
+    [Fact]
+    public void Build_KeepsPasswordResetActionMarkup()
+    {
+        var content = PasswordResetEmailTemplate.Build("alice", Url, 60, "en");
+
+        Assert.Equal("Reset your BukiHub password", content.Subject);
+        Assert.Contains("Reset your password", content.HtmlBody);
+        Assert.Contains("Reset password", content.HtmlBody);
+        Assert.Contains("If you didn't request this", content.HtmlBody);
+    }
 }

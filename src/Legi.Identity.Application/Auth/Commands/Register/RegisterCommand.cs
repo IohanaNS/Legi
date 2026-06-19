@@ -7,4 +7,5 @@ public record RegisterCommand(
     string Username,
     string Password,
     string? TurnstileToken = null,
-    string? RemoteIpAddress = null) : IRequest<RegisterResponse>;
+    string? RemoteIpAddress = null,
+    string? Language = null) : IRequest<RegisterResponse>;

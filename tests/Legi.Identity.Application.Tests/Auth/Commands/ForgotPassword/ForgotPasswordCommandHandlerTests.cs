@@ -14,7 +14,7 @@ namespace Legi.Identity.Application.Tests.Auth.Commands.ForgotPassword;
 public class ForgotPasswordCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
-    private readonly Mock<IPasswordResetTokenFactory> _tokenFactoryMock = new();
+    private readonly Mock<ISecureTokenFactory> _tokenFactoryMock = new();
     private readonly Mock<IEmailSender> _emailSenderMock = new();
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock = new();
     private readonly PasswordResetSettings _passwordResetSettings = new()

@@ -169,6 +169,46 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldThrowUnauthorizedException_WhenUserEmailIsUnconfirmed()
+    {
+        // Arrange
+        var command = RefreshTokenCommandFactory.Create("old_refresh_token");
+        var user = UserFactory.Create(emailConfirmed: false);
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken(command.RefreshToken))
+            .Returns("old_refresh_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("new_refresh_token");
+
+        _tokenServiceMock
+            .Setup(x => x.HashRefreshToken("new_refresh_token"))
+            .Returns("new_refresh_token_hash");
+
+        _tokenServiceMock
+            .Setup(x => x.GetRefreshTokenExpiresAt())
+            .Returns(DateTime.UtcNow.AddDays(14));
+
+        _userRepositoryMock
+            .Setup(x => x.RotateRefreshTokenAsync(
+                "old_refresh_token_hash",
+                "new_refresh_token_hash",
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RefreshTokenRotationResult.Success(user));
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(act);
+        Assert.Equal("Invalid or expired refresh token.", exception.Message);
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_ShouldThrowUnauthorizedExceptionAndNotIssueAccessToken_WhenReplayIsDetected()
     {
         // Arrange

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { isAxiosError } from "axios";
@@ -11,9 +11,8 @@ import { isTurnstileConfigured } from "../turnstile";
 import { TurnstileBox } from "./TurnstileBox";
 
 export default function RegisterPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { register } = useAuth();
-  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -33,8 +32,8 @@ export default function RegisterPage() {
       username,
       password,
       turnstileToken: turnstileToken ?? undefined,
+      language: i18n.language,
     }),
-    onSuccess: () => navigate("/feed", { replace: true }),
     onError: () => resetTurnstile(),
   });
 
@@ -55,47 +54,61 @@ export default function RegisterPage() {
           <span className="font-serif text-2xl font-semibold text-stone-800 dark:text-stone-100">BukiHub</span>
         </div>
         <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">{t("auth.registerTitle")}</h1>
-        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
-          <input
-            type="email"
-            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
-            placeholder={t("auth.email")}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <input
-            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
-            placeholder={t("auth.username")}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
-            placeholder={t("auth.password")}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-          {turnstileEnabled && (
-            <TurnstileBox
-              key={turnstileResetKey}
-              action="register"
-              onVerify={setTurnstileToken}
-              onReset={() => setTurnstileToken(null)}
-            />
-          )}
-          {errorMessage && <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>}
-          <Button type="submit" disabled={mutation.isPending || (turnstileEnabled && !turnstileToken)} className="w-full">
-            {t("auth.signUp")}
-          </Button>
-        </form>
-        <p className="text-sm text-center text-stone-600 dark:text-stone-400">
-          {t("auth.haveAccount")}{" "}
-          <Link to="/login" className="text-green-700 dark:text-green-400">{t("auth.signIn")}</Link>
-        </p>
+        {mutation.isSuccess ? (
+          <>
+            <p className="text-sm text-stone-600 dark:text-stone-400">
+              {t("auth.registrationSuccess", { email: mutation.data.email })}
+            </p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">{t("auth.registrationSuccessHint")}</p>
+            <p className="text-sm text-center text-stone-600 dark:text-stone-400">
+              <Link to="/login" className="text-green-700 dark:text-green-400">{t("auth.backToLogin")}</Link>
+            </p>
+          </>
+        ) : (
+          <>
+            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
+              <input
+                type="email"
+                className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
+                placeholder={t("auth.email")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+              <input
+                className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
+                placeholder={t("auth.username")}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+              />
+              <input
+                type="password"
+                className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
+                placeholder={t("auth.password")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              {turnstileEnabled && (
+                <TurnstileBox
+                  key={turnstileResetKey}
+                  action="register"
+                  onVerify={setTurnstileToken}
+                  onReset={() => setTurnstileToken(null)}
+                />
+              )}
+              {errorMessage && <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>}
+              <Button type="submit" disabled={mutation.isPending || (turnstileEnabled && !turnstileToken)} className="w-full">
+                {t("auth.signUp")}
+              </Button>
+            </form>
+            <p className="text-sm text-center text-stone-600 dark:text-stone-400">
+              {t("auth.haveAccount")}{" "}
+              <Link to="/login" className="text-green-700 dark:text-green-400">{t("auth.signIn")}</Link>
+            </p>
+          </>
+        )}
       </Card>
     </div>
   );

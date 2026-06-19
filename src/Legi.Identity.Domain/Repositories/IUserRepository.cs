@@ -9,9 +9,16 @@ public interface IUserRepository
     Task<User?> GetByEmailWithPasswordResetTokensAsync(string email, CancellationToken cancellationToken = default);
     Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task<User?> GetByEmailOrUsernameAsync(string emailOrUsername, CancellationToken cancellationToken = default);
+    Task<User?> GetByEmailOrUsernameWithEmailConfirmationTokensAsync(
+        string emailOrUsername,
+        CancellationToken cancellationToken = default);
     Task<bool> RedeemPasswordResetTokenAsync(
         string tokenHash,
         string newPasswordHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default);
+    Task<bool> ConfirmEmailAsync(
+        string tokenHash,
         DateTime utcNow,
         CancellationToken cancellationToken = default);
     Task<RefreshTokenRotationResult> RotateRefreshTokenAsync(

@@ -56,13 +56,20 @@ public class LoginCommandHandler(
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
+        await loginAttemptRepository.ClearAsync(identifier, cancellationToken);
+        user.RecordSuccessfulLogin(now);
+
+        if (!user.IsEmailConfirmed)
+        {
+            await userRepository.UpdateAsync(user, cancellationToken);
+            throw new EmailConfirmationRequiredException();
+        }
+
         var (token, expiresAt) = jwtTokenService.GenerateAccessToken(user);
 
         var refreshToken = jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = jwtTokenService.HashRefreshToken(refreshToken);
         var refreshTokenExpiresAt = jwtTokenService.GetRefreshTokenExpiresAt();
-        await loginAttemptRepository.ClearAsync(identifier, cancellationToken);
-        user.RecordSuccessfulLogin(now);
         user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
 
         await userRepository.UpdateAsync(user, cancellationToken);

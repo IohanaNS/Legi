@@ -11,7 +11,7 @@ namespace Legi.Identity.Application.Tests.Auth.Commands.ResetPassword;
 public class ResetPasswordCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
-    private readonly Mock<IPasswordResetTokenFactory> _tokenFactoryMock = new();
+    private readonly Mock<ISecureTokenFactory> _tokenFactoryMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
 
     private ResetPasswordCommandHandler CreateHandler() => new(

@@ -7,7 +7,7 @@ namespace Legi.Identity.Application.Auth.Commands.ResetPassword;
 
 public class ResetPasswordCommandHandler(
     IUserRepository userRepository,
-    IPasswordResetTokenFactory tokenFactory,
+    ISecureTokenFactory tokenFactory,
     IPasswordHasher passwordHasher)
     : IRequestHandler<ResetPasswordCommand, Unit>
 {

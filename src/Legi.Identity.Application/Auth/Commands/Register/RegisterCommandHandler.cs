@@ -1,3 +1,5 @@
+using System.Net;
+using Legi.Identity.Application.Common.Email;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
@@ -5,6 +7,7 @@ using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace Legi.Identity.Application.Auth.Commands.Register;
 
@@ -12,22 +15,31 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IJwtTokenService _tokenService;
+    private readonly ISecureTokenFactory _tokenFactory;
+    private readonly IEmailSender _emailSender;
+    private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly IHumanVerificationService _humanVerificationService;
+    private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenService tokenService,
+        ISecureTokenFactory tokenFactory,
+        IEmailSender emailSender,
+        EmailConfirmationSettings emailConfirmationSettings,
         TurnstileSettings turnstileSettings,
-        IHumanVerificationService humanVerificationService)
+        IHumanVerificationService humanVerificationService,
+        ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _tokenService = tokenService;
+        _tokenFactory = tokenFactory;
+        _emailSender = emailSender;
+        _emailConfirmationSettings = emailConfirmationSettings;
         _turnstileSettings = turnstileSettings;
         _humanVerificationService = humanVerificationService;
+        _logger = logger;
     }
 
     public async Task<RegisterResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
@@ -57,23 +69,49 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
 
         var user = User.Create(email, username, passwordHash);
 
-        var (accessToken, expiresAt) = _tokenService.GenerateAccessToken(user);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-        var refreshTokenHash = _tokenService.HashRefreshToken(refreshToken);
-        var refreshTokenExpiresAt = _tokenService.GetRefreshTokenExpiresAt();
-
-        user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
+        var (rawToken, tokenHash) = _tokenFactory.Create();
+        var tokenExpiresAt = DateTime.UtcNow.AddMinutes(_emailConfirmationSettings.TokenLifetimeMinutes);
+        user.AddEmailConfirmationToken(tokenHash, tokenExpiresAt);
 
         await _userRepository.AddAsync(user, cancellationToken);
+
+        await TrySendConfirmationEmailAsync(user, rawToken, tokenHash, request.Language, cancellationToken);
 
         return new RegisterResponse(
             user.Id,
             user.Email.Value,
             user.Username.Value,
-            accessToken,
-            refreshToken,
-            expiresAt,
-            refreshTokenExpiresAt
+            EmailConfirmationRequired: true
         );
+    }
+
+    private async Task TrySendConfirmationEmailAsync(
+        User user,
+        string rawToken,
+        string tokenHash,
+        string? language,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var confirmationUrl =
+                $"{_emailConfirmationSettings.FrontendBaseUrl.TrimEnd('/')}/confirm-email?token={WebUtility.UrlEncode(rawToken)}";
+
+            var content = EmailConfirmationEmailTemplate.Build(
+                user.Username.Value,
+                confirmationUrl,
+                _emailConfirmationSettings.TokenLifetimeMinutes,
+                language);
+
+            await _emailSender.SendAsync(user.Email.Value, content, cancellationToken);
+            user.MarkEmailConfirmationTokenSent(
+                tokenHash,
+                DateTime.UtcNow);
+            await _userRepository.UpdateAsync(user, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to send confirmation email for user {UserId}", user.Id);
+        }
     }
 }

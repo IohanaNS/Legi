@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (body: RegisterRequest) => {
-    setUser(persist(await authApi.register(body)));
+    return authApi.register(body);
   };
 
   const logout = async () => {

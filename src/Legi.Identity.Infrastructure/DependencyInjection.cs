@@ -80,12 +80,21 @@ public static class DependencyInjection
         services.AddSingleton(sp => sp.GetRequiredService<
             Microsoft.Extensions.Options.IOptions<PasswordResetSettings>>().Value);
 
+        services.AddOptions<EmailConfirmationSettings>()
+            .Bind(configuration.GetSection(EmailConfirmationSettings.SectionName))
+            .Validate(
+                EmailConfirmationSettings.HasValidSettings,
+                EmailConfirmationSettings.ValidationMessage)
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<EmailConfirmationSettings>>().Value);
+
         services.AddOptions<SmtpSettings>()
             .Bind(configuration.GetSection(SmtpSettings.SectionName));
         services.AddSingleton(sp => sp.GetRequiredService<
             Microsoft.Extensions.Options.IOptions<SmtpSettings>>().Value);
 
-        services.AddScoped<IPasswordResetTokenFactory, PasswordResetTokenFactory>();
+        services.AddScoped<ISecureTokenFactory, SecureTokenFactory>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         // Messaging infrastructure (own outbox + RabbitMQ).

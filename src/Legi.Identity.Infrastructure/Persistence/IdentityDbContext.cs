@@ -8,6 +8,7 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<LoginAttempt> LoginAttempts => Set<LoginAttempt>();
+    public DbSet<EmailConfirmationToken> EmailConfirmationTokens => Set<EmailConfirmationToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
