@@ -29,4 +29,6 @@ public sealed record UserPurgeResult(
     int OwnCommentsDeleted,
     int ContentSnapshotsDeleted,
     int OwnFeedItemsDeleted,
+    int OwnNotificationsDeleted,
+    int IndirectNotificationsDeleted,
     int ProfileDeleted);

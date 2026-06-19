@@ -34,7 +34,7 @@ public class Comment : BaseEntity
         };
 
         comment.AddDomainEvent(
-            new CommentCreatedDomainEvent(comment.Id, userId, targetType, targetId));
+            new CommentCreatedDomainEvent(comment.Id, userId, targetType, targetId, comment.Content));
         return comment;
     }
 

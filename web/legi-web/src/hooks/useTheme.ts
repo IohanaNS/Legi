@@ -12,32 +12,25 @@ function systemPrefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function resolveIsDark(mode: ThemeMode) {
-  return mode === "system" ? systemPrefersDark() : mode === "dark";
-}
-
 export function useTheme() {
   const [mode, setModeState] = useState<ThemeMode>(getStoredMode);
-  const [isDark, setIsDark] = useState(() => resolveIsDark(getStoredMode()));
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+
+  // Derived during render — no state to sync via an effect.
+  const isDark = mode === "system" ? systemDark : mode === "dark";
 
   // Apply the resolved theme to the document.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  // Re-resolve whenever the mode changes.
+  // Track the OS preference live (only affects the UI while in "system" mode).
   useEffect(() => {
-    setIsDark(resolveIsDark(mode));
-  }, [mode]);
-
-  // Follow the OS live while in "system" mode.
-  useEffect(() => {
-    if (mode !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [mode]);
+  }, []);
 
   const setMode = (next: ThemeMode) => {
     if (next === "system") localStorage.removeItem("legi.theme");

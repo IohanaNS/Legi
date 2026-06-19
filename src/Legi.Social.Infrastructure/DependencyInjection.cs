@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IContentSnapshotRepository, ContentSnapshotRepository>();
         services.AddScoped<IFeedItemRepository, FeedItemRepository>();
         services.AddScoped<IBookSnapshotRepository, BookSnapshotRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
 
         // Object storage for profile images (S3-compatible: MinIO in dev)
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
@@ -87,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<ICommentReadRepository, CommentReadRepository>();
         services.AddScoped<ILikeReadRepository, LikeReadRepository>();
         services.AddScoped<IFeedItemReadRepository, FeedItemReadRepository>();
+        services.AddScoped<INotificationReadRepository, NotificationReadRepository>();
         services.AddScoped<IUserProfileReadRepository, UserProfileReadRepository>();
         services.AddScoped<IListSocialReadRepository, ListSocialReadRepository>();
 

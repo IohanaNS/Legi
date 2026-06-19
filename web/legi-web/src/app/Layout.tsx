@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../features/auth/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { GlobalSearch } from "../features/search/components/GlobalSearch";
+import { NotificationBell } from "../features/notifications/components/NotificationBell";
 import { Logo } from "../components/ui/Logo";
 
 const navItems = [
@@ -63,6 +64,9 @@ export default function Layout() {
         <div className="px-3 mb-2">
           <GlobalSearch />
         </div>
+
+        {/* Notificações */}
+        <NotificationBell />
 
         {/* Navegação */}
         <nav className="flex-1 px-3">

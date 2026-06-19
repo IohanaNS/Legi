@@ -44,7 +44,8 @@ public sealed class UserDeletedIntegrationEventHandler
             "profile={ProfileDeleted}, follows={FollowsDeleted} " +
             "(followers-- on {FollowerDec}, following-- on {FollowingDec}), " +
             "own likes={OwnLikes}, own comments={OwnComments}, content={Content}, " +
-            "own feed items={OwnFeed}; indirect: likes={IndLikes}, comments={IndComments}, feed items={IndFeed}",
+            "own feed items={OwnFeed}, own notifications={OwnNotifications}; " +
+            "indirect: likes={IndLikes}, comments={IndComments}, feed items={IndFeed}, notifications={IndNotifications}",
             integrationEvent.UserId,
             result.ProfileDeleted,
             result.FollowsDeleted,
@@ -54,8 +55,10 @@ public sealed class UserDeletedIntegrationEventHandler
             result.OwnCommentsDeleted,
             result.ContentSnapshotsDeleted,
             result.OwnFeedItemsDeleted,
+            result.OwnNotificationsDeleted,
             result.IndirectLikesDeleted,
             result.IndirectCommentsDeleted,
-            result.IndirectFeedItemsDeleted);
+            result.IndirectFeedItemsDeleted,
+            result.IndirectNotificationsDeleted);
     }
 }
