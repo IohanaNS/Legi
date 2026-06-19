@@ -99,6 +99,17 @@
         "wishlist": "Wishlist",
         "profile": "Profile"
     },
+    "notifications": {
+        "title": "Notifications",
+        "empty": "No notifications yet",
+        "markAllAsRead": "Mark all as read",
+        "likedPost": "liked your post",
+        "likedReview": "liked your review",
+        "likedList": "liked your list",
+        "commentedPost": "commented on your post",
+        "commentedReview": "commented on your review",
+        "commentedList": "commented on your list"
+    },
     "feed": {
         "title": "Feed",
         "greeting": "Hi, {{username}} 👋",

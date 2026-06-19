@@ -130,6 +130,17 @@ public sealed class UserDataPurger : IUserDataPurger
             .Where(fi => fi.ActorId == userId)
             .ExecuteDeleteAsync(cancellationToken);
 
+        // Notifications, both directions: the user's own (RecipientId) and the ones
+        // others received about this now-deleted user's actions (ActorId). Ordering
+        // is unconstrained — no counters depend on notifications.
+        var ownNotificationsDeleted = await _context.Notifications
+            .Where(n => n.RecipientId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var indirectNotificationsDeleted = await _context.Notifications
+            .Where(n => n.ActorId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+
         var profileDeleted = await _context.UserProfiles
             .Where(p => p.UserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
@@ -145,6 +156,8 @@ public sealed class UserDataPurger : IUserDataPurger
             OwnCommentsDeleted: ownCommentsDeleted,
             ContentSnapshotsDeleted: contentSnapshotsDeleted,
             OwnFeedItemsDeleted: ownFeedItemsDeleted,
+            OwnNotificationsDeleted: ownNotificationsDeleted,
+            IndirectNotificationsDeleted: indirectNotificationsDeleted,
             ProfileDeleted: profileDeleted);
     }
 }

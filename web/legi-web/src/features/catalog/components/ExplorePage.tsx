@@ -26,10 +26,15 @@ export default function ExplorePage() {
   const [selectedTags, setSelectedTags] = useState<TagResult[]>([]);
   const [sort, setSort] = useState<SortOption>("mostPopular");
 
-  useEffect(() => {
+  // Sync local input when the URL's search param changes (e.g. external
+  // navigation). Adjusting state during render — the documented alternative to a
+  // state-syncing effect (see React "You Might Not Need an Effect").
+  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearchInput);
+  if (urlSearchInput !== prevUrlSearch) {
+    setPrevUrlSearch(urlSearchInput);
     setSearchInput(urlSearchInput);
     setDebouncedSearch(urlSearchInput.trim());
-  }, [urlSearchInput]);
+  }
 
   useEffect(() => {
     if (isSearchComposing) return;

@@ -26,7 +26,7 @@ public class CommentCreatedDomainEventHandlerTests
         var userId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
         var domainEvent = new CommentCreatedDomainEvent(
-            commentId, userId, InteractableType.Post, targetId);
+            commentId, userId, InteractableType.Post, targetId, "Nice post!");
 
         await _handler.Handle(domainEvent, CancellationToken.None);
 

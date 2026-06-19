@@ -99,6 +99,17 @@
         "wishlist": "Lista de Desejos",
         "profile": "Perfil"
     },
+    "notifications": {
+        "title": "Notificações",
+        "empty": "Nenhuma notificação ainda",
+        "markAllAsRead": "Marcar todas como lidas",
+        "likedPost": "curtiu sua publicação",
+        "likedReview": "curtiu sua resenha",
+        "likedList": "curtiu sua lista",
+        "commentedPost": "comentou na sua publicação",
+        "commentedReview": "comentou na sua resenha",
+        "commentedList": "comentou na sua lista"
+    },
     "feed": {
         "title": "Mural",
         "greeting": "Olá, {{username}} 👋",
