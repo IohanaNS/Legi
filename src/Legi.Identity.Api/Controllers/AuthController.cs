@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Legi.Identity.Application.Auth.Commands.ConfirmEmail;
 using Legi.Identity.Application.Auth.Commands.ForgotPassword;
+using Legi.Identity.Application.Auth.Commands.GoogleSignIn;
 using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Auth.Commands.Logout;
 using Legi.Identity.Application.Auth.Commands.RefreshToken;
@@ -69,6 +70,32 @@ public class AuthController : ControllerBase
             request.EmailOrUsername,
             request.Password,
             request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+        var result = await _mediator.Send(command, cancellationToken);
+
+        RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
+
+        return Ok(new AuthSessionResponse(
+            result.UserId,
+            result.Email,
+            result.Username,
+            result.Token,
+            result.ExpiresAt));
+    }
+
+    /// <summary>
+    /// Authenticates (or registers) a user with a Google ID token. The same endpoint
+    /// handles new and existing accounts.
+    /// </summary>
+    [HttpPost("google")]
+    [ProducesResponseType(typeof(AuthSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthSessionResponse>> Google(
+        [FromBody] GoogleSignInRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new GoogleSignInCommand(
+            request.IdToken,
             HttpContext.Connection.RemoteIpAddress?.ToString());
         var result = await _mediator.Send(command, cancellationToken);
 
@@ -219,6 +246,7 @@ public record RegisterRequest(
     string? TurnstileToken = null,
     string? Language = null);
 public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
+public record GoogleSignInRequest(string IdToken);
 public record ForgotPasswordRequest(string Email, string? TurnstileToken = null, string? Language = null);
 public record ResetPasswordRequest(string Token, string NewPassword);
 public record ConfirmEmailRequest(string Token);

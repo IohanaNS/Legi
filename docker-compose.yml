@@ -165,6 +165,7 @@ services:
             Turnstile__LoginFailedAttemptsBeforeRequired: ${Turnstile__LoginFailedAttemptsBeforeRequired:-2}
             Turnstile__VerificationTimeoutSeconds: ${Turnstile__VerificationTimeoutSeconds:-5}
             Turnstile__RequireForPasswordReset: ${Turnstile__RequireForPasswordReset:-true}
+            GoogleAuth__ClientId: ${GoogleAuth__ClientId:-}
             PasswordReset__FrontendBaseUrl: ${PasswordReset__FrontendBaseUrl:-http://localhost:3000}
             PasswordReset__TokenLifetimeMinutes: ${PasswordReset__TokenLifetimeMinutes:-60}
             Smtp__Host: ${Smtp__Host:-}
@@ -310,6 +311,7 @@ services:
             dockerfile: Dockerfile
             args:
                 VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+                VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
         container_name: legi-web
         ports:
             - "3000:80"

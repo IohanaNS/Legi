@@ -13,6 +13,8 @@ import type {
 export const authApi = {
   login: (body: LoginRequest) =>
     http.post<AuthResponse>("/identity/auth/login", body).then((r) => r.data),
+  googleSignIn: (idToken: string) =>
+    http.post<AuthResponse>("/identity/auth/google", { idToken }).then((r) => r.data),
   register: (body: RegisterRequest) =>
     http.post<RegisterResponse>("/identity/auth/register", body).then((r) => r.data),
   forgotPassword: (body: ForgotPasswordRequest) =>

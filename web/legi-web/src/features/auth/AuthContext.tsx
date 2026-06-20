@@ -54,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(persist(await authApi.login(body)));
   };
 
+  const loginWithGoogle = async (idToken: string) => {
+    setUser(persist(await authApi.googleSignIn(idToken)));
+  };
+
   const register = async (body: RegisterRequest) => {
     return authApi.register(body);
   };
@@ -78,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isLoading,
     login,
+    loginWithGoogle,
     register,
     logout,
     deleteAccount,

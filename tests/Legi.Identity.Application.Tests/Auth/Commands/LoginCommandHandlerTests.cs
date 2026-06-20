@@ -5,6 +5,7 @@ using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Application.Tests.Factories;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
+using Legi.Identity.Domain.ValueObjects;
 using Moq;
 
 namespace Legi.Identity.Application.Tests.Auth.Commands;
@@ -67,7 +68,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _tokenServiceMock
@@ -152,7 +153,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -195,7 +196,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -229,7 +230,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(true);
 
         // Act
@@ -268,7 +269,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -460,7 +461,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(true);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -469,7 +470,7 @@ public class LoginCommandHandlerTests
         // Assert
         await Assert.ThrowsAsync<UnauthorizedException>(act);
         _passwordHasherMock.Verify(
-            x => x.Verify(command.Password, user.PasswordHash),
+            x => x.Verify(command.Password, user.PasswordHash!),
             Times.Once
         );
     }
@@ -488,7 +489,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _tokenServiceMock
@@ -530,7 +531,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _tokenServiceMock
@@ -576,7 +577,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(x => x.Verify(command.Password, user.PasswordHash))
+            .Setup(x => x.Verify(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _tokenServiceMock
@@ -606,6 +607,29 @@ public class LoginCommandHandlerTests
             x => x.ClearAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()),
             Times.Once
         );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowUnauthorized_WhenAccountHasNoPassword()
+    {
+        // Arrange — a Google-only (passwordless) account.
+        var command = LoginCommandFactory.Create();
+        var user = User.CreateFromExternalLogin(
+            Email.Create("google@exemplo.com"),
+            Username.Create("googleusr"),
+            "google",
+            "google-sub-1",
+            DateTime.UtcNow);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailOrUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act & Assert — never reaches password verification.
+        await Assert.ThrowsAsync<UnauthorizedException>(() => _handler.Handle(command, CancellationToken.None));
+        _passwordHasherMock.Verify(
+            x => x.Verify(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
     }
 
     // Helper method

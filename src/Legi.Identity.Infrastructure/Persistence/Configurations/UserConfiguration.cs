@@ -40,8 +40,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.PasswordHash)
             .HasColumnName("password_hash")
-            .HasMaxLength(255)
-            .IsRequired();
+            .HasMaxLength(255);
 
         builder.Property(u => u.FailedLoginAttempts)
             .HasColumnName("failed_login_attempts")
@@ -87,6 +86,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Navigation(u => u.EmailConfirmationTokens)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(u => u.ExternalLogins)
+            .WithOne()
+            .HasForeignKey("UserId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.ExternalLogins)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(u => u.CreatedAt)

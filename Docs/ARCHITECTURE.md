@@ -7,7 +7,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | Serviço | Status | Observação |
 |---------|--------|------------|
 | **SharedKernel** | ✅ Implementado | Base classes, custom Mediator |
-| **Identity** | ✅ Implementado | Auth completa, perfil de usuário |
+| **Identity** | ✅ Implementado | Auth completa (e-mail/senha + login social Google), perfil de usuário |
 | **Catalog** | ✅ Implementado | CRUD de livros, cadastro manual protegido, busca/autocomplete de autores e tags, JWT auth integrado |
 | **Library** | ✅ Implementado | Domain ✅, Application ✅, Infrastructure ✅, Api ✅ |
 | **Web Frontend** | 🚧 Em desenvolvimento | React 19 + Vite 8 + Tailwind CSS v4, Docker/Nginx, integração API progressiva |
@@ -134,11 +134,10 @@ User (Aggregate Root)
 ├── Id: Guid
 ├── Email: Email (VO)
 ├── Username: Username (VO)
-├── PasswordHash: string
-├── Name: string (2-100 chars)
-├── Bio: string? (max 500)
-├── AvatarUrl: string?
+├── PasswordHash: string?        (nullable — contas só-Google não têm senha)
+├── EmailConfirmedAt: DateTime?
 ├── RefreshTokens: List<RefreshToken>
+├── ExternalLogins: List<ExternalLogin>
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
 
@@ -148,6 +147,13 @@ RefreshToken (Entity)
 ├── ExpiresAt: DateTime
 ├── CreatedAt: DateTime
 └── RevokedAt: DateTime?
+
+ExternalLogin (Entity)        ← login social (ex.: Google)
+├── Id: Guid
+├── Provider: string          (ex.: "google")
+├── ProviderKey: string       (claim `sub` do provedor, estável)
+└── CreatedAt: DateTime
+   (chave única: provider + provider_key)
 ```
 
 **Value Objects:**
@@ -158,6 +164,7 @@ RefreshToken (Entity)
 - Máximo 5 refresh tokens ativos por usuário (LRU eviction)
 - Password: mínimo 8 chars, 1 maiúscula, 1 número
 - Ao trocar senha, todos refresh tokens são revogados
+- **Login social (Google):** usuário pode ser criado sem senha (`PasswordHash` null) via `User.CreateFromExternalLogin(...)` — e-mail já confirmado (Google verifica). `AddExternalLogin(...)` vincula um provedor a uma conta existente (idempotente). Login por senha é rejeitado para contas sem senha.
 
 **Domain Events:**
 - `UserRegisteredDomainEvent`
@@ -166,12 +173,15 @@ RefreshToken (Entity)
 
 ### 1.2 Application
 
-**Auth Commands:** `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`
+**Auth Commands:** `RegisterCommand`, `LoginCommand`, `GoogleSignInCommand`, `RefreshTokenCommand`, `LogoutCommand`
 **User Commands:** `DeleteAccountCommand`
 **User Queries:** `GetCurrentUserQuery`, `GetPublicProfileQuery`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`, `UnhandledExceptionBehavior`
-**Interfaces:** `IJwtTokenService`, `IPasswordHasher`
+**Interfaces:** `IJwtTokenService`, `IPasswordHasher`, `IGoogleTokenValidator`
+**Helpers:** `UsernameGenerator` (gera username único a partir do e-mail/nome do Google)
 **Exceptions:** `ConflictException`, `NotFoundException`, `UnauthorizedException`
+
+> **Fluxo Google Sign-In:** `GoogleSignInCommand` recebe o ID token do Google (botão GIS no frontend). O handler valida o token e resolve o usuário em cascata: (1) por `ExternalLogin(google, sub)`; senão (2) por e-mail verificado → **vincula** automaticamente e confirma o e-mail; senão (3) cria conta nova sem senha com username gerado. Um único endpoint serve cadastro **e** login.
 
 ### 1.3 Infrastructure
 
@@ -180,6 +190,8 @@ RefreshToken (Entity)
 - `JwtTokenService` — Gera access token (JWT, HMAC-SHA256) + refresh token (64 bytes Base64)
 - `PasswordHasher` — BCrypt hash/verify
 - `JwtSettings` — Options pattern (Secret, Issuer, Audience, expirations)
+- `GoogleTokenValidator` — valida o ID token do Google (assinatura/issuer/audience/expiry) via `Google.Apis.Auth`
+- `GoogleAuthSettings` — Options pattern (`ClientId`); sem `ValidateOnStart`, então a app sobe mesmo sem configurar (Google sign-in fica desativado)
 
 ### 1.4 API Endpoints
 
@@ -187,6 +199,7 @@ RefreshToken (Entity)
 |--------|----------|-----------|------|
 | POST | `/api/v1/identity/auth/register` | Registrar usuário | - |
 | POST | `/api/v1/identity/auth/login` | Login (email ou username) | - |
+| POST | `/api/v1/identity/auth/google` | Login/cadastro com ID token do Google | - |
 | POST | `/api/v1/identity/auth/refresh` | Renovar token | - |
 | POST | `/api/v1/identity/auth/logout` | Logout | 🔒 |
 | GET | `/api/v1/identity/users/me` | Meu perfil | 🔒 |
@@ -203,10 +216,8 @@ CREATE TABLE users (
     id UUID PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     username VARCHAR(30) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    bio VARCHAR(500),
-    avatar_url VARCHAR(500),
+    password_hash VARCHAR(255),          -- nullable: contas só-Google não têm senha
+    email_confirmed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -227,7 +238,21 @@ CREATE TABLE refresh_tokens (
 
 CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX ix_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+
+-- Tabela: external_logins (login social — ex.: Google)
+CREATE TABLE external_logins (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    provider_key VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX ix_external_logins_provider_provider_key ON external_logins(provider, provider_key);
+CREATE INDEX ix_external_logins_user_id ON external_logins(user_id);
 ```
+
+> **Nota:** o schema acima reflete a tabela `users` simplificada (perfil rico — name/bio/avatar — vive no Social via `UserProfile`). `email_confirmed_at`, lockout de login e tokens de reset/confirmação omitidos por brevidade.
 
 ---
 
@@ -1007,6 +1032,7 @@ CREATE INDEX ix_user_list_items_list_order ON user_list_items(user_list_id, "ord
 | Axios | 1.13 | Cliente HTTP |
 | i18next | 25.8 | Internacionalização (pt-BR, en) |
 | Lucide React | 0.577 | Ícones |
+| @react-oauth/google | 0.13 | Botão "Continuar com o Google" (GIS) nas páginas de login/cadastro |
 | class-variance-authority | 0.7 | Variantes de componentes |
 | clsx + tailwind-merge | - | Utilitário de classes (`cn()` em `src/lib/utils.ts`) |
 
@@ -1070,6 +1096,7 @@ web/legi-web/src/
     - `/api/v1/catalog/` → `catalog-api:8080`
     - `/api/v1/library/` → `library-api:8080`
     - `/api/v1/social/` → `social-api:8080`
+- **Google Sign-In:** o `Client ID` chega ao bundle via build-arg `VITE_GOOGLE_CLIENT_ID` (Dockerfile/compose). O `Content-Security-Policy` do Nginx libera os domínios do GIS (`script-src`/`frame-src`/`connect-src`/`style-src` → `accounts.google.com/gsi/...`); sem isso o navegador bloqueia o carregamento do botão. Origem `http://localhost:3000` precisa estar nas *Authorized JavaScript origins* do client OAuth no Google Console.
 
 ---
 
@@ -1512,12 +1539,12 @@ web/legi-web/                  (React SPA)
 
 | Serviço | Endpoints | Status |
 |---------|-----------|--------|
-| Identity | 7 | ✅ Implementado |
+| Identity | 8 | ✅ Implementado (inclui `POST /auth/google`) |
 | Catalog | 9 | ✅ Implementado (books: 5, authors: 2, tags: 2) |
 | Library | 21 | ✅ Implementado (inclui `GET /library/by-book/{bookId}` e `POST /library/{userBookId}/reviews`; listas referenciam `bookId`) |
 | Social | 24 | ✅ Implementado (inclui `GET /social/books/{bookId}/reviews`, Review Interactions: 4 e List social-state/follows: 3) |
 | Web Frontend | 11 rotas | 🚧 Em desenvolvimento (inclui `/books/new`, `/books/:bookId` e as páginas de lista `/lists/new`, `/lists/:listId`, `/lists/:listId/edit`) |
-| **Total** | **61 endpoints API + 11 rotas frontend** | |
+| **Total** | **62 endpoints API + 11 rotas frontend** | |
 
 *Além dos endpoints de domínio acima, cada API expõe `/swagger` e `/health` (health check de RabbitMQ + backlog do outbox, Fase 6 — ver §6.3).*
 
@@ -1525,8 +1552,8 @@ web/legi-web/                  (React SPA)
 
 | Serviço | Tabelas | Status |
 |---------|---------|--------|
-| Identity | 2 domínio + inbox/outbox | ✅ Migrado |
+| Identity | 3 domínio + inbox/outbox | ✅ Migrado (users, refresh_tokens, external_logins — login social) |
 | Catalog | 6 domínio + inbox/outbox | ✅ Migrado (inclui `book_ratings` — projeção por-usuário, Fase 5; `book_reviews` abandonada — resenhas vivem no Library/Social, Catalog mantém só `books.reviews_count`) |
 | Library | 5 domínio + inbox/outbox | ✅ Migrado |
 | Social | 8 domínio/read-model + inbox/outbox | ✅ Migrado (inclui `list_follows` — feature de listas customizadas) |
-| **Total** | **21 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |
+| **Total** | **22 tabelas de domínio/read-model + tabelas de mensageria por serviço** | |

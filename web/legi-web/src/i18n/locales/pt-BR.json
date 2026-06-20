@@ -434,6 +434,7 @@
         "password": "Senha",
         "signIn": "Entrar",
         "signUp": "Cadastrar",
+        "orDivider": "ou",
         "noAccount": "Não tem uma conta?",
         "haveAccount": "Já tem uma conta?",
         "invalidCredentials": "E-mail/usuário ou senha inválidos.",

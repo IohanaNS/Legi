@@ -12,6 +12,10 @@ public interface IUserRepository
     Task<User?> GetByEmailOrUsernameWithEmailConfirmationTokensAsync(
         string emailOrUsername,
         CancellationToken cancellationToken = default);
+    Task<User?> GetByExternalLoginAsync(
+        string provider,
+        string providerKey,
+        CancellationToken cancellationToken = default);
     Task<bool> RedeemPasswordResetTokenAsync(
         string tokenHash,
         string newPasswordHash,

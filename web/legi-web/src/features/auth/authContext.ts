@@ -7,6 +7,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (body: LoginRequest) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   register: (body: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;

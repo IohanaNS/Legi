@@ -1,8 +1,10 @@
 using System.Data;
+using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
 using Legi.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Legi.Identity.Infrastructure.Persistence.Repositories;
 
@@ -21,7 +23,21 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
 
         return await context.Users
             .Include(u => u.RefreshTokens)
+            .Include(u => u.ExternalLogins)
             .FirstOrDefaultAsync(u => u.Email.Value == normalizedEmail, cancellationToken);
+    }
+
+    public async Task<User?> GetByExternalLoginAsync(
+        string provider,
+        string providerKey,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Users
+            .Include(u => u.RefreshTokens)
+            .Include(u => u.ExternalLogins)
+            .FirstOrDefaultAsync(
+                u => u.ExternalLogins.Any(l => l.Provider == provider && l.ProviderKey == providerKey),
+                cancellationToken);
     }
 
     public async Task<User?> GetByEmailWithPasswordResetTokensAsync(
@@ -244,8 +260,23 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
         await context.Users.AddAsync(user, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Drop the whole failed graph (user + its added children, e.g. ExternalLogin /
+            // EmailConfirmationToken). Detaching only the root would leave the children
+            // tracked as Added and re-inserted on the next SaveChanges in this scope.
+            context.ChangeTracker.Clear();
+            throw new ConflictException("A user with these details already exists.");
+        }
     }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
     {

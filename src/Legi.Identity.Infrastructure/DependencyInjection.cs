@@ -70,6 +70,14 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
 
+        // Google sign-in. Bound without ValidateOnStart so the app still boots when
+        // ClientId is unset — Google sign-in simply rejects all tokens until configured.
+        services.AddOptions<GoogleAuthSettings>()
+            .Bind(configuration.GetSection(GoogleAuthSettings.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<GoogleAuthSettings>>().Value);
+        services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
+
         // Password reset (token factory + email delivery)
         services.AddOptions<PasswordResetSettings>()
             .Bind(configuration.GetSection(PasswordResetSettings.SectionName))

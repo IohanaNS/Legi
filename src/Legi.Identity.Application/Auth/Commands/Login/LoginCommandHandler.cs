@@ -49,6 +49,13 @@ public class LoginCommandHandler(
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
+        // Passwordless (e.g. Google-only) accounts cannot authenticate with a password.
+        if (user.PasswordHash is null)
+        {
+            await RecordFailedAttemptAsync(identifier, now, cancellationToken);
+            throw new UnauthorizedException(InvalidCredentialsMessage);
+        }
+
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             await RecordFailedAttemptAsync(identifier, now, cancellationToken);

@@ -230,7 +230,7 @@ Transactional messaging infrastructure (Outbox/Inbox + RabbitMQ), referenced by 
 - `JwtSettings`: Configuration via Options pattern
 
 **Legi.Identity.Api**
-- `AuthController`: `/api/v1/identity/auth` — register, login, refresh, logout
+- `AuthController`: `/api/v1/identity/auth` — register, login, **google** (sign-in/up with a Google ID token; one endpoint for both), refresh, logout
 - `UsersController`: `/api/v1/identity/users` — profile management
 - JWT Bearer authentication, rate limiting (AspNetCoreRateLimit)
 - `ExceptionHandlingMiddleware`: Maps exceptions to ProblemDetails
@@ -459,6 +459,12 @@ Follow same structure as commands but in `Queries/` folder instead of `Commands/
 - Access token contains claims: `sub` (userId), `email`, `name`, `jti`, `iat`
 - Refresh endpoint validates refresh token and issues new access token
 - Logout revokes the specific refresh token used
+
+### Google Sign-In
+- `POST /api/v1/identity/auth/google` accepts a Google ID token (from the GIS button on the web Login/Register pages). `GoogleTokenValidator` (Google.Apis.Auth) verifies signature/issuer/audience/expiry against `GoogleAuth__ClientId`.
+- One endpoint handles register **and** login: resolves the user by `ExternalLogin(google, sub)` → else auto-links by verified email (sets `EmailConfirmedAt`) → else creates a passwordless `User` with an auto-generated unique username (`UsernameGenerator`). Returns the same `AuthSessionResponse` as login.
+- `User.PasswordHash` is **nullable** (Google-only accounts have none); `LoginCommandHandler` rejects password login for passwordless users. `ExternalLogin` is a child of the `User` aggregate (unique `(provider, provider_key)`).
+- Config: backend `GoogleAuth__ClientId`, frontend build-time `VITE_GOOGLE_CLIENT_ID` (same client id). Both optional — unset disables Google sign-in (app still boots; frontend hides the button). Design doc: `Docs/IDENTITY-FEATURE-google-signin.md`.
 
 ## Configuration
 

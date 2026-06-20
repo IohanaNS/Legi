@@ -434,6 +434,7 @@
         "password": "Password",
         "signIn": "Sign in",
         "signUp": "Sign up",
+        "orDivider": "or",
         "noAccount": "Don't have an account?",
         "haveAccount": "Already have an account?",
         "invalidCredentials": "Invalid email/username or password.",

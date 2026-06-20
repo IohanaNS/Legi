@@ -8,7 +8,7 @@ public class User : BaseAuditableEntity
 {
     public Email Email { get; private set; } = null!;
     public Username Username { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
+    public string? PasswordHash { get; private set; }
     public int FailedLoginAttempts { get; private set; }
     public DateTime? LastFailedLoginAt { get; private set; }
     public DateTime? LoginLockoutEndsAt { get; private set; }
@@ -23,6 +23,9 @@ public class User : BaseAuditableEntity
 
     private readonly List<EmailConfirmationToken> _emailConfirmationTokens = new();
     public IReadOnlyCollection<EmailConfirmationToken> EmailConfirmationTokens => _emailConfirmationTokens.AsReadOnly();
+
+    private readonly List<ExternalLogin> _externalLogins = new();
+    public IReadOnlyCollection<ExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
 
     private User() { }
 
@@ -41,6 +44,73 @@ public class User : BaseAuditableEntity
         user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, username.Value, email.Value));
 
         return user;
+    }
+
+    public static User CreateFromExternalLogin(
+        Email email,
+        Username username,
+        string provider,
+        string providerKey,
+        DateTime emailConfirmedAtUtc)
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            Username = username,
+            PasswordHash = null,
+            EmailConfirmedAt = emailConfirmedAtUtc,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        user._externalLogins.Add(new ExternalLogin(provider, providerKey));
+
+        user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, username.Value, email.Value));
+
+        return user;
+    }
+
+    public void AddExternalLogin(string provider, string providerKey)
+    {
+        var alreadyLinked = _externalLogins.Any(l =>
+            l.Provider == provider && l.ProviderKey == providerKey);
+
+        if (alreadyLinked)
+            return;
+
+        _externalLogins.Add(new ExternalLogin(provider, providerKey));
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void ConfirmEmailFromExternalProvider(DateTime utcNow)
+    {
+        if (EmailConfirmedAt.HasValue)
+            return;
+
+        EmailConfirmedAt = utcNow;
+        UpdatedAt = utcNow;
+    }
+
+    /// <summary>
+    /// Links an external provider that has verified ownership of this account's email.
+    /// If the account had never confirmed its email, any pre-existing local credential
+    /// is untrusted (a pre-hijacking attacker could have created it before the real
+    /// owner signed in via the provider): the password and existing sessions are revoked
+    /// so only the verified email owner retains access. A previously confirmed account
+    /// keeps its password and sessions (it's the same proven owner adding a login method).
+    /// </summary>
+    public void LinkVerifiedExternalLogin(string provider, string providerKey, DateTime utcNow)
+    {
+        if (!EmailConfirmedAt.HasValue)
+        {
+            PasswordHash = null;
+            RevokeAllRefreshTokens();
+        }
+
+        AddExternalLogin(provider, providerKey);
+        ConfirmEmailFromExternalProvider(utcNow);
+        UpdatedAt = utcNow;
     }
 
     public RefreshToken AddRefreshToken(string tokenHash, DateTime expiresAt)

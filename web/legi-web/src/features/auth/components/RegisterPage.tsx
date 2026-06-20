@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { isAxiosError } from "axios";
@@ -9,10 +9,12 @@ import { Card } from "../../../components/ui/Card";
 import { Logo } from "../../../components/ui/Logo";
 import { isTurnstileConfigured } from "../turnstile";
 import { TurnstileBox } from "./TurnstileBox";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export default function RegisterPage() {
   const { t, i18n } = useTranslation();
   const { register } = useAuth();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -103,6 +105,7 @@ export default function RegisterPage() {
                 {t("auth.signUp")}
               </Button>
             </form>
+            <GoogleSignInButton onSuccess={() => navigate("/feed", { replace: true })} />
             <p className="text-sm text-center text-stone-600 dark:text-stone-400">
               {t("auth.haveAccount")}{" "}
               <Link to="/login" className="text-green-700 dark:text-green-400">{t("auth.signIn")}</Link>
