@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Least privilege: workflow only needs to read the repo.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & test (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Legi.sln
+
+      - name: Build
+        run: dotnet build Legi.sln --no-restore -c Release
+
+      # Integration tests auto-skip without *_TEST_DB env vars. The shared
+      # runsettings enforces the coverage thresholds (line 75% / branch 65%).
+      - name: Test
+        run: dotnet test Legi.sln --no-build -c Release --settings tests/.runsettings
+
+  web-build:
+    name: Build (web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/legi-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/legi-web/package-lock.json
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Build
+        run: npm run build

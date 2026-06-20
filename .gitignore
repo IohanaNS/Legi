@@ -47,9 +47,9 @@ bld/
 
 # Environment variables and secrets
 .env
-.env.local
-.env.development
-.env.production
+.env.*
+!.env.example
+!.env.prod.example
 appsettings.*.local.json
 
 # Database

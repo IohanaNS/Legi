@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using AspNetCoreRateLimit;
 using DotNetEnv;
@@ -6,10 +7,12 @@ using Legi.Identity.Application;
 using Legi.Identity.Infrastructure;
 using Legi.Identity.Infrastructure.Persistence;
 using Legi.Identity.Infrastructure.Security;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using IPNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
 
 // Load environment variables from .env file
 // Search in current directory and parent directories (solution root)
@@ -33,6 +36,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Forwarded headers — the API sits behind nginx and a host TLS proxy. Honor
+// X-Forwarded-For/Proto so rate limiting, login lockout and Turnstile key off the
+// real client IP (not the proxy) and HTTPS is detected correctly. Trust only the
+// private proxy networks to prevent clients from spoofing their IP.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 2;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    var trustedNetworks = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
+        ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
+    foreach (var cidr in trustedNetworks)
+    {
+        var parts = cidr.Split('/');
+        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+    }
+});
 
 // Rate Limiting
 builder.Services.AddMemoryCache();
@@ -119,6 +141,10 @@ if (args.Contains("--migrate") || builder.Configuration.GetValue("RunMigrationsO
 }
 
 // Middleware pipeline
+
+// Must run first so every downstream component sees the real client IP/scheme.
+app.UseForwardedHeaders();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())

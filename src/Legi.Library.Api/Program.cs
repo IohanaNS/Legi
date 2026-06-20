@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using DotNetEnv;
 using Legi.Library.Api.Middleware;
@@ -9,6 +10,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.HttpOverrides;
+using IPNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
 
 // Load environment variables from .env file
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
@@ -30,6 +33,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Application & Infrastructure layers
 builder.Services.AddLibraryApplication();
 builder.Services.AddLibraryInfrastructure(builder.Configuration);
+
+// Forwarded headers — the API sits behind nginx and a host TLS proxy. Honor
+// X-Forwarded-For/Proto so HTTPS is detected correctly (no redirect loops) and any
+// client-IP logic sees the real client. Trust only the private proxy networks to
+// prevent clients from spoofing their IP.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 2;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    var trustedNetworks = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
+        ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
+    foreach (var cidr in trustedNetworks)
+    {
+        var parts = cidr.Split('/');
+        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+    }
+});
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
@@ -101,6 +123,9 @@ if (args.Contains("--migrate") || builder.Configuration.GetValue("RunMigrationsO
     if (args.Contains("--migrate"))
         return;
 }
+
+// Must run first so every downstream component sees the real client IP/scheme.
+app.UseForwardedHeaders();
 
 // Exception handling (first in pipeline)
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -1,0 +1,95 @@
+name: Security
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Weekly run catches newly-disclosed CVEs in dependencies that were clean at merge.
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- Vulnerable NuGet packages ------------------------------------------------
+  # `dotnet list --vulnerable` exits 0 even when it finds vulnerabilities, so we
+  # parse its output and fail explicitly.
+  dotnet-vulnerable:
+    name: NuGet vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Legi.sln
+
+      - name: Scan for vulnerable & deprecated packages
+        run: |
+          dotnet list Legi.sln package --vulnerable --include-transitive 2>&1 | tee vuln.txt
+          if grep -q "has the following vulnerable packages" vuln.txt; then
+            echo "::error::Vulnerable NuGet packages detected (see log above)."
+            exit 1
+          fi
+          echo "No vulnerable NuGet packages."
+
+  # --- Vulnerable npm packages (frontend) --------------------------------------
+  npm-audit:
+    name: npm audit (web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/legi-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/legi-web/package-lock.json
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      # Fails the job on high/critical advisories. Lower to 'moderate' once the
+      # dependency tree is clean and you want a stricter gate.
+      - name: Audit
+        run: npm audit --audit-level=high
+
+  # --- Secret scanning (full history) ------------------------------------------
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # scan the whole git history, not just the tip
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # --- Dependency & filesystem CVE scan ----------------------------------------
+  trivy:
+    name: Trivy (vuln + secret)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

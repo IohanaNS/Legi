@@ -23,5 +23,8 @@ RUN find . -maxdepth 4 -type d -name 'bin\\*' -exec rm -rf {} + 2>/dev/null; \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
+# Drop root: the .NET runtime image ships a non-root user (UID 1654). The app
+# binds the unprivileged port 8080, so no root capability is needed at runtime.
+USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Legi.Identity.Api.dll"]
