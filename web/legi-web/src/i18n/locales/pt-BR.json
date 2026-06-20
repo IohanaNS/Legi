@@ -397,6 +397,11 @@
         "dark": "Escuro",
         "system": "Sistema"
     },
+    "language": {
+        "label": "Idioma",
+        "portuguese": "Português",
+        "english": "English"
+    },
     "settings": {
         "title": "Configurações",
         "subtitle": "Gerencie sua conta.",

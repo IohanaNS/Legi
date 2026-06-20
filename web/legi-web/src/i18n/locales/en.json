@@ -397,6 +397,11 @@
         "dark": "Dark",
         "system": "System"
     },
+    "language": {
+        "label": "Language",
+        "portuguese": "Português",
+        "english": "English"
+    },
     "settings": {
         "title": "Settings",
         "subtitle": "Manage your account.",

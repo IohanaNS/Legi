@@ -21,6 +21,7 @@ import { GlobalSearch } from "../features/search/components/GlobalSearch";
 import { NotificationBell } from "../features/notifications/components/NotificationBell";
 import { Logo } from "../components/ui/Logo";
 import { Avatar } from "../components/ui/Avatar";
+import { LanguageToggle } from "../components/ui/LanguageToggle";
 
 const navItems = [
   { to: "/feed", labelKey: "nav.feed", icon: Newspaper },
@@ -31,7 +32,7 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { mode, setMode } = useTheme();
   const navigate = useNavigate();
@@ -51,10 +52,6 @@ export default function Layout() {
     if (userMenuOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [userMenuOpen]);
-
-  const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === "pt-BR" ? "en" : "pt-BR");
-  };
 
   return (
     <div className="flex min-h-screen bg-parchment dark:bg-dark-bg">
@@ -94,14 +91,9 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Troca de idioma */}
+        {/* Language switcher */}
         <div className="px-3 mb-2">
-          <button
-            onClick={toggleLanguage}
-            className="w-full text-left px-3 py-2 text-xs text-green-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-          >
-            {i18n.language === "pt-BR" ? "🇺🇸 English" : "🇧🇷 Português"}
-          </button>
+          <LanguageToggle tone="sidebar" />
         </div>
 
         {/* Usuário no rodapé */}

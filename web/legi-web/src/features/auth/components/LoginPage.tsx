@@ -8,6 +8,7 @@ import { useAuth } from "../useAuth";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Logo } from "../../../components/ui/Logo";
+import { LanguageToggle } from "../../../components/ui/LanguageToggle";
 import { isTurnstileConfigured } from "../turnstile";
 import { TurnstileBox } from "./TurnstileBox";
 import { GoogleSignInButton } from "./GoogleSignInButton";
@@ -124,6 +125,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">
       <Card className="w-full max-w-sm p-6 space-y-4">
+        <div className="flex justify-end">
+          <LanguageToggle />
+        </div>
         <div className="flex flex-col items-center gap-2 pb-1">
           <Logo variant="default" className="h-10 w-auto dark:hidden" />
           <Logo variant="cream" className="hidden h-10 w-auto dark:block" />
