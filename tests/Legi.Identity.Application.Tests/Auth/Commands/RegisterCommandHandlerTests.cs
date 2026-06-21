@@ -1,3 +1,4 @@
+using FluentValidation;
 using Legi.Identity.Application.Auth.Commands.Register;
 using Legi.Identity.Application.Common.Email;
 using Legi.Identity.Application.Common.Exceptions;
@@ -18,6 +19,7 @@ public class RegisterCommandHandlerTests
     private readonly Mock<ISecureTokenFactory> _tokenFactoryMock;
     private readonly Mock<IEmailSender> _emailSenderMock;
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
+    private readonly Mock<IBreachedPasswordChecker> _breachedPasswordCheckerMock;
     private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly RegisterCommandHandler _handler;
@@ -29,6 +31,10 @@ public class RegisterCommandHandlerTests
         _tokenFactoryMock = new Mock<ISecureTokenFactory>();
         _emailSenderMock = new Mock<IEmailSender>();
         _humanVerificationServiceMock = new Mock<IHumanVerificationService>();
+        _breachedPasswordCheckerMock = new Mock<IBreachedPasswordChecker>();
+        _breachedPasswordCheckerMock
+            .Setup(x => x.IsBreachedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         _emailConfirmationSettings = new EmailConfirmationSettings
         {
             FrontendBaseUrl = "https://bukihub.test",
@@ -48,6 +54,7 @@ public class RegisterCommandHandlerTests
             _emailConfirmationSettings,
             _turnstileSettings,
             _humanVerificationServiceMock.Object,
+            _breachedPasswordCheckerMock.Object,
             NullLogger<RegisterCommandHandler>.Instance
         );
     }
@@ -240,6 +247,27 @@ public class RegisterCommandHandlerTests
             x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRejectBreachedPassword()
+    {
+        // Arrange
+        var command = RegisterCommandFactory.Create();
+        SetupNoExistingUser(command);
+        _breachedPasswordCheckerMock
+            .Setup(x => x.IsBreachedAsync(command.Password, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<ValidationException>(act);
+        Assert.Contains(exception.Errors, e => e.PropertyName == "Password");
+        _userRepositoryMock.Verify(
+            x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private void SetupNoExistingUser(RegisterCommand command)

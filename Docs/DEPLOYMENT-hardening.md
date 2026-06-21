@@ -109,6 +109,11 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   empty data volume**. For an EXISTING deployment the script will not re-run — run
   its SQL manually against each DB. Dev (`docker-compose.yml`) intentionally stays
   on the `postgres` superuser for local convenience.
+- **Breached-password check — implemented.** Registration and password reset reject
+  passwords found in the Have I Been Pwned corpus via k-anonymity (only a SHA-1
+  prefix is sent; never the password). It makes an outbound HTTPS call to
+  `api.pwnedpasswords.com` and **fails open** on any error, so egress restrictions
+  or an HIBP outage never block sign-up. Disable with `BreachedPassword__Enabled=false`.
 - **Secrets manager.** A `.env.prod` file on disk is better than committed
   defaults, but env vars are visible via `docker inspect` and `/proc`. Move to
   Docker secrets, Vault, or your cloud's KMS when you can.

@@ -1,3 +1,4 @@
+using FluentValidation;
 using Legi.Identity.Application.Auth.Commands.ResetPassword;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
@@ -13,11 +14,13 @@ public class ResetPasswordCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<ISecureTokenFactory> _tokenFactoryMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+    private readonly Mock<IBreachedPasswordChecker> _breachedPasswordCheckerMock = new();
 
     private ResetPasswordCommandHandler CreateHandler() => new(
         _userRepositoryMock.Object,
         _tokenFactoryMock.Object,
-        _passwordHasherMock.Object);
+        _passwordHasherMock.Object,
+        _breachedPasswordCheckerMock.Object);
 
     [Fact]
     public async Task Handle_ShouldResetPassword_WhenTokenIsValid()
@@ -48,6 +51,28 @@ public class ResetPasswordCommandHandlerTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
         _userRepositoryMock.Verify(x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRejectBreachedPassword_WithoutRedeemingToken()
+    {
+        // Arrange
+        _breachedPasswordCheckerMock
+            .Setup(x => x.IsBreachedAsync("NewPass123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var handler = CreateHandler();
+        var command = new ResetPasswordCommand("raw-token", "NewPass123");
+
+        // Act
+        var act = async () => await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        var exception = await Assert.ThrowsAsync<ValidationException>(act);
+        Assert.Contains(exception.Errors, e => e.PropertyName == "NewPassword");
+        _userRepositoryMock.Verify(
+            x => x.RedeemPasswordResetTokenAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

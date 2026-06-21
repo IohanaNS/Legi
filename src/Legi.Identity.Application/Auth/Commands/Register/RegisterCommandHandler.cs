@@ -1,4 +1,6 @@
 using System.Net;
+using FluentValidation;
+using FluentValidation.Results;
 using Legi.Identity.Application.Common.Email;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
@@ -20,6 +22,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
     private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly IHumanVerificationService _humanVerificationService;
+    private readonly IBreachedPasswordChecker _breachedPasswordChecker;
     private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
@@ -30,6 +33,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         EmailConfirmationSettings emailConfirmationSettings,
         TurnstileSettings turnstileSettings,
         IHumanVerificationService humanVerificationService,
+        IBreachedPasswordChecker breachedPasswordChecker,
         ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -39,6 +43,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         _emailConfirmationSettings = emailConfirmationSettings;
         _turnstileSettings = turnstileSettings;
         _humanVerificationService = humanVerificationService;
+        _breachedPasswordChecker = breachedPasswordChecker;
         _logger = logger;
     }
 
@@ -62,6 +67,15 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         var existingUserByUsername = await _userRepository.GetByUsernameAsync(request.Username, cancellationToken);
         if (existingUserByUsername != null)
             throw new ConflictException("A user with this username already exists.");
+
+        if (await _breachedPasswordChecker.IsBreachedAsync(request.Password, cancellationToken))
+        {
+            throw new ValidationException(
+            [
+                new ValidationFailure(nameof(request.Password),
+                    "This password has appeared in a data breach elsewhere on the internet and is not safe to use. Please choose a different one.")
+            ]);
+        }
 
         var email = Email.Create(request.Email);
         var username = Username.Create(request.Username);

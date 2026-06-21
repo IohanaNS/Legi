@@ -61,6 +61,20 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(settings.VerificationTimeoutSeconds);
         });
 
+        // Breached-password check (Have I Been Pwned, k-anonymity). Fails open on outage.
+        services.AddOptions<BreachedPasswordSettings>()
+            .Bind(configuration.GetSection(BreachedPasswordSettings.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<BreachedPasswordSettings>>().Value);
+        services.AddHttpClient<IBreachedPasswordChecker, HaveIBeenPwnedPasswordChecker>((sp, client) =>
+        {
+            var settings = sp.GetRequiredService<BreachedPasswordSettings>();
+            client.BaseAddress = new Uri(settings.ApiBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+            // HIBP requests a descriptive User-Agent.
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("BukiHub-PwnedPasswordCheck");
+        });
+
         services.AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
             .Validate(
