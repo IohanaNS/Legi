@@ -13,7 +13,8 @@ public class ConfirmEmailCommandHandlerTests
 
     private ConfirmEmailCommandHandler CreateHandler() => new(
         _userRepositoryMock.Object,
-        _tokenFactoryMock.Object);
+        _tokenFactoryMock.Object,
+        Mock.Of<ISecurityAuditLogger>());
 
     [Fact]
     public async Task Handle_ShouldConfirmEmail_WhenTokenIsValid()

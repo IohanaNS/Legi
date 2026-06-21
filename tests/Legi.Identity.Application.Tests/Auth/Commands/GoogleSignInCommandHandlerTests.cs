@@ -33,6 +33,7 @@ public class GoogleSignInCommandHandlerTests
             _validatorMock.Object,
             _userRepositoryMock.Object,
             _tokenServiceMock.Object,
+            Mock.Of<ISecurityAuditLogger>(),
             Mock.Of<ILogger<GoogleSignInCommandHandler>>());
     }
 

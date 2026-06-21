@@ -20,6 +20,7 @@ public class RegisterCommandHandlerTests
     private readonly Mock<IEmailSender> _emailSenderMock;
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
     private readonly Mock<IBreachedPasswordChecker> _breachedPasswordCheckerMock;
+    private readonly Mock<ISecurityAuditLogger> _auditLoggerMock;
     private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly RegisterCommandHandler _handler;
@@ -35,6 +36,7 @@ public class RegisterCommandHandlerTests
         _breachedPasswordCheckerMock
             .Setup(x => x.IsBreachedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
+        _auditLoggerMock = new Mock<ISecurityAuditLogger>();
         _emailConfirmationSettings = new EmailConfirmationSettings
         {
             FrontendBaseUrl = "https://bukihub.test",
@@ -55,6 +57,7 @@ public class RegisterCommandHandlerTests
             _turnstileSettings,
             _humanVerificationServiceMock.Object,
             _breachedPasswordCheckerMock.Object,
+            _auditLoggerMock.Object,
             NullLogger<RegisterCommandHandler>.Instance
         );
     }

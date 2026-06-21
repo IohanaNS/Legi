@@ -17,6 +17,7 @@ public class LoginCommandHandlerTests
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _tokenServiceMock;
     private readonly Mock<IHumanVerificationService> _humanVerificationServiceMock;
+    private readonly Mock<ISecurityAuditLogger> _auditLoggerMock;
     private readonly LoginLockoutSettings _loginLockoutSettings;
     private readonly TurnstileSettings _turnstileSettings;
     private readonly LoginCommandHandler _handler;
@@ -28,6 +29,7 @@ public class LoginCommandHandlerTests
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenServiceMock = new Mock<IJwtTokenService>();
         _humanVerificationServiceMock = new Mock<IHumanVerificationService>();
+        _auditLoggerMock = new Mock<ISecurityAuditLogger>();
         _loginLockoutSettings = new LoginLockoutSettings
         {
             MaxFailedAttempts = 3,
@@ -51,7 +53,8 @@ public class LoginCommandHandlerTests
             _tokenServiceMock.Object,
             _loginLockoutSettings,
             _turnstileSettings,
-            _humanVerificationServiceMock.Object
+            _humanVerificationServiceMock.Object,
+            _auditLoggerMock.Object
         );
     }
 
@@ -98,6 +101,11 @@ public class LoginCommandHandlerTests
         Assert.Equal("refresh_token", result.RefreshToken);
         Assert.Equal(refreshTokenExpiresAt, result.RefreshTokenExpiresAt);
 
+        _auditLoggerMock.Verify(
+            x => x.Record(It.Is<SecurityAuditEvent>(e =>
+                e.Type == SecurityEventType.LoginSucceeded && e.UserId == user.Id)),
+            Times.Once);
+
         _userRepositoryMock.Verify(
             x => x.UpdateAsync(user, It.IsAny<CancellationToken>()),
             Times.Once
@@ -139,6 +147,10 @@ public class LoginCommandHandlerTests
                 It.IsAny<CancellationToken>()),
             Times.Once
         );
+        _auditLoggerMock.Verify(
+            x => x.Record(It.Is<SecurityAuditEvent>(e =>
+                e.Type == SecurityEventType.LoginFailed && e.Detail == "unknown-user")),
+            Times.Once);
     }
 
     [Fact]

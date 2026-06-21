@@ -23,6 +23,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
     private readonly TurnstileSettings _turnstileSettings;
     private readonly IHumanVerificationService _humanVerificationService;
     private readonly IBreachedPasswordChecker _breachedPasswordChecker;
+    private readonly ISecurityAuditLogger _auditLogger;
     private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
@@ -34,6 +35,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         TurnstileSettings turnstileSettings,
         IHumanVerificationService humanVerificationService,
         IBreachedPasswordChecker breachedPasswordChecker,
+        ISecurityAuditLogger auditLogger,
         ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -44,6 +46,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         _turnstileSettings = turnstileSettings;
         _humanVerificationService = humanVerificationService;
         _breachedPasswordChecker = breachedPasswordChecker;
+        _auditLogger = auditLogger;
         _logger = logger;
     }
 
@@ -88,6 +91,11 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, RegisterR
         user.AddEmailConfirmationToken(tokenHash, tokenExpiresAt);
 
         await _userRepository.AddAsync(user, cancellationToken);
+
+        _auditLogger.Record(new SecurityAuditEvent(
+            SecurityEventType.AccountRegistered,
+            UserId: user.Id,
+            IpAddress: request.RemoteIpAddress));
 
         await TrySendConfirmationEmailAsync(user, rawToken, tokenHash, request.Language, cancellationToken);
 

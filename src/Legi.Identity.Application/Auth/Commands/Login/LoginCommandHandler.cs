@@ -14,7 +14,8 @@ public class LoginCommandHandler(
     IJwtTokenService jwtTokenService,
     LoginLockoutSettings loginLockoutSettings,
     TurnstileSettings turnstileSettings,
-    IHumanVerificationService humanVerificationService)
+    IHumanVerificationService humanVerificationService,
+    ISecurityAuditLogger auditLogger)
     : IRequestHandler<LoginCommand, LoginResponse>
 {
     private const string InvalidCredentialsMessage = "Invalid credentials";
@@ -28,7 +29,13 @@ public class LoginCommandHandler(
         var loginAttempt = await loginAttemptRepository.GetByIdentifierAsync(identifier, cancellationToken);
 
         if (loginAttempt?.IsLockedOut(now) == true)
+        {
+            auditLogger.Record(new SecurityAuditEvent(
+                SecurityEventType.LoginBlockedLockout,
+                Identifier: identifier,
+                IpAddress: request.RemoteIpAddress));
             throw new UnauthorizedException(InvalidCredentialsMessage);
+        }
 
         if (turnstileSettings.Enabled &&
             (loginAttempt?.FailedAttempts ?? 0) >= turnstileSettings.LoginFailedAttemptsBeforeRequired &&
@@ -46,6 +53,11 @@ public class LoginCommandHandler(
         if (user is null)
         {
             await RecordFailedAttemptAsync(identifier, now, cancellationToken);
+            auditLogger.Record(new SecurityAuditEvent(
+                SecurityEventType.LoginFailed,
+                Identifier: identifier,
+                IpAddress: request.RemoteIpAddress,
+                Detail: "unknown-user"));
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
@@ -53,13 +65,24 @@ public class LoginCommandHandler(
         if (user.PasswordHash is null)
         {
             await RecordFailedAttemptAsync(identifier, now, cancellationToken);
+            auditLogger.Record(new SecurityAuditEvent(
+                SecurityEventType.LoginFailed,
+                UserId: user.Id,
+                Identifier: identifier,
+                IpAddress: request.RemoteIpAddress,
+                Detail: "passwordless-account"));
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             await RecordFailedAttemptAsync(identifier, now, cancellationToken);
-
+            auditLogger.Record(new SecurityAuditEvent(
+                SecurityEventType.LoginFailed,
+                UserId: user.Id,
+                Identifier: identifier,
+                IpAddress: request.RemoteIpAddress,
+                Detail: "invalid-password"));
             throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
@@ -80,6 +103,11 @@ public class LoginCommandHandler(
         user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
 
         await userRepository.UpdateAsync(user, cancellationToken);
+
+        auditLogger.Record(new SecurityAuditEvent(
+            SecurityEventType.LoginSucceeded,
+            UserId: user.Id,
+            IpAddress: request.RemoteIpAddress));
 
         return new LoginResponse(
             user.Id,

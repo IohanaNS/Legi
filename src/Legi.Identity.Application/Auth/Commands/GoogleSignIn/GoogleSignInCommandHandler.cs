@@ -2,6 +2,7 @@ using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Common;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Domain.Entities;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Domain.ValueObjects;
@@ -14,6 +15,7 @@ public class GoogleSignInCommandHandler(
     IGoogleTokenValidator googleTokenValidator,
     IUserRepository userRepository,
     IJwtTokenService jwtTokenService,
+    ISecurityAuditLogger auditLogger,
     ILogger<GoogleSignInCommandHandler> logger)
     : IRequestHandler<GoogleSignInCommand, LoginResponse>
 {
@@ -52,6 +54,12 @@ public class GoogleSignInCommandHandler(
         user.AddRefreshToken(refreshTokenHash, refreshTokenExpiresAt);
 
         await userRepository.UpdateAsync(user, cancellationToken);
+
+        auditLogger.Record(new SecurityAuditEvent(
+            SecurityEventType.ExternalLoginSucceeded,
+            UserId: user.Id,
+            IpAddress: request.RemoteIpAddress,
+            Detail: Provider));
 
         return new LoginResponse(
             user.Id,

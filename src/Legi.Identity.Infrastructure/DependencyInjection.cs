@@ -84,6 +84,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<ISecurityAuditLogger, SecurityAuditLogger>();
 
         // Google sign-in. Bound without ValidateOnStart so the app still boots when
         // ClientId is unset — Google sign-in simply rejects all tokens until configured.

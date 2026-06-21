@@ -15,12 +15,14 @@ public class ResetPasswordCommandHandlerTests
     private readonly Mock<ISecureTokenFactory> _tokenFactoryMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IBreachedPasswordChecker> _breachedPasswordCheckerMock = new();
+    private readonly Mock<ISecurityAuditLogger> _auditLoggerMock = new();
 
     private ResetPasswordCommandHandler CreateHandler() => new(
         _userRepositoryMock.Object,
         _tokenFactoryMock.Object,
         _passwordHasherMock.Object,
-        _breachedPasswordCheckerMock.Object);
+        _breachedPasswordCheckerMock.Object,
+        _auditLoggerMock.Object);
 
     [Fact]
     public async Task Handle_ShouldResetPassword_WhenTokenIsValid()

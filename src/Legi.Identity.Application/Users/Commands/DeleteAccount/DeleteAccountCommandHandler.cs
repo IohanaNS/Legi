@@ -1,11 +1,15 @@
 using Legi.Identity.Application.Common.Exceptions;
+using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.SharedKernel.Mediator;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Repositories;
 
 namespace Legi.Identity.Application.Users.Commands.DeleteAccount;
 
-public class DeleteAccountCommandHandler(IUserRepository userRepository) : IRequestHandler<DeleteAccountCommand>
+public class DeleteAccountCommandHandler(
+    IUserRepository userRepository,
+    ISecurityAuditLogger auditLogger) : IRequestHandler<DeleteAccountCommand>
 {
     public async Task Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
@@ -20,5 +24,9 @@ public class DeleteAccountCommandHandler(IUserRepository userRepository) : IRequ
 
         // Delete user (cascade will delete refresh tokens)
         await userRepository.DeleteAsync(user, cancellationToken);
+
+        auditLogger.Record(new SecurityAuditEvent(
+            SecurityEventType.AccountDeleted,
+            UserId: user.Id));
     }
 }

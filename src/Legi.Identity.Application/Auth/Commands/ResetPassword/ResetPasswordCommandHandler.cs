@@ -2,6 +2,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
+using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Domain.Repositories;
 using Legi.SharedKernel.Mediator;
 
@@ -11,7 +12,8 @@ public class ResetPasswordCommandHandler(
     IUserRepository userRepository,
     ISecureTokenFactory tokenFactory,
     IPasswordHasher passwordHasher,
-    IBreachedPasswordChecker breachedPasswordChecker)
+    IBreachedPasswordChecker breachedPasswordChecker,
+    ISecurityAuditLogger auditLogger)
     : IRequestHandler<ResetPasswordCommand, Unit>
 {
     private const string InvalidTokenMessage = "This reset link is invalid or has expired.";
@@ -37,6 +39,10 @@ public class ResetPasswordCommandHandler(
 
         if (!redeemed)
             throw new NotFoundException(InvalidTokenMessage);
+
+        auditLogger.Record(new SecurityAuditEvent(
+            SecurityEventType.PasswordResetCompleted,
+            Detail: "via-reset-token"));
 
         return Unit.Value;
     }

@@ -109,6 +109,13 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   empty data volume**. For an EXISTING deployment the script will not re-run — run
   its SQL manually against each DB. Dev (`docker-compose.yml`) intentionally stays
   on the `postgres` superuser for local convenience.
+- **Security-event audit log — implemented.** Logins (success/failure/lockout),
+  password resets and account deletions are emitted as structured logs under a stable
+  per-event `EventId` (1000-range). Ship container logs to a sink (Loki, CloudWatch,
+  etc.) and alert on spikes in `LoginFailed`/`LoginBlockedLockout`. These records
+  contain PII (attempted identifier, IP) for forensics — set a retention policy
+  consistent with your privacy notice. The `ISecurityAuditLogger` abstraction can be
+  swapped for a database-backed, queryable store later without touching call sites.
 - **Breached-password check — implemented.** Registration and password reset reject
   passwords found in the Have I Been Pwned corpus via k-anonymity (only a SHA-1
   prefix is sent; never the password). It makes an outbound HTTPS call to

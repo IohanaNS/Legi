@@ -1,4 +1,5 @@
 using Legi.Identity.Application.Common.Exceptions;
+using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Tests.Factories;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
 using Legi.Identity.Domain.Entities;
@@ -11,12 +12,16 @@ namespace Legi.Identity.Application.Tests.Users.Commands.DeleteAccount;
 public class DeleteAccountCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<ISecurityAuditLogger> _auditLoggerMock;
     private readonly DeleteAccountCommandHandler _handler;
 
     public DeleteAccountCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
-        _handler = new DeleteAccountCommandHandler(_userRepositoryMock.Object);
+        _auditLoggerMock = new Mock<ISecurityAuditLogger>();
+        _handler = new DeleteAccountCommandHandler(
+            _userRepositoryMock.Object,
+            _auditLoggerMock.Object);
     }
 
     [Fact]
