@@ -48,11 +48,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: web/legi-web/package-lock.json
+          # cache-dependency-path is resolved from the repo root (NOT working-directory).
+          cache: yarn
+          cache-dependency-path: web/legi-web/yarn.lock
+
+      # Honor the Yarn version pinned in package.json "packageManager".
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: yarn install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: yarn build

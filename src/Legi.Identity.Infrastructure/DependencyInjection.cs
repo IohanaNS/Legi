@@ -86,6 +86,15 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ISecurityAuditLogger, SecurityAuditLogger>();
 
+        // MFA (TOTP). The secret protector is resolved only when MFA is used, so the app
+        // still boots without Mfa:EncryptionKey configured (it throws when first used).
+        services.AddOptions<MfaSettings>()
+            .Bind(configuration.GetSection(MfaSettings.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<MfaSettings>>().Value);
+        services.AddSingleton<ITotpService, TotpService>();
+        services.AddSingleton<IMfaSecretProtector, AesMfaSecretProtector>();
+
         // Google sign-in. Bound without ValidateOnStart so the app still boots when
         // ClientId is unset — Google sign-in simply rejects all tokens until configured.
         services.AddOptions<GoogleAuthSettings>()

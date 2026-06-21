@@ -41,29 +41,8 @@ jobs:
           fi
           echo "No vulnerable NuGet packages."
 
-  # --- Vulnerable npm packages (frontend) --------------------------------------
-  npm-audit:
-    name: npm audit (web)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web/legi-web
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: web/legi-web/package-lock.json
-
-      - name: Install
-        run: npm ci --legacy-peer-deps
-
-      # Fails the job on high/critical advisories. Lower to 'moderate' once the
-      # dependency tree is clean and you want a stricter gate.
-      - name: Audit
-        run: npm audit --audit-level=high
+  # Frontend (yarn.lock) dependency CVEs are covered by the Trivy filesystem scan
+  # below, which reads yarn.lock against the GitHub Advisory DB.
 
   # --- Secret scanning (full history) ------------------------------------------
   gitleaks:
@@ -78,7 +57,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # --- Dependency & filesystem CVE scan ----------------------------------------
+  # --- Dependency & filesystem CVE scan (incl. yarn.lock JS deps) --------------
   trivy:
     name: Trivy (vuln + secret)
     runs-on: ubuntu-latest
