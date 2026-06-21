@@ -56,6 +56,18 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.EmailConfirmedAt)
             .HasColumnName("email_confirmed_at");
 
+        builder.Property(u => u.MfaEnabled)
+            .HasColumnName("mfa_enabled")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(u => u.TotpSecret)
+            .HasColumnName("totp_secret")
+            .HasMaxLength(512);
+
+        builder.Property(u => u.MfaEnabledAt)
+            .HasColumnName("mfa_enabled_at");
+
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -94,6 +106,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Navigation(u => u.ExternalLogins)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(u => u.MfaRecoveryCodes)
+            .WithOne()
+            .HasForeignKey("UserId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.MfaRecoveryCodes)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(u => u.CreatedAt)

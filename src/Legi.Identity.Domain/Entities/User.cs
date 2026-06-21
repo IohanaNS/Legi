@@ -15,6 +15,10 @@ public class User : BaseAuditableEntity
     public DateTime? EmailConfirmedAt { get; private set; }
     public bool IsEmailConfirmed => EmailConfirmedAt.HasValue;
 
+    public bool MfaEnabled { get; private set; }
+    public string? TotpSecret { get; private set; } // encrypted at rest; set during enrollment
+    public DateTime? MfaEnabledAt { get; private set; }
+
     private readonly List<RefreshToken> _refreshTokens = new();
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
 
@@ -26,6 +30,9 @@ public class User : BaseAuditableEntity
 
     private readonly List<ExternalLogin> _externalLogins = new();
     public IReadOnlyCollection<ExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
+
+    private readonly List<MfaRecoveryCode> _mfaRecoveryCodes = new();
+    public IReadOnlyCollection<MfaRecoveryCode> MfaRecoveryCodes => _mfaRecoveryCodes.AsReadOnly();
 
     private User() { }
 
@@ -286,5 +293,70 @@ public class User : BaseAuditableEntity
 
         token.MarkSent(utcNow);
         UpdatedAt = utcNow;
+    }
+
+    // ----- MFA (TOTP) -----
+
+    /// <summary>
+    /// Begins TOTP enrollment by storing the already-encrypted shared secret. MFA stays
+    /// inactive until <see cref="ConfirmMfaEnrollment"/> verifies the user can produce a code.
+    /// </summary>
+    public void StartMfaEnrollment(string encryptedSecret, DateTime utcNow)
+    {
+        if (MfaEnabled)
+            throw new DomainException("MFA is already enabled");
+
+        if (string.IsNullOrWhiteSpace(encryptedSecret))
+            throw new DomainException("Encrypted secret is required");
+
+        TotpSecret = encryptedSecret;
+        UpdatedAt = utcNow;
+    }
+
+    /// <summary>
+    /// Activates MFA after the enrollment code was verified, storing the freshly generated
+    /// recovery-code hashes (replacing any previous ones).
+    /// </summary>
+    public void ConfirmMfaEnrollment(IEnumerable<string> recoveryCodeHashes, DateTime utcNow)
+    {
+        if (MfaEnabled)
+            throw new DomainException("MFA is already enabled");
+
+        if (string.IsNullOrWhiteSpace(TotpSecret))
+            throw new DomainException("No MFA enrollment is in progress");
+
+        _mfaRecoveryCodes.Clear();
+        foreach (var hash in recoveryCodeHashes)
+            _mfaRecoveryCodes.Add(new MfaRecoveryCode(hash));
+
+        MfaEnabled = true;
+        MfaEnabledAt = utcNow;
+        UpdatedAt = utcNow;
+    }
+
+    /// <summary>Disables MFA and clears the secret and all recovery codes.</summary>
+    public void DisableMfa(DateTime utcNow)
+    {
+        if (!MfaEnabled)
+            throw new DomainException("MFA is not enabled");
+
+        MfaEnabled = false;
+        TotpSecret = null;
+        MfaEnabledAt = null;
+        _mfaRecoveryCodes.Clear();
+        UpdatedAt = utcNow;
+    }
+
+    /// <summary>Marks a matching unused recovery code as consumed; returns false if none match.</summary>
+    public bool TryConsumeRecoveryCode(string codeHash, DateTime utcNow)
+    {
+        var code = _mfaRecoveryCodes.FirstOrDefault(c => c.CodeHash == codeHash && !c.IsUsed);
+
+        if (code is null)
+            return false;
+
+        code.MarkUsed(utcNow);
+        UpdatedAt = utcNow;
+        return true;
     }
 }
