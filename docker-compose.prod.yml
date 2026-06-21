@@ -70,13 +70,19 @@ services:
     image: postgres:16-alpine
     container_name: legi-identity-db
     environment:
-      POSTGRES_USER: ${IDENTITY_DB_USER:?IDENTITY_DB_USER is required}
-      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
+      # Bootstrap superuser — used only to create the app role on first init; the
+      # application never connects with it.
+      POSTGRES_USER: ${IDENTITY_DB_ADMIN_USER:?IDENTITY_DB_ADMIN_USER is required}
+      POSTGRES_PASSWORD: ${IDENTITY_DB_ADMIN_PASSWORD:?IDENTITY_DB_ADMIN_PASSWORD is required}
       POSTGRES_DB: ${IDENTITY_DB_NAME:-legi_identity}
+      # Non-superuser role the API actually uses at runtime (created by the init script).
+      APP_DB_USER: ${IDENTITY_DB_USER:?IDENTITY_DB_USER is required}
+      APP_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
     volumes:
       - identity_db_data:/var/lib/postgresql/data
+      - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${IDENTITY_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${IDENTITY_DB_ADMIN_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,13 +94,19 @@ services:
     image: postgres:16-alpine
     container_name: legi-catalog-db
     environment:
-      POSTGRES_USER: ${CATALOG_DB_USER:?CATALOG_DB_USER is required}
-      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD is required}
+      # Bootstrap superuser — used only to create the app role on first init; the
+      # application never connects with it.
+      POSTGRES_USER: ${CATALOG_DB_ADMIN_USER:?CATALOG_DB_ADMIN_USER is required}
+      POSTGRES_PASSWORD: ${CATALOG_DB_ADMIN_PASSWORD:?CATALOG_DB_ADMIN_PASSWORD is required}
       POSTGRES_DB: ${CATALOG_DB_NAME:-legi_catalog}
+      # Non-superuser role the API actually uses at runtime (created by the init script).
+      APP_DB_USER: ${CATALOG_DB_USER:?CATALOG_DB_USER is required}
+      APP_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD is required}
     volumes:
       - catalog_db_data:/var/lib/postgresql/data
+      - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CATALOG_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${CATALOG_DB_ADMIN_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -106,13 +118,19 @@ services:
     image: postgres:16-alpine
     container_name: legi-library-db
     environment:
-      POSTGRES_USER: ${LIBRARY_DB_USER:?LIBRARY_DB_USER is required}
-      POSTGRES_PASSWORD: ${LIBRARY_DB_PASSWORD:?LIBRARY_DB_PASSWORD is required}
+      # Bootstrap superuser — used only to create the app role on first init; the
+      # application never connects with it.
+      POSTGRES_USER: ${LIBRARY_DB_ADMIN_USER:?LIBRARY_DB_ADMIN_USER is required}
+      POSTGRES_PASSWORD: ${LIBRARY_DB_ADMIN_PASSWORD:?LIBRARY_DB_ADMIN_PASSWORD is required}
       POSTGRES_DB: ${LIBRARY_DB_NAME:-legi_library}
+      # Non-superuser role the API actually uses at runtime (created by the init script).
+      APP_DB_USER: ${LIBRARY_DB_USER:?LIBRARY_DB_USER is required}
+      APP_DB_PASSWORD: ${LIBRARY_DB_PASSWORD:?LIBRARY_DB_PASSWORD is required}
     volumes:
       - library_db_data:/var/lib/postgresql/data
+      - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${LIBRARY_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${LIBRARY_DB_ADMIN_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -124,13 +142,19 @@ services:
     image: postgres:16-alpine
     container_name: legi-social-db
     environment:
-      POSTGRES_USER: ${SOCIAL_DB_USER:?SOCIAL_DB_USER is required}
-      POSTGRES_PASSWORD: ${SOCIAL_DB_PASSWORD:?SOCIAL_DB_PASSWORD is required}
+      # Bootstrap superuser — used only to create the app role on first init; the
+      # application never connects with it.
+      POSTGRES_USER: ${SOCIAL_DB_ADMIN_USER:?SOCIAL_DB_ADMIN_USER is required}
+      POSTGRES_PASSWORD: ${SOCIAL_DB_ADMIN_PASSWORD:?SOCIAL_DB_ADMIN_PASSWORD is required}
       POSTGRES_DB: ${SOCIAL_DB_NAME:-legi_social}
+      # Non-superuser role the API actually uses at runtime (created by the init script).
+      APP_DB_USER: ${SOCIAL_DB_USER:?SOCIAL_DB_USER is required}
+      APP_DB_PASSWORD: ${SOCIAL_DB_PASSWORD:?SOCIAL_DB_PASSWORD is required}
     volumes:
       - social_db_data:/var/lib/postgresql/data
+      - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SOCIAL_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SOCIAL_DB_ADMIN_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5

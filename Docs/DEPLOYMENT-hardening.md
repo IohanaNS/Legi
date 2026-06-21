@@ -101,9 +101,14 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
 
 ## 6. Recommended follow-ups (defense in depth)
 
-- **Least-privilege DB roles.** The app currently connects as the database owner.
-  Create a restricted runtime role (no superuser, no role-creation) and a
-  separate role for migrations. Owner-of-schema is enough for EF `Migrate()`.
+- **Least-privilege DB roles — implemented.** Each API connects as a non-superuser
+  role that owns only its own schema (so EF `Migrate()` still works) and cannot
+  reach other databases, create roles, or run `COPY ... PROGRAM`. A bootstrap
+  superuser (`*_DB_ADMIN_*`, never used by the app) creates that role via
+  `db/init/create-app-role.sh`, which Postgres runs **once, on first init of an
+  empty data volume**. For an EXISTING deployment the script will not re-run — run
+  its SQL manually against each DB. Dev (`docker-compose.yml`) intentionally stays
+  on the `postgres` superuser for local convenience.
 - **Secrets manager.** A `.env.prod` file on disk is better than committed
   defaults, but env vars are visible via `docker inspect` and `/proc`. Move to
   Docker secrets, Vault, or your cloud's KMS when you can.
@@ -211,6 +216,7 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 - [ ] SSH: password auth off, root login off, key-only; fail2ban + auto-updates on
 - [ ] Host TLS (Caddy) serving HTTPS; HTTP→HTTPS redirect verified
 - [ ] No infra ports reachable from outside the host (`nmap` the public IP)
+- [ ] DB runtime role is non-superuser (`\du` shows no Superuser on `*_app`)
 - [ ] No container published on `0.0.0.0` (web is `127.0.0.1` only)
 - [ ] Forwarded headers verified: rate limiting throttles by real client IP
 - [ ] Turnstile enabled with production keys; login lockout verified
