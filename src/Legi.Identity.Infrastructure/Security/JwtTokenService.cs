@@ -13,6 +13,11 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
 
+    // Built once, lazily: importing the RSA key is comparatively expensive, and callers
+    // that only hash/expire refresh tokens must not require the private key to be present.
+    private readonly Lazy<SigningCredentials> _signingCredentials =
+        new(jwtSettings.Value.CreateSigningCredentials);
+
     public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user)
     {
         var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
@@ -25,15 +30,12 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,
             claims: claims,
             expires: expiresAt,
-            signingCredentials: credentials
+            signingCredentials: _signingCredentials.Value
         );
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);

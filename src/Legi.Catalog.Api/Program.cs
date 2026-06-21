@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using DotNetEnv;
 using Legi.Catalog.Api.Middleware;
 using Legi.Catalog.Application;
@@ -73,7 +72,8 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+        IssuerSigningKey = jwtSettings.CreatePublicSigningKey(),
+        ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
         ClockSkew = TimeSpan.Zero
     };
 });

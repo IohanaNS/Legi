@@ -152,7 +152,8 @@ services:
         environment:
             ASPNETCORE_ENVIRONMENT: Development
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-            Jwt__Secret: ${Jwt__Secret}
+            Jwt__PublicKey: ${Jwt__PublicKey}
+            Jwt__PrivateKey: ${Jwt__PrivateKey}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -201,7 +202,8 @@ services:
             ASPNETCORE_ENVIRONMENT: Development
             ConnectionStrings__CatalogDatabase: Host=catalog-db;Port=5432;Database=legi_catalog_dev;Username=postgres;Password=postgres
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-            Jwt__Secret: ${Jwt__Secret}
+            Jwt__PublicKey: ${Jwt__PublicKey}
+            Jwt__PrivateKey: ${Jwt__PrivateKey}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -243,7 +245,8 @@ services:
             ASPNETCORE_ENVIRONMENT: Development
             ConnectionStrings__LibraryDatabase: Host=library-db;Port=5432;Database=legi_library_dev;Username=postgres;Password=postgres
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-            Jwt__Secret: ${Jwt__Secret}
+            Jwt__PublicKey: ${Jwt__PublicKey}
+            Jwt__PrivateKey: ${Jwt__PrivateKey}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -276,7 +279,8 @@ services:
             ASPNETCORE_ENVIRONMENT: Development
             ConnectionStrings__SocialDatabase: Host=social-db;Port=5432;Database=legi_social_dev;Username=postgres;Password=postgres
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
-            Jwt__Secret: ${Jwt__Secret}
+            Jwt__PublicKey: ${Jwt__PublicKey}
+            Jwt__PrivateKey: ${Jwt__PrivateKey}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}

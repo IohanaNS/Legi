@@ -78,7 +78,28 @@ ForwardedHeaders__ForwardLimit=2
 **Verify after deploy:** make a failed login through the public URL and confirm the
 rate-limit/lockout counter keys off your real IP (not one shared bucket).
 
-## 5. Recommended follow-ups (defense in depth)
+## 5. JWT signing keys (RS256)
+
+Access tokens are signed with RSA (RS256), not a shared secret. **Only Identity
+holds the private key and can mint tokens**; the other services get only the public
+key — so a compromise of Catalog/Library/Social cannot be turned into forged
+user tokens. Generate a keypair and base64-encode each PEM (single-line, env-friendly):
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem
+openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
+base64 -w0 jwt-public.pem    # -> Jwt__PublicKey  (every service)
+base64 -w0 jwt-private.pem   # -> Jwt__PrivateKey (identity-api ONLY)
+```
+
+Put both in `.env.prod`. The prod compose injects `Jwt__PublicKey` into every API
+(shared anchor) but `Jwt__PrivateKey` only into `identity-api` — keep the private
+key out of every other service and out of the frontend. To rotate, issue a new
+keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes`
+(15), and refresh tokens are opaque so they survive the change. The dev keypair in
+`.env.example` is a committed throwaway for local use only — never deploy it.
+
+## 6. Recommended follow-ups (defense in depth)
 
 - **Least-privilege DB roles.** The app currently connects as the database owner.
   Create a restricted runtime role (no superuser, no role-creation) and a
@@ -94,7 +115,7 @@ rate-limit/lockout counter keys off your real IP (not one shared bucket).
 - **Unprivileged nginx image** (`nginxinc/nginx-unprivileged`) + read-only rootfs
   for the web tier.
 
-## 6. Single-VM host hardening (Oracle Cloud A1 / any VPS)
+## 7. Single-VM host hardening (Oracle Cloud A1 / any VPS)
 
 When the whole stack runs on one box, **the VM is your security perimeter**. The
 compose file keeps databases/RabbitMQ/MinIO off the host, but the host itself must
@@ -180,9 +201,10 @@ proprietary services — keep state in the Docker volumes driven by
 `docker-compose.prod.yml`. Migrating to Lightsail/EC2/Hetzner is then: provision a
 box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DNS.
 
-## 7. Pre-launch checklist
+## 8. Pre-launch checklist
 
 - [ ] `.env.prod` filled; no `CHANGE_ME` left; every secret unique and random
+- [ ] JWT RS256 keypair generated; `Jwt__PrivateKey` set on identity-api ONLY
 - [ ] `docker compose --env-file .env.prod -f docker-compose.prod.yml config` succeeds
 - [ ] Cloudflare proxying domain; SSL/TLS = Full (strict)
 - [ ] Origin firewall allows 443/80 only from Cloudflare IPs; SSH restricted

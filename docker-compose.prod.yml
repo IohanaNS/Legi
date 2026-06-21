@@ -51,7 +51,8 @@ x-api-env: &api-jwt-env
   # would register the middleware a second time and double-strip X-Forwarded-For.
   # If your Docker bridge subnet isn't in 10/8, 172.16/12 or 192.168/16, set
   # ForwardedHeaders__KnownNetworks__0 to its CIDR. See Docs/DEPLOYMENT-hardening.md.
-  Jwt__Secret: ${Jwt__Secret:?Jwt__Secret is required}
+  # Public key — every service needs it to validate tokens (shared via this anchor).
+  Jwt__PublicKey: ${Jwt__PublicKey:?Jwt__PublicKey is required}
   Jwt__Issuer: ${Jwt__Issuer:?Jwt__Issuer is required}
   Jwt__Audience: ${Jwt__Audience:?Jwt__Audience is required}
   Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-15}
@@ -200,6 +201,9 @@ services:
     container_name: legi-identity-api
     environment:
       <<: *api-jwt-env
+      # Private signing key — ONLY Identity holds it (it mints tokens). The other
+      # services get just the public key and can validate but never forge a token.
+      Jwt__PrivateKey: ${Jwt__PrivateKey:?Jwt__PrivateKey is required (Identity only)}
       ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=${IDENTITY_DB_NAME:-legi_identity};Username=${IDENTITY_DB_USER};Password=${IDENTITY_DB_PASSWORD}
       Turnstile__Enabled: ${Turnstile__Enabled:-true}
       Turnstile__SecretKey: ${Turnstile__SecretKey:?Turnstile__SecretKey is required (or set Turnstile__Enabled=false)}

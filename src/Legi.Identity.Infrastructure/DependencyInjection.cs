@@ -64,8 +64,9 @@ public static class DependencyInjection
         services.AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
             .Validate(
-                JwtSettings.HasValidSettings,
-                JwtSettings.ValidationMessage)
+                // Identity signs tokens, so it needs both keys (private + public).
+                JwtSettings.HasValidSigningSettings,
+                JwtSettings.SigningValidationMessage)
             .ValidateOnStart();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
