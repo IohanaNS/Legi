@@ -1,4 +1,5 @@
 using Legi.Identity.Domain.Entities;
+using Legi.Identity.Domain.Enums;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.Tests.Factories;
 using Legi.SharedKernel;
@@ -25,6 +26,45 @@ public class UserTests
         Assert.Equal(username, user.Username);
         Assert.Equal(passwordHash, user.PasswordHash);
         Assert.NotEqual(Guid.Empty, user.Id);
+    }
+
+    [Fact]
+    public void Create_ShouldDefaultToUserRole()
+    {
+        // Arrange & Act
+        var user = UserFactory.Create();
+
+        // Assert
+        Assert.Equal(UserRole.User, user.Role);
+        Assert.False(user.IsAdmin);
+    }
+
+    [Fact]
+    public void AssignRole_ShouldUpdateUserRole()
+    {
+        // Arrange
+        var user = UserFactory.Create();
+
+        // Act
+        user.AssignRole(UserRole.Admin);
+
+        // Assert
+        Assert.Equal(UserRole.Admin, user.Role);
+        Assert.True(user.IsAdmin);
+    }
+
+    [Fact]
+    public void AssignRole_ShouldRejectInvalidRole()
+    {
+        // Arrange
+        var user = UserFactory.Create();
+
+        // Act
+        var act = () => user.AssignRole((UserRole)999);
+
+        // Assert
+        var exception = Assert.Throws<DomainException>(act);
+        Assert.Equal("Invalid user role", exception.Message);
     }
 
     [Fact]

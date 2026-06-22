@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Legi.Identity.Domain.Entities;
+using Legi.Identity.Domain.Enums;
 using Legi.Identity.Domain.ValueObjects;
 using Legi.Identity.Infrastructure.Security;
 using Microsoft.Extensions.Options;
@@ -30,6 +32,18 @@ public class JwtTokenServiceTests
             Legi.Identity.Domain.ValueObjects.Email.Create("mfa@example.com"),
             Username.Create("mfa_user"),
             "hash");
+
+    private static JwtSecurityToken ReadJwt(string token)
+    {
+        return new JwtSecurityTokenHandler().ReadJwtToken(token);
+    }
+
+    private static bool HasRoleClaim(JwtSecurityToken jwt, UserRole role)
+    {
+        return jwt.Claims.Any(claim =>
+            (claim.Type == ClaimTypes.Role || claim.Type == "role") &&
+            claim.Value == role.ToString());
+    }
 
     [Fact]
     public void MfaChallengeToken_RoundTrips_ToUserId()
@@ -74,6 +88,31 @@ public class JwtTokenServiceTests
         var service = new JwtTokenService(Options.Create(SettingsWithKeys()));
 
         Assert.Null(service.ValidateMfaChallengeToken("not-a-real-token"));
+    }
+
+    [Fact]
+    public void GenerateAccessToken_ShouldIncludeUserRoleClaim_ForRegularUser()
+    {
+        var service = new JwtTokenService(Options.Create(SettingsWithKeys()));
+
+        var (token, _) = service.GenerateAccessToken(TestUser());
+
+        var jwt = ReadJwt(token);
+        Assert.True(HasRoleClaim(jwt, UserRole.User));
+    }
+
+    [Fact]
+    public void GenerateAccessToken_ShouldIncludeAdminRoleClaim_ForAdminUser()
+    {
+        var user = TestUser();
+        user.AssignRole(UserRole.Admin);
+        var service = new JwtTokenService(Options.Create(SettingsWithKeys()));
+
+        var (token, _) = service.GenerateAccessToken(user);
+
+        var jwt = ReadJwt(token);
+        Assert.True(HasRoleClaim(jwt, UserRole.Admin));
+        Assert.False(HasRoleClaim(jwt, UserRole.User));
     }
 
     [Fact]

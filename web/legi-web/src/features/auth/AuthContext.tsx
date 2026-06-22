@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "./api";
+import { readRolesFromAccessToken } from "../../services/authClaims";
 import { authStorage, type StoredUser } from "../../services/authStorage";
-import { setOnUnauthorized } from "../../services/http";
+import { setOnSessionRefreshed, setOnUnauthorized } from "../../services/http";
 import { AuthContext, type AuthContextValue } from "./authContext";
 import { isMfaChallenge, type AuthResponse, type LoginRequest, type RegisterRequest } from "./types";
 
 function persist(res: AuthResponse): StoredUser {
-  const user: StoredUser = { userId: res.userId, email: res.email, username: res.username };
+  const user: StoredUser = {
+    userId: res.userId,
+    email: res.email,
+    username: res.username,
+    roles: readRolesFromAccessToken(res.token),
+  };
   authStorage.setSession({ accessToken: res.token, user });
   return user;
 }
@@ -26,7 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // When refresh fails inside the interceptor, drop the session.
     setOnUnauthorized(clearLocalSession);
-    return () => setOnUnauthorized(null);
+    setOnSessionRefreshed((session) => {
+      setUser(persist(session));
+    });
+
+    return () => {
+      setOnUnauthorized(null);
+      setOnSessionRefreshed(null);
+    };
   }, [clearLocalSession]);
 
   useEffect(() => {

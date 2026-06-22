@@ -1,4 +1,5 @@
 using DotNetEnv;
+using Legi.Catalog.Api.Authorization;
 using Legi.Catalog.Api.Middleware;
 using Legi.Catalog.Application;
 using Legi.Catalog.Infrastructure;
@@ -75,7 +76,10 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddCatalogAuthorizationPolicies();
+});
 
 // Controllers
 builder.Services.AddControllers();

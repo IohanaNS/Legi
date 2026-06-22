@@ -7,6 +7,7 @@ using Legi.Catalog.Application.Books.Queries.GetBookDetails;
 using Legi.Catalog.Application.Books.Queries.SearchBooks;
 using Legi.Catalog.Application.Common.Storage;
 using Legi.Catalog.Domain.Repositories;
+using Legi.SharedKernel.Authorization;
 using Legi.SharedKernel.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -92,6 +93,7 @@ public class BooksController : ControllerBase
 
     /// <summary>
     /// Creates a new book in the global catalog
+    /// Any authenticated user can create a book. Only admins can update, delete, or upload covers.
     /// </summary>
     [Authorize]
     [HttpPost]
@@ -125,11 +127,12 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Updates an existing book in the global catalog
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = LegiAuthPolicies.CanManageCatalogBooks)]
     [HttpPut("{bookId:guid}")]
     [ProducesResponseType(typeof(UpdateBookResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UpdateBookResponse>> UpdateBook(
         Guid bookId,
@@ -154,10 +157,11 @@ public class BooksController : ControllerBase
     /// <summary>
     /// Deletes a book from the global catalog
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = LegiAuthPolicies.CanManageCatalogBooks)]
     [HttpDelete("{bookId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteBook(
         Guid bookId,
@@ -172,13 +176,14 @@ public class BooksController : ControllerBase
     /// Manually upload a cover for a cover-less book — the escape hatch for the
     /// long tail no provider has a cover for. Fill-only: 409 if a cover exists.
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = LegiAuthPolicies.CanManageCatalogBooks)]
     [HttpPost("{bookId:guid}/cover")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxCoverRequestBytes)]
     [ProducesResponseType(typeof(SetBookCoverResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UploadCover(

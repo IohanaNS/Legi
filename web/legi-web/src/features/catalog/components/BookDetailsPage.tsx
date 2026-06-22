@@ -10,6 +10,8 @@ import { cn } from "../../../lib/utils";
 import { StarRatingInput } from "../../../components/ui/StarRatingInput";
 import { useBookDetails } from "../hooks/useBookDetails";
 import { useUploadBookCover } from "../hooks/useUploadBookCover";
+import { AUTH_ROLES } from "../../../services/authClaims";
+import { useAuth } from "../../auth/useAuth";
 import {
   useMyUserBookByBook,
   useRateBook,
@@ -38,6 +40,7 @@ type BookNotice = "created" | "alreadyExists";
 export default function BookDetailsPage() {
   const { bookId } = useParams<{ bookId: string }>();
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const bookNotice = (location.state as { bookNotice?: BookNotice } | null)?.bookNotice;
@@ -69,6 +72,8 @@ export default function BookDetailsPage() {
   const authors = book.authors.map((a) => a.name).join(", ") || t("explore.unknownAuthor");
   const reviews = reviewsQuery.data?.pages.flatMap((p) => p.items) ?? [];
   const reviewsCount = reviewsQuery.data?.pages[0]?.totalItems ?? book.reviewsCount;
+  const canManageCatalogBooks =
+    user?.roles.includes(AUTH_ROLES.admin) ?? false;
 
   const longSynopsis = (book.synopsis?.length ?? 0) > SYNOPSIS_CLAMP;
   const synopsisText =
@@ -129,8 +134,8 @@ export default function BookDetailsPage() {
             <BookCover title={book.title} author={authors} coverUrl={book.coverUrl} />
           </div>
 
-          {/* Cover-less is a soft, fixable state — let anyone add the missing cover. */}
-          {!book.coverUrl && (
+          {/* Catalog metadata changes are admin-only; creation remains open to authenticated users. */}
+          {canManageCatalogBooks && !book.coverUrl && (
             <div>
               <input
                 ref={coverInputRef}

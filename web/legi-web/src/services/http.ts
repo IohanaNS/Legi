@@ -27,6 +27,11 @@ export function setOnUnauthorized(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
+let onSessionRefreshed: ((session: RefreshSessionResponse) => void) | null = null;
+export function setOnSessionRefreshed(fn: ((session: RefreshSessionResponse) => void) | null) {
+  onSessionRefreshed = fn;
+}
+
 http.interceptors.request.use((config) => {
   const token = authStorage.getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -100,6 +105,7 @@ export async function refreshSession(): Promise<RefreshSessionResponse> {
       { timeout: 30_000, withCredentials: true },
     );
     authStorage.setTokens({ accessToken: data.token });
+    onSessionRefreshed?.(data);
     return data;
   });
 }

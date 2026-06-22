@@ -35,6 +35,7 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email.Value),
+            new(ClaimTypes.Role, user.Role.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };

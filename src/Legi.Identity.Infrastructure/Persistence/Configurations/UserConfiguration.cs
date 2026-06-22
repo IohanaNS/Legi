@@ -1,4 +1,5 @@
 using Legi.Identity.Domain.Entities;
+using Legi.Identity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -41,6 +42,13 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.PasswordHash)
             .HasColumnName("password_hash")
             .HasMaxLength(255);
+
+        builder.Property(u => u.Role)
+            .HasColumnName("role")
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(UserRole.User)
+            .IsRequired();
 
         builder.Property(u => u.FailedLoginAttempts)
             .HasColumnName("failed_login_attempts")

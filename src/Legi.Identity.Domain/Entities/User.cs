@@ -1,3 +1,4 @@
+using Legi.Identity.Domain.Enums;
 using Legi.Identity.Domain.Events;
 using Legi.Identity.Domain.ValueObjects;
 using Legi.SharedKernel;
@@ -8,6 +9,8 @@ public class User : BaseAuditableEntity
 {
     public Email Email { get; private set; } = null!;
     public Username Username { get; private set; } = null!;
+    public UserRole Role { get; private set; } = UserRole.User;
+    public bool IsAdmin => Role == UserRole.Admin;
     public string? PasswordHash { get; private set; }
     public int FailedLoginAttempts { get; private set; }
     public DateTime? LastFailedLoginAt { get; private set; }
@@ -43,6 +46,7 @@ public class User : BaseAuditableEntity
             Id = Guid.NewGuid(),
             Email = email,
             Username = username,
+            Role = UserRole.User,
             PasswordHash = passwordHash,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -65,6 +69,7 @@ public class User : BaseAuditableEntity
             Id = Guid.NewGuid(),
             Email = email,
             Username = username,
+            Role = UserRole.User,
             PasswordHash = null,
             EmailConfirmedAt = emailConfirmedAtUtc,
             CreatedAt = DateTime.UtcNow,
@@ -76,6 +81,18 @@ public class User : BaseAuditableEntity
         user.AddDomainEvent(new UserRegisteredDomainEvent(user.Id, username.Value, email.Value));
 
         return user;
+    }
+
+    public void AssignRole(UserRole role)
+    {
+        if (!Enum.IsDefined(role))
+            throw new DomainException("Invalid user role");
+
+        if (Role == role)
+            return;
+
+        Role = role;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public void AddExternalLogin(string provider, string providerKey)
