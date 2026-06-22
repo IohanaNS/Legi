@@ -241,6 +241,8 @@ services:
       GoogleAuth__ClientId: ${GoogleAuth__ClientId:-}
       PasswordReset__FrontendBaseUrl: ${PasswordReset__FrontendBaseUrl:?PasswordReset__FrontendBaseUrl is required (https://yourdomain)}
       PasswordReset__TokenLifetimeMinutes: ${PasswordReset__TokenLifetimeMinutes:-60}
+      EmailConfirmation__FrontendBaseUrl: ${EmailConfirmation__FrontendBaseUrl:?EmailConfirmation__FrontendBaseUrl is required (https://yourdomain)}
+      EmailConfirmation__TokenLifetimeMinutes: ${EmailConfirmation__TokenLifetimeMinutes:-1440}
       Smtp__Host: ${Smtp__Host:?Smtp__Host is required in production}
       Smtp__Port: ${Smtp__Port:-587}
       Smtp__Username: ${Smtp__Username:?Smtp__Username is required}

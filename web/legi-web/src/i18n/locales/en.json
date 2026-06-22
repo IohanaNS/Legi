@@ -490,6 +490,7 @@
         "emailConfirmationRequired": "Confirm your email before signing in.",
         "emailConfirmationHint": "We created your account, but this email still needs to be confirmed.",
         "resendConfirmation": "Resend confirmation email",
+        "resendTurnstileRequired": "Complete the verification below, then click resend again.",
         "confirmationResent": "If this account still needs confirmation, we've sent a new link.",
         "confirmEmailTitle": "Confirm your email",
         "confirmEmailLoading": "Confirming your email...",

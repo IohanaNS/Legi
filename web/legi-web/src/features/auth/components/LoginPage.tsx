@@ -222,12 +222,15 @@ export default function LoginPage() {
             <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-400/30 dark:bg-amber-400/10">
               <p className="text-stone-700 dark:text-stone-200">{t("auth.emailConfirmationHint")}</p>
               {shouldShowResendTurnstile && (
-                <TurnstileBox
-                  key={resendTurnstileResetKey}
-                  action="email_confirmation"
-                  onVerify={setResendTurnstileToken}
-                  onReset={() => setResendTurnstileToken(null)}
-                />
+                <>
+                  <p className="text-amber-800 dark:text-amber-200">{t("auth.resendTurnstileRequired")}</p>
+                  <TurnstileBox
+                    key={resendTurnstileResetKey}
+                    action="email_confirmation"
+                    onVerify={setResendTurnstileToken}
+                    onReset={() => setResendTurnstileToken(null)}
+                  />
+                </>
               )}
               {resendMutation.isSuccess && (
                 <p className="text-green-700 dark:text-green-400">{t("auth.confirmationResent")}</p>
@@ -239,7 +242,12 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={resendMutation.isPending || !emailOrUsername || (shouldShowResendTurnstile && !resendTurnstileToken)}
+                disabled={
+                  resendMutation.isPending ||
+                  resendMutation.isSuccess ||
+                  !emailOrUsername ||
+                  (shouldShowResendTurnstile && !resendTurnstileToken)
+                }
                 onClick={() => resendMutation.mutate()}
                 className="w-full"
               >

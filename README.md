@@ -125,7 +125,83 @@ yarn
 yarn dev
 ```
 
-### Compose de producao
+### Compose de producao local
+
+Para subir o stack de producao localmente sem preencher todos os segredos na
+mao, use o helper abaixo. Ele gera `.env.prod.local` com chaves e senhas
+descartaveis, desativa Turnstile para uso local e chama o Compose com os
+arquivos corretos:
+
+```bash
+./scripts/prod-local.sh up
+```
+
+O helper usa o projeto Compose `legi-prod-local`, isolando os volumes desse
+stack dos volumes do `docker-compose.yml` de desenvolvimento. Ele tambem sobe
+um Mailpit local para capturar e-mails de confirmacao e reset.
+
+A aplicacao fica em `http://localhost:8080`. Comandos uteis:
+
+```bash
+./scripts/prod-local.sh logs
+./scripts/prod-local.sh ps
+./scripts/prod-local.sh down
+./scripts/prod-local.sh down -v   # remove tambem os volumes locais
+```
+
+Caixa de entrada local para e-mails:
+
+```bash
+http://localhost:8025
+```
+
+Se quiser regenerar os segredos locais, derrube os volumes antes para evitar
+senhas de banco divergentes:
+
+```bash
+./scripts/prod-local.sh down -v
+./scripts/prod-local.sh init --force
+```
+
+Por padrao o helper gera `.env.prod.local` com Turnstile desligado. Para testar
+o fluxo ativo com as chaves de teste oficiais da Cloudflare:
+
+```bash
+./scripts/prod-local.sh turnstile test
+./scripts/prod-local.sh up
+```
+
+Para testar com uma widget real, crie uma widget separada para uso local na
+Cloudflare, configure `localhost` ou o hostname local escolhido na allow-list da
+widget, e rode:
+
+```bash
+./scripts/prod-local.sh turnstile on
+./scripts/prod-local.sh up
+```
+
+O comando pede a site key e a secret key sem gravar a secret no historico do
+shell. A digitacao/colagem da secret key fica invisivel no terminal; cole a
+secret e pressione Enter. Tambem da para usar variaveis de ambiente em fluxo nao
+interativo:
+
+```bash
+LEGI_TURNSTILE_SITE_KEY=... \
+LEGI_TURNSTILE_SECRET_KEY=... \
+LEGI_TURNSTILE_HOSTNAME=localhost \
+./scripts/prod-local.sh turnstile on
+```
+
+Para reativar o botao "Entrar com Google", configure o OAuth web client ID. O
+mesmo valor vai para o backend (`GoogleAuth__ClientId`) e para o build do
+frontend (`VITE_GOOGLE_CLIENT_ID`):
+
+```bash
+./scripts/prod-local.sh google on
+./scripts/prod-local.sh up
+```
+
+### Compose de producao real
 
 O arquivo `docker-compose.prod.yml` exige todos os segredos no momento em que o
 Compose carrega o arquivo, inclusive para `build`. Ele nao usa `.env.prod`

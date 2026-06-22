@@ -490,6 +490,7 @@
         "emailConfirmationRequired": "Confirme seu e-mail antes de entrar.",
         "emailConfirmationHint": "Sua conta foi criada, mas este e-mail ainda precisa ser confirmado.",
         "resendConfirmation": "Reenviar e-mail de confirmação",
+        "resendTurnstileRequired": "Conclua a verificação abaixo e clique em reenviar novamente.",
         "confirmationResent": "Se esta conta ainda precisa de confirmação, enviamos um novo link.",
         "confirmEmailTitle": "Confirmar seu e-mail",
         "confirmEmailLoading": "Confirmando seu e-mail...",
