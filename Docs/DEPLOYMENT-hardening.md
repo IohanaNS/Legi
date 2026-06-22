@@ -31,8 +31,10 @@ $EDITOR .env.prod
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The stack **fails closed**: a missing `Jwt__Secret`, DB password, RabbitMQ or
-MinIO credential aborts startup instead of falling back to a dev default.
+The stack **fails closed**: a missing `Jwt__PrivateKey`/`Jwt__PublicKey`,
+`Mfa__EncryptionKey`, DB password, RabbitMQ or MinIO credential aborts startup
+instead of falling back to a dev default. `Mfa__EncryptionKey` is required by
+**identity-api only** (it encrypts TOTP secrets at rest — see §6).
 
 ## 3. TLS termination (required)
 
@@ -102,8 +104,10 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
 ## 6. Recommended follow-ups (defense in depth)
 
 - **Least-privilege DB roles — implemented.** Each API connects as a non-superuser
-  role that owns only its own schema (so EF `Migrate()` still works) and cannot
-  reach other databases, create roles, or run `COPY ... PROGRAM`. A bootstrap
+  role that owns the `public` schema **and** holds `CREATE` on its own database (so
+  EF `Migrate()` can create the `identity` migrations-history schema and run
+  migrations) yet cannot reach other databases, create roles, or run
+  `COPY ... PROGRAM`. A bootstrap
   superuser (`*_DB_ADMIN_*`, never used by the app) creates that role via
   `db/init/create-app-role.sh`, which Postgres runs **once, on first init of an
   empty data volume**. For an EXISTING deployment the script will not re-run — run
@@ -121,6 +125,17 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   prefix is sent; never the password). It makes an outbound HTTPS call to
   `api.pwnedpasswords.com` and **fails open** on any error, so egress restrictions
   or an HIBP outage never block sign-up. Disable with `BreachedPassword__Enabled=false`.
+- **MFA (TOTP) — implemented.** Users can enrol an authenticator app (RFC 6238 TOTP)
+  and get one-time recovery codes; login then requires a second factor. The login
+  endpoint returns a short-lived **challenge token** (a distinct JWT audience,
+  `<Audience>:mfa`, so it is rejected anywhere an access token is expected) that is
+  exchanged at `/auth/mfa-login` for the real session. Authenticator secrets are
+  encrypted **at rest** with AES-256-GCM under `Mfa__EncryptionKey` (a base64-encoded
+  32-byte key, identity-api only): `openssl rand -base64 32`. The key is **required**
+  in prod — without it, identity-api fails to start. Rotating it invalidates existing
+  TOTP enrolments (users must re-enrol), so treat it like the JWT private key: generate
+  once, back it up encrypted, do not rotate casually. Enrol/confirm/disable and the
+  second-factor login are rate-limited (see `IpRateLimiting` in identity appsettings).
 - **Secrets manager.** A `.env.prod` file on disk is better than committed
   defaults, but env vars are visible via `docker inspect` and `/proc`. Move to
   Docker secrets, Vault, or your cloud's KMS when you can.
@@ -222,6 +237,7 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 
 - [ ] `.env.prod` filled; no `CHANGE_ME` left; every secret unique and random
 - [ ] JWT RS256 keypair generated; `Jwt__PrivateKey` set on identity-api ONLY
+- [ ] `Mfa__EncryptionKey` generated (`openssl rand -base64 32`), set on identity-api; backed up encrypted
 - [ ] `docker compose --env-file .env.prod -f docker-compose.prod.yml config` succeeds
 - [ ] Cloudflare proxying domain; SSL/TLS = Full (strict)
 - [ ] Origin firewall allows 443/80 only from Cloudflare IPs; SSH restricted

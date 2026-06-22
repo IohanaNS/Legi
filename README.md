@@ -19,10 +19,12 @@ Sobe as 4 APIs, 4 bancos PostgreSQL, RabbitMQ e o frontend.
 
 ```bash
 cp .env.example .env
-openssl rand -base64 32
+./scripts/gen-dev-keys.sh
 ```
 
-Cole o valor gerado em `Jwt__Secret` no `.env`. Os demais defaults sao adequados para desenvolvimento.
+O script grava um par RSA de desenvolvimento (`Jwt__PublicKey` /
+`Jwt__PrivateKey`) e `Mfa__EncryptionKey` no `.env`. Os demais defaults sao
+adequados para desenvolvimento.
 
 #### 2. Suba tudo
 
@@ -123,6 +125,29 @@ yarn
 yarn dev
 ```
 
+### Compose de producao
+
+O arquivo `docker-compose.prod.yml` exige todos os segredos no momento em que o
+Compose carrega o arquivo, inclusive para `build`. Ele nao usa `.env.prod`
+automaticamente; passe o arquivo com `--env-file`:
+
+```bash
+cp .env.prod.example .env.prod
+$EDITOR .env.prod
+
+docker compose --env-file .env.prod -f docker-compose.prod.yml build
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+```
+
+Para build e subida em um passo:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+Sem `--env-file .env.prod`, erros como `required variable RabbitMq__Username is
+missing a value` sao esperados.
+
 ## Build e testes
 
 ```bash
@@ -139,6 +164,13 @@ cd web/legi-web
 yarn lint
 yarn build
 ```
+
+## CI e seguranca
+
+Os workflows em `.github/workflows` rodam build/testes backend, build do frontend,
+scan de pacotes NuGet vulneraveis, gitleaks em historico completo e Trivy para
+vulnerabilidades/segredos. As actions usam versoes compativeis com o runtime
+Node 24 do GitHub Actions.
 
 ## Estrutura do projeto
 
@@ -183,81 +215,11 @@ dotnet ef migrations remove \
 
 Substitua `<Servico>` por `Identity`, `Catalog`, `Library` ou `Social`.
 
-## API Endpoints
+## APIs
 
-### Identity (`/api/v1/identity`)
-
-| Metodo | Endpoint | Descricao |
-|--------|----------|-----------|
-| POST | `/auth/register` | Registrar usuario |
-| POST | `/auth/login` | Login por email ou username |
-| POST | `/auth/refresh` | Renovar access token |
-| POST | `/auth/logout` | Invalidar refresh token |
-| GET | `/users/me` | Perfil autenticado |
-| DELETE | `/users/me` | Deletar conta |
-| GET | `/users/{userId}` | Perfil publico basico |
-
-### Catalog (`/api/v1/catalog`)
-
-| Metodo | Endpoint | Descricao |
-|--------|----------|-----------|
-| GET | `/books` | Buscar livros com filtros e paginacao |
-| GET | `/books/{bookId}` | Detalhes do livro |
-| POST | `/books` | Cadastrar livro |
-| PUT | `/books/{bookId}` | Atualizar livro |
-| DELETE | `/books/{bookId}` | Excluir livro |
-| GET | `/authors/search` | Buscar autores |
-| GET | `/authors/popular` | Autores populares |
-| GET | `/tags/search` | Buscar tags |
-| GET | `/tags/popular` | Tags populares |
-
-### Library (`/api/v1/library`)
-
-| Metodo | Endpoint | Descricao |
-|--------|----------|-----------|
-| GET | `/` | Minha biblioteca |
-| POST | `/` | Adicionar livro |
-| PATCH | `/{userBookId}` | Atualizar status, wishlist ou progresso |
-| DELETE | `/{userBookId}` | Remover livro |
-| PUT | `/{userBookId}/rating` | Dar ou atualizar rating |
-| DELETE | `/{userBookId}/rating` | Remover rating |
-| GET | `/{userBookId}/posts` | Posts de leitura do livro |
-| POST | `/{userBookId}/posts` | Criar post de leitura |
-| PUT | `/posts/{postId}` | Editar post de leitura |
-| DELETE | `/posts/{postId}` | Excluir post de leitura |
-| GET | `/lists` | Minhas listas |
-| POST | `/lists` | Criar lista |
-| GET | `/lists/search` | Buscar listas publicas |
-| GET | `/lists/{listId}` | Detalhes da lista |
-| PATCH | `/lists/{listId}` | Atualizar lista |
-| DELETE | `/lists/{listId}` | Excluir lista |
-| GET | `/lists/{listId}/books` | Livros da lista |
-| POST | `/lists/{listId}/books` | Adicionar livro a lista |
-| DELETE | `/lists/{listId}/books/{bookId}` | Remover livro da lista |
-
-### Social (`/api/v1/social`)
-
-| Metodo | Endpoint | Descricao |
-|--------|----------|-----------|
-| POST | `/follows` | Seguir usuario |
-| DELETE | `/follows/{userId}` | Deixar de seguir usuario |
-| GET | `/users/{userId}` | Perfil social publico |
-| GET | `/users/{userId}/followers` | Seguidores |
-| GET | `/users/{userId}/following` | Usuarios seguidos |
-| GET | `/feed` | Feed autenticado |
-| GET | `/users/{userId}/activity` | Atividade publica do usuario |
-| POST | `/posts/{postId}/likes` | Curtir post |
-| DELETE | `/posts/{postId}/likes` | Remover curtida de post |
-| GET | `/posts/{postId}/comments` | Comentarios de post |
-| POST | `/posts/{postId}/comments` | Comentar em post |
-| GET | `/lists/{listId}` | Estado social da lista (contadores + flags do viewer) |
-| POST | `/lists/{listId}/likes` | Curtir lista |
-| DELETE | `/lists/{listId}/likes` | Remover curtida de lista |
-| GET | `/lists/{listId}/comments` | Comentarios de lista |
-| POST | `/lists/{listId}/comments` | Comentar em lista |
-| POST | `/lists/{listId}/follows` | Seguir lista |
-| DELETE | `/lists/{listId}/follows` | Deixar de seguir lista |
-| DELETE | `/comments/{commentId}` | Excluir comentario |
+Use os links Swagger da tabela "Acesse os servicos" para consultar contratos,
+endpoints e payloads atualizados. O frontend acessa as APIs pelo proxy Nginx em
+`http://localhost:3000/api/v1/*` no ambiente Docker.
 
 ## Documentacao
 

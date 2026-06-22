@@ -40,7 +40,7 @@ public class DeleteAccountCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.Single(user.DomainEvents.Where(e => e is UserDeletedDomainEvent));
+        Assert.Single(user.DomainEvents, e => e is UserDeletedDomainEvent);
 
         _userRepositoryMock.Verify(x => x.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
     }

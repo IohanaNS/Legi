@@ -1,4 +1,3 @@
-using System.Net;
 using AspNetCoreRateLimit;
 using DotNetEnv;
 using Legi.Identity.Api.Middleware;
@@ -11,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using IPNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
 
 // Load environment variables from .env file
 // Search in current directory and parent directories (solution root)
@@ -44,14 +42,13 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 2;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
     var trustedNetworks = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
         ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
     foreach (var cidr in trustedNetworks)
     {
-        var parts = cidr.Split('/');
-        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
     }
 });
 

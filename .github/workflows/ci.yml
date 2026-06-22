@@ -19,9 +19,9 @@ jobs:
     name: Build & test (.NET)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -43,9 +43,9 @@ jobs:
       run:
         working-directory: web/legi-web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           # cache-dependency-path is resolved from the repo root (NOT working-directory).
