@@ -4,8 +4,8 @@ public class PasswordResetSettings
 {
     public const string SectionName = "PasswordReset";
     public const string ValidationMessage =
-        "PasswordReset settings must include an absolute http/https FrontendBaseUrl and a positive TokenLifetimeMinutes. " +
-        "In production set PasswordReset__FrontendBaseUrl to your public site URL.";
+        "PasswordReset settings must include an absolute HTTPS FrontendBaseUrl, or HTTP localhost for local development, " +
+        "and a positive TokenLifetimeMinutes.";
 
     /// <summary>
     /// Public base URL of the web frontend, used to build the reset link sent by email.
@@ -19,7 +19,6 @@ public class PasswordResetSettings
     public static bool HasValidSettings(PasswordResetSettings settings)
     {
         return settings.TokenLifetimeMinutes > 0 &&
-               Uri.TryCreate(settings.FrontendBaseUrl, UriKind.Absolute, out var uri) &&
-               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+               FrontendBaseUrlValidator.IsValid(settings.FrontendBaseUrl);
     }
 }
