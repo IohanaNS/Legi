@@ -4,7 +4,7 @@ import { authApi } from "./api";
 import { authStorage, type StoredUser } from "../../services/authStorage";
 import { setOnUnauthorized } from "../../services/http";
 import { AuthContext, type AuthContextValue } from "./authContext";
-import type { AuthResponse, LoginRequest, RegisterRequest } from "./types";
+import { isMfaChallenge, type AuthResponse, type LoginRequest, type RegisterRequest } from "./types";
 
 function persist(res: AuthResponse): StoredUser {
   const user: StoredUser = { userId: res.userId, email: res.email, username: res.username };
@@ -51,7 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearLocalSession]);
 
   const login = async (body: LoginRequest) => {
-    setUser(persist(await authApi.login(body)));
+    const result = await authApi.login(body);
+    if (isMfaChallenge(result)) {
+      return { mfaRequired: true, mfaToken: result.mfaToken };
+    }
+    setUser(persist(result));
+    return { mfaRequired: false };
+  };
+
+  const completeMfaLogin = async (mfaToken: string, code: string) => {
+    setUser(persist(await authApi.mfaLogin(mfaToken, code)));
   };
 
   const loginWithGoogle = async (idToken: string) => {
@@ -82,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isLoading,
     login,
+    completeMfaLogin,
     loginWithGoogle,
     register,
     logout,

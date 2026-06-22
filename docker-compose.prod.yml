@@ -228,6 +228,8 @@ services:
       # Private signing key — ONLY Identity holds it (it mints tokens). The other
       # services get just the public key and can validate but never forge a token.
       Jwt__PrivateKey: ${Jwt__PrivateKey:?Jwt__PrivateKey is required (Identity only)}
+      # Encrypts users' TOTP/MFA secrets at rest (base64-encoded 32-byte key).
+      Mfa__EncryptionKey: ${Mfa__EncryptionKey:?Mfa__EncryptionKey is required (Identity only)}
       ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=${IDENTITY_DB_NAME:-legi_identity};Username=${IDENTITY_DB_USER};Password=${IDENTITY_DB_PASSWORD}
       Turnstile__Enabled: ${Turnstile__Enabled:-true}
       Turnstile__SecretKey: ${Turnstile__SecretKey:?Turnstile__SecretKey is required (or set Turnstile__Enabled=false)}

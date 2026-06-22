@@ -7,5 +7,9 @@ public record LoginResponse(
     string Token,
     string RefreshToken,
     DateTime ExpiresAt,
-    DateTime RefreshTokenExpiresAt
+    DateTime RefreshTokenExpiresAt,
+    // When true, the password was correct but a second factor is required: the token
+    // fields are empty and the client must complete login with MfaToken + a code.
+    bool MfaRequired = false,
+    string? MfaToken = null
 );

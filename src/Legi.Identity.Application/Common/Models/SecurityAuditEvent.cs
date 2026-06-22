@@ -14,6 +14,10 @@ public enum SecurityEventType
     ExternalLoginSucceeded = 1005,
     AccountRegistered = 1006,
     EmailConfirmed = 1007,
+    MfaEnabled = 1008,
+    MfaDisabled = 1009,
+    MfaChallengeFailed = 1010,
+    RecoveryCodeUsed = 1011,
 }
 
 /// <summary>

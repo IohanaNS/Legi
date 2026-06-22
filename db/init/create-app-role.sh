@@ -31,7 +31,12 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
     GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${APP_DB_USER}";
 
-    -- Own the schema so EF Core migrations work, but only inside THIS database.
+    -- CREATE on the database lets EF Core create its migrations-history schema
+    -- (e.g. "identity") and any other schema. Still NOT a superuser: cannot reach
+    -- other databases, create roles, or run COPY ... PROGRAM.
+    GRANT CREATE ON DATABASE "${POSTGRES_DB}" TO "${APP_DB_USER}";
+
+    -- Own the public schema so EF Core migrations work, but only inside THIS database.
     ALTER SCHEMA public OWNER TO "${APP_DB_USER}";
 
     -- Defence in depth: no implicit object creation by the PUBLIC role

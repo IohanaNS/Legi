@@ -6,7 +6,8 @@ export interface AuthContextValue {
   user: StoredUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (body: LoginRequest) => Promise<void>;
+  login: (body: LoginRequest) => Promise<{ mfaRequired: boolean; mfaToken?: string }>;
+  completeMfaLogin: (mfaToken: string, code: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   register: (body: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => Promise<void>;

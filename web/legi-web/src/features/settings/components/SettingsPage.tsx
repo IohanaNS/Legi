@@ -9,6 +9,7 @@ import { authApi } from "../../auth/api";
 import { isTurnstileConfigured } from "../../auth/turnstile";
 import { TurnstileBox } from "../../auth/components/TurnstileBox";
 import { useAuth } from "../../auth/useAuth";
+import { MfaSection } from "./MfaSection";
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -154,6 +155,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      <MfaSection />
 
       {confirmOpen && (
         <DeleteAccountDialog

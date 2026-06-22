@@ -154,6 +154,7 @@ services:
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
             Jwt__PublicKey: ${Jwt__PublicKey}
             Jwt__PrivateKey: ${Jwt__PrivateKey}
+            Mfa__EncryptionKey: ${Mfa__EncryptionKey:-}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -204,6 +205,7 @@ services:
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
             Jwt__PublicKey: ${Jwt__PublicKey}
             Jwt__PrivateKey: ${Jwt__PrivateKey}
+            Mfa__EncryptionKey: ${Mfa__EncryptionKey:-}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -247,6 +249,7 @@ services:
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
             Jwt__PublicKey: ${Jwt__PublicKey}
             Jwt__PrivateKey: ${Jwt__PrivateKey}
+            Mfa__EncryptionKey: ${Mfa__EncryptionKey:-}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}
@@ -281,6 +284,7 @@ services:
             ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=legi_identity_dev;Username=postgres;Password=postgres
             Jwt__PublicKey: ${Jwt__PublicKey}
             Jwt__PrivateKey: ${Jwt__PrivateKey}
+            Mfa__EncryptionKey: ${Mfa__EncryptionKey:-}
             Jwt__Issuer: ${Jwt__Issuer:-Legi.Identity.Dev}
             Jwt__Audience: ${Jwt__Audience:-Legi.Dev}
             Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-60}

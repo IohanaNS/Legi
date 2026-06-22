@@ -50,3 +50,32 @@ export interface RegisterResponse {
   username: string;
   emailConfirmationRequired: true;
 }
+
+// Login returns either a session or, when MFA is enabled, a challenge to complete.
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export type LoginResult = AuthResponse | MfaChallenge;
+
+export function isMfaChallenge(result: LoginResult): result is MfaChallenge {
+  return (result as MfaChallenge).mfaRequired === true;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  otpAuthUri: string;
+}
+
+export interface MfaConfirmResponse {
+  recoveryCodes: string[];
+}
+
+export interface CurrentUserResponse {
+  userId: string;
+  email: string;
+  username: string;
+  createdAt: string;
+  mfaEnabled: boolean;
+}

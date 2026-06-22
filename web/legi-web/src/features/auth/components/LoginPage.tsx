@@ -15,7 +15,7 @@ import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation();
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, login, completeMfaLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/feed";
@@ -27,6 +27,8 @@ export default function LoginPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   const [resendTurnstileRequired, setResendTurnstileRequired] = useState(false);
   const [resendTurnstileToken, setResendTurnstileToken] = useState<string | null>(null);
   const [resendTurnstileResetKey, setResendTurnstileResetKey] = useState(0);
@@ -53,9 +55,13 @@ export default function LoginPage() {
     onMutate: () => {
       setEmailConfirmationRequired(false);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setFailedAttempts(0);
       setTurnstileRequired(false);
+      if (result.mfaRequired && result.mfaToken) {
+        setMfaToken(result.mfaToken);
+        return;
+      }
       navigate(from, { replace: true });
     },
     onError: (error) => {
@@ -102,6 +108,11 @@ export default function LoginPage() {
     },
   });
 
+  const mfaMutation = useMutation({
+    mutationFn: () => completeMfaLogin(mfaToken!, mfaCode.trim()),
+    onSuccess: () => navigate(from, { replace: true }),
+  });
+
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate(from, { replace: true });
@@ -120,6 +131,43 @@ export default function LoginPage() {
 
   if (isLoading) {
     return <div className="min-h-screen bg-parchment dark:bg-dark-bg" />;
+  }
+
+  if (mfaToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-parchment dark:bg-dark-bg">
+        <Card className="w-full max-w-sm p-6 space-y-4">
+          <div className="flex flex-col items-center gap-2 pb-1">
+            <Logo variant="default" className="h-10 w-auto dark:hidden" />
+            <Logo variant="cream" className="hidden h-10 w-auto dark:block" />
+            <span className="font-serif text-2xl font-semibold text-stone-800 dark:text-stone-100">BukiHub</span>
+          </div>
+          <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">{t("auth.mfaTitle")}</h1>
+          <p className="text-sm text-stone-600 dark:text-stone-400">{t("auth.mfaHint")}</p>
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mfaMutation.mutate(); }}>
+            <input
+              className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
+              placeholder={t("auth.mfaCodePlaceholder")}
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value)}
+              autoComplete="one-time-code"
+              autoFocus
+            />
+            {mfaMutation.isError && <p className="text-sm text-red-600 dark:text-red-400">{t("auth.mfaInvalidCode")}</p>}
+            <Button type="submit" disabled={mfaMutation.isPending || !mfaCode.trim()} className="w-full">
+              {t("auth.mfaVerify")}
+            </Button>
+            <button
+              type="button"
+              className="w-full text-sm text-stone-500 dark:text-stone-400 hover:underline"
+              onClick={() => { setMfaToken(null); setMfaCode(""); mfaMutation.reset(); }}
+            >
+              {t("auth.mfaBack")}
+            </button>
+          </form>
+        </Card>
+      </div>
+    );
   }
 
   return (

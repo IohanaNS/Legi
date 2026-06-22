@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Legi.Identity.Application.Auth.Commands.CompleteMfaLogin;
 using Legi.Identity.Application.Auth.Commands.ConfirmEmail;
 using Legi.Identity.Application.Auth.Commands.ForgotPassword;
 using Legi.Identity.Application.Auth.Commands.GoogleSignIn;
@@ -70,6 +71,35 @@ public class AuthController : ControllerBase
             request.EmailOrUsername,
             request.Password,
             request.TurnstileToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.MfaRequired)
+            return Ok(new MfaChallengeResponse(true, result.MfaToken!));
+
+        RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
+
+        return Ok(new AuthSessionResponse(
+            result.UserId,
+            result.Email,
+            result.Username,
+            result.Token,
+            result.ExpiresAt));
+    }
+
+    /// <summary>
+    /// Completes a login that required MFA, using the challenge token plus a TOTP or recovery code.
+    /// </summary>
+    [HttpPost("mfa-login")]
+    [ProducesResponseType(typeof(AuthSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthSessionResponse>> CompleteMfaLogin(
+        [FromBody] CompleteMfaLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new CompleteMfaLoginCommand(
+            request.MfaToken,
+            request.Code,
             HttpContext.Connection.RemoteIpAddress?.ToString());
         var result = await _mediator.Send(command, cancellationToken);
 
@@ -246,6 +276,8 @@ public record RegisterRequest(
     string? TurnstileToken = null,
     string? Language = null);
 public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
+public record CompleteMfaLoginRequest(string MfaToken, string Code);
+public record MfaChallengeResponse(bool MfaRequired, string MfaToken);
 public record GoogleSignInRequest(string IdToken);
 public record ForgotPasswordRequest(string Email, string? TurnstileToken = null, string? Language = null);
 public record ResetPasswordRequest(string Token, string NewPassword);

@@ -117,6 +117,32 @@ public class LoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldReturnMfaChallenge_WithoutTokens_WhenMfaEnabled()
+    {
+        // Arrange
+        var command = new LoginCommand("teste@exemplo.com", "SenhaCorreta123!");
+        var user = CreateValidUser();
+        user.StartMfaEnrollment("enc", DateTime.UtcNow);
+        user.ConfirmMfaEnrollment(["h"], DateTime.UtcNow);
+
+        _userRepositoryMock
+            .Setup(x => x.GetByEmailOrUsernameAsync(command.EmailOrUsername, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.Verify(command.Password, user.PasswordHash!)).Returns(true);
+        _tokenServiceMock.Setup(x => x.GenerateMfaChallengeToken(user)).Returns("challenge-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.MfaRequired);
+        Assert.Equal("challenge-token", result.MfaToken);
+        Assert.Empty(result.Token);
+        Assert.Empty(user.RefreshTokens);
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_ShouldThrowUnauthorizedExceptionWhenUserDoesNotExist()
     {
         // Arrange

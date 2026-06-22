@@ -29,7 +29,8 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, G
             user.Email.Value,
             user.Username.Value,
             user.CreatedAt,
-            stats
+            stats,
+            user.MfaEnabled
         );
     }
 }

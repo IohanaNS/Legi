@@ -24,10 +24,12 @@ openssl rsa -in "$tmp/private.pem" -pubout -out "$tmp/public.pem" 2>/dev/null
 # `openssl base64 -A` emits single-line base64 (portable across Linux/macOS).
 PUB="$(openssl base64 -A -in "$tmp/public.pem")"
 PRIV="$(openssl base64 -A -in "$tmp/private.pem")"
+# Symmetric key (base64-encoded 32 bytes) for encrypting MFA/TOTP secrets at rest.
+MFA_KEY="$(openssl rand -base64 32 | tr -d '\n')"
 
-python3 - "$PUB" "$PRIV" <<'PY'
+python3 - "$PUB" "$PRIV" "$MFA_KEY" <<'PY'
 import sys, re, pathlib
-pub, priv = sys.argv[1], sys.argv[2]
+pub, priv, mfa = sys.argv[1], sys.argv[2], sys.argv[3]
 p = pathlib.Path(".env")
 t = p.read_text()
 
@@ -39,7 +41,8 @@ def set_key(text, key, value):
 
 t = set_key(t, "Jwt__PublicKey", pub)
 t = set_key(t, "Jwt__PrivateKey", priv)
+t = set_key(t, "Mfa__EncryptionKey", mfa)
 p.write_text(t)
 PY
 
-echo "Wrote a fresh dev RSA keypair into .env (Jwt__PublicKey / Jwt__PrivateKey)."
+echo "Wrote a fresh dev RSA keypair + MFA key into .env (Jwt__PublicKey / Jwt__PrivateKey / Mfa__EncryptionKey)."

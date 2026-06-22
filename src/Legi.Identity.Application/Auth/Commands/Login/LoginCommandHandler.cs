@@ -95,6 +95,24 @@ public class LoginCommandHandler(
             throw new EmailConfirmationRequiredException();
         }
 
+        if (user.MfaEnabled)
+        {
+            // First factor passed: persist the cleared lockout state and return an MFA
+            // challenge instead of tokens. Login completes via CompleteMfaLoginCommand.
+            await userRepository.UpdateAsync(user, cancellationToken);
+
+            return new LoginResponse(
+                user.Id,
+                user.Email.Value,
+                user.Username.Value,
+                Token: string.Empty,
+                RefreshToken: string.Empty,
+                ExpiresAt: default,
+                RefreshTokenExpiresAt: default,
+                MfaRequired: true,
+                MfaToken: jwtTokenService.GenerateMfaChallengeToken(user));
+        }
+
         var (token, expiresAt) = jwtTokenService.GenerateAccessToken(user);
 
         var refreshToken = jwtTokenService.GenerateRefreshToken();

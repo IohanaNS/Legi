@@ -5,7 +5,8 @@ public record GetCurrentUserResponse(
     string Email,
     string Username,
     DateTime CreatedAt,
-    UserStatsDto Stats
+    UserStatsDto Stats,
+    bool MfaEnabled = false
 );
 
 public record UserStatsDto(
