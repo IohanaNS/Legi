@@ -36,6 +36,7 @@ public static class DependencyInjection
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
+        services.AddScoped<IMfaEmailCodeRepository, MfaEmailCodeRepository>();
 
         // Security
         services.AddOptions<LoginLockoutSettings>()

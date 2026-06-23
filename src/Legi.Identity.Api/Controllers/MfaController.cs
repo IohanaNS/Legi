@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Legi.Identity.Application.Auth.Commands.BeginEmailMfaSetup;
 using Legi.Identity.Application.Auth.Commands.BeginMfaSetup;
+using Legi.Identity.Application.Auth.Commands.ConfirmEmailMfaSetup;
 using Legi.Identity.Application.Auth.Commands.ConfirmMfaSetup;
 using Legi.Identity.Application.Auth.Commands.DisableMfa;
 using Legi.SharedKernel.Mediator;
@@ -49,6 +51,36 @@ public class MfaController : ControllerBase
     }
 
     /// <summary>
+    /// Begins email-code MFA enrollment: emails a one-time code to the account address.
+    /// </summary>
+    [HttpPost("email/setup")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> EmailSetup(
+        [FromBody] EmailMfaSetupRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new BeginEmailMfaSetupCommand(GetUserId(), request.Language), cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Confirms email-code enrollment with the emailed code and returns one-time recovery codes.
+    /// </summary>
+    [HttpPost("email/confirm")]
+    [ProducesResponseType(typeof(ConfirmEmailMfaSetupResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ConfirmEmailMfaSetupResponse>> EmailConfirm(
+        [FromBody] MfaCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new ConfirmEmailMfaSetupCommand(GetUserId(), request.Code), cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Disables MFA. Requires a current TOTP code or an unused recovery code.
     /// </summary>
     [HttpPost("disable")]
@@ -75,3 +107,4 @@ public class MfaController : ControllerBase
 }
 
 public record MfaCodeRequest(string Code);
+public record EmailMfaSetupRequest(string? Language = null);

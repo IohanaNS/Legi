@@ -4,6 +4,7 @@ using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Domain.Entities;
+using Legi.Identity.Domain.Enums;
 using Legi.Identity.Domain.Repositories;
 using Legi.SharedKernel.Mediator;
 
@@ -14,6 +15,7 @@ public class CompleteMfaLoginCommandHandler(
     IJwtTokenService jwtTokenService,
     ITotpService totpService,
     IMfaSecretProtector secretProtector,
+    IMfaEmailCodeRepository emailCodeRepository,
     ISecureTokenFactory tokenFactory,
     ISecurityAuditLogger auditLogger)
     : IRequestHandler<CompleteMfaLoginCommand, LoginResponse>
@@ -31,7 +33,9 @@ public class CompleteMfaLoginCommandHandler(
             throw new UnauthorizedException(FailureMessage);
 
         var now = DateTime.UtcNow;
-        var (verified, usedRecoveryCode) = VerifyTotpOrRecoveryCode(user, request.Code, now);
+        var (verified, usedRecoveryCode) = user.MfaMethod == MfaMethod.Email
+            ? await VerifyEmailCodeOrRecoveryCodeAsync(user, request.Code, now, cancellationToken)
+            : VerifyTotpOrRecoveryCode(user, request.Code, now);
 
         if (!verified)
         {
@@ -68,6 +72,32 @@ public class CompleteMfaLoginCommandHandler(
             return (true, false);
         }
 
+        return VerifyRecoveryCode(user, code, now);
+    }
+
+    private async Task<(bool Verified, bool UsedRecoveryCode)> VerifyEmailCodeOrRecoveryCodeAsync(
+        User user, string code, DateTime now, CancellationToken cancellationToken)
+    {
+        var active = await emailCodeRepository.GetActiveByUserIdAsync(user.Id, cancellationToken);
+        if (active is not null && active.IsUsable(now))
+        {
+            var hash = tokenFactory.Hash(MfaEmailCodeGenerator.Normalize(code));
+            if (active.CodeHash == hash)
+            {
+                active.Consume(now);
+                await emailCodeRepository.UpdateAsync(active, cancellationToken);
+                return (true, false);
+            }
+
+            active.RegisterFailedAttempt(now);
+            await emailCodeRepository.UpdateAsync(active, cancellationToken);
+        }
+
+        return VerifyRecoveryCode(user, code, now);
+    }
+
+    private (bool Verified, bool UsedRecoveryCode) VerifyRecoveryCode(User user, string code, DateTime now)
+    {
         var hash = tokenFactory.Hash(MfaRecoveryCodeGenerator.Normalize(code));
         return user.TryConsumeRecoveryCode(hash, now) ? (true, true) : (false, false);
     }

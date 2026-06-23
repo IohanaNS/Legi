@@ -1,3 +1,4 @@
+using Legi.Identity.Domain.Enums;
 using Legi.Identity.Domain.Tests.Factories;
 using Legi.SharedKernel;
 
@@ -36,9 +37,46 @@ public class UserMfaTests
         user.ConfirmMfaEnrollment(RecoveryHashes, DateTime.UtcNow);
 
         Assert.True(user.MfaEnabled);
+        Assert.Equal(MfaMethod.Totp, user.MfaMethod);
         Assert.NotNull(user.MfaEnabledAt);
         Assert.Equal(3, user.MfaRecoveryCodes.Count);
         Assert.All(user.MfaRecoveryCodes, c => Assert.False(c.IsUsed));
+    }
+
+    [Fact]
+    public void EnableEmailMfa_EnablesEmailMethod_WithoutSecret_AndStoresRecoveryCodes()
+    {
+        var user = UserFactory.Create();
+
+        user.EnableEmailMfa(RecoveryHashes, DateTime.UtcNow);
+
+        Assert.True(user.MfaEnabled);
+        Assert.Equal(MfaMethod.Email, user.MfaMethod);
+        Assert.Null(user.TotpSecret);
+        Assert.NotNull(user.MfaEnabledAt);
+        Assert.Equal(3, user.MfaRecoveryCodes.Count);
+    }
+
+    [Fact]
+    public void EnableEmailMfa_Throws_WhenAlreadyEnabled()
+    {
+        var user = UserFactory.Create();
+        user.EnableEmailMfa(RecoveryHashes, DateTime.UtcNow);
+
+        Assert.Throws<DomainException>(() => user.EnableEmailMfa(RecoveryHashes, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void DisableMfa_ResetsMethodToNone_ForEmailMethod()
+    {
+        var user = UserFactory.Create();
+        user.EnableEmailMfa(RecoveryHashes, DateTime.UtcNow);
+
+        user.DisableMfa(DateTime.UtcNow);
+
+        Assert.False(user.MfaEnabled);
+        Assert.Equal(MfaMethod.None, user.MfaMethod);
+        Assert.Empty(user.MfaRecoveryCodes);
     }
 
     [Fact]

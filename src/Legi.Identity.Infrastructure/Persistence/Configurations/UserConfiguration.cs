@@ -69,6 +69,13 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(u => u.MfaMethod)
+            .HasColumnName("mfa_method")
+            .HasConversion<string>()
+            .HasMaxLength(16)
+            .HasDefaultValue(MfaMethod.None)
+            .IsRequired();
+
         builder.Property(u => u.TotpSecret)
             .HasColumnName("totp_secret")
             .HasMaxLength(512);

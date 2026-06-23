@@ -26,7 +26,7 @@ Sistema de gerenciamento pessoal de leitura com recursos sociais.
 | Mediator       | Custom (`Legi.SharedKernel.Mediator` — sem dependência MediatR)          |
 | Validação      | FluentValidation                                                         |
 | ORM            | Entity Framework Core 10 + Npgsql                                        |
-| Auth           | JWT Bearer + BCrypt                                                      |
+| Auth           | JWT Bearer (RS256 assimétrico) + BCrypt + MFA (TOTP / e-mail) + Google Sign-In |
 | Testes         | xUnit + coverlet                                                         |
 
 ## Bounded Contexts
@@ -136,10 +136,16 @@ User (Aggregate Root)
 ├── Username: Username (VO)
 ├── PasswordHash: string?        (nullable — contas só-Google não têm senha)
 ├── EmailConfirmedAt: DateTime?
+├── MfaEnabled: bool             ← MFA ativo?
+├── MfaMethod: MfaMethod         (None / Totp / Email)
+├── TotpSecret: string?          (segredo TOTP criptografado em repouso; null no método e-mail)
+├── MfaEnabledAt: DateTime?
+├── MfaRecoveryCodes: List<MfaRecoveryCode>   (códigos de recuperação, valem p/ ambos os métodos)
 ├── RefreshTokens: List<RefreshToken>
 ├── ExternalLogins: List<ExternalLogin>
 ├── CreatedAt: DateTime
 └── UpdatedAt: DateTime
+   (métodos MFA: StartMfaEnrollment/ConfirmMfaEnrollment p/ TOTP, EnableEmailMfa p/ e-mail, DisableMfa, TryConsumeRecoveryCode)
 
 RefreshToken (Entity)
 ├── Id: Guid
@@ -154,6 +160,14 @@ ExternalLogin (Entity)        ← login social (ex.: Google)
 ├── ProviderKey: string       (claim `sub` do provedor, estável)
 └── CreatedAt: DateTime
    (chave única: provider + provider_key)
+
+MfaEmailCode (Entity/tabela própria — estado transitório, fora do agregado User)
+├── Id: Guid
+├── UserId: Guid
+├── CodeHash: string          (hash do código; o texto nunca é persistido)
+├── ExpiresAt: DateTime
+├── AttemptCount: int         (limite MaxAttempts = 5 → invalida)
+└── ConsumedAt: DateTime?     (uso único; 1 código ativo por usuário)
 ```
 
 **Value Objects:**
@@ -173,36 +187,48 @@ ExternalLogin (Entity)        ← login social (ex.: Google)
 
 ### 1.2 Application
 
-**Auth Commands:** `RegisterCommand`, `LoginCommand`, `GoogleSignInCommand`, `RefreshTokenCommand`, `LogoutCommand`
+**Auth Commands:** `RegisterCommand`, `LoginCommand`, `GoogleSignInCommand`, `RefreshTokenCommand`, `LogoutCommand`, `ForgotPasswordCommand`, `ResetPasswordCommand`, `ConfirmEmailCommand`, `ResendConfirmationCommand`
+**MFA Commands:** `BeginMfaSetupCommand`/`ConfirmMfaSetupCommand` (TOTP), `BeginEmailMfaSetupCommand`/`ConfirmEmailMfaSetupCommand` (e-mail), `SendMfaEmailCodeCommand` (envio/reenvio no login), `CompleteMfaLoginCommand` (segundo fator no login), `DisableMfaCommand`
 **User Commands:** `DeleteAccountCommand`
 **User Queries:** `GetCurrentUserQuery`, `GetPublicProfileQuery`
 **Behaviors:** `ValidationBehavior`, `LoggingBehavior`, `UnhandledExceptionBehavior`
-**Interfaces:** `IJwtTokenService`, `IPasswordHasher`, `IGoogleTokenValidator`
-**Helpers:** `UsernameGenerator` (gera username único a partir do e-mail/nome do Google)
+**Interfaces:** `IJwtTokenService`, `IPasswordHasher`, `IGoogleTokenValidator`, `ITotpService`, `IMfaSecretProtector`, `IMfaEmailCodeRepository`, `ISecureTokenFactory`, `IEmailSender`, `ISecurityAuditLogger`, `IBreachedPasswordChecker`
+**Helpers:** `UsernameGenerator` (gera username único a partir do e-mail/nome do Google), `MfaRecoveryCodeGenerator` (10 códigos de recuperação), `MfaEmailCodeGenerator` (código numérico de 6 dígitos)
 **Exceptions:** `ConflictException`, `NotFoundException`, `UnauthorizedException`
 
 > **Fluxo Google Sign-In:** `GoogleSignInCommand` recebe o ID token do Google (botão GIS no frontend). O handler valida o token e resolve o usuário em cascata: (1) por `ExternalLogin(google, sub)`; senão (2) por e-mail verificado → **vincula** automaticamente e confirma o e-mail; senão (3) cria conta nova sem senha com username gerado. Um único endpoint serve cadastro **e** login.
+
+> **Fluxo MFA (dois fatores):** o usuário ativa **um** método — **TOTP** (app autenticador, forte, segredo no dispositivo) **ou** **E-mail** (código de uso único enviado ao e-mail, menos atrito, mais fraco — o código cai na mesma caixa que controla o reset de senha). O método ativo fica em `User.MfaMethod` (`None`/`Totp`/`Email`); os códigos de recuperação valem para ambos. No login, após a senha, se `MfaEnabled` o handler retorna um **challenge token** (audience `{Audience}:mfa`, não serve como access token) em vez dos tokens; o cliente troca o challenge + código em `auth/mfa-login` (`CompleteMfaLoginCommand`). Para o método de e-mail, `auth/mfa-email/send` emite/reenvia o código (gated pelo challenge token). Códigos de e-mail são curtos por design — a segurança vem do **TTL curto + limite de tentativas + uso único** (tabela `mfa_email_codes`), não do tamanho. Detalhes/decisão: `Docs/IDENTITY-FEATURE-email-mfa.md`.
 
 ### 1.3 Infrastructure
 
 - `IdentityDbContext` — EF Core + PostgreSQL (porta 5432)
 - `UserRepository` — Implementa `IUserRepository`
-- `JwtTokenService` — Gera access token (JWT, HMAC-SHA256) + refresh token (64 bytes Base64)
+- `JwtTokenService` — Gera access token (JWT, **RS256 / RSA assimétrico**) + refresh token (64 bytes Base64) + **challenge token de MFA** (audience distinta `{Audience}:mfa`, ~5 min)
 - `PasswordHasher` — BCrypt hash/verify
-- `JwtSettings` — Options pattern (Secret, Issuer, Audience, expirations)
+- `JwtSettings` — Options pattern (**`PublicKey`/`PrivateKey`** em PEM ou base64-PEM, Issuer, Audience, expirations). `CreatePublicSigningKey()` importa a chave RSA; validação fixa `ValidAlgorithms = [RsaSha256]` (bloqueia alg-confusion / `alg:none`)
 - `GoogleTokenValidator` — valida o ID token do Google (assinatura/issuer/audience/expiry) via `Google.Apis.Auth`
 - `GoogleAuthSettings` — Options pattern (`ClientId`); sem `ValidateOnStart`, então a app sobe mesmo sem configurar (Google sign-in fica desativado)
+- **MFA:** `TotpService` (RFC 6238, HMAC-SHA1, 30s, 6 dígitos, Base32), `AesMfaSecretProtector` (AES-256-GCM, criptografa o segredo TOTP em repouso), `MfaSettings` (`EncryptionKey` base64-32B, `Issuer`, `EmailCodeLifetimeMinutes`), `MfaEmailCodeRepository`
+- `SecureTokenFactory` (gera/hash de tokens e códigos), `SmtpEmailSender` (`IEmailSender` via MailKit; faz fallback para log quando SMTP não configurado), `SecurityAuditLogger` (log estruturado de eventos de segurança)
+
+> **Chaves JWT (RS256):** os access tokens são assinados com RSA. **Só o Identity tem a chave privada e emite tokens**; os demais serviços recebem apenas a `PublicKey` e somente validam. Logo, um comprometimento de Catalog/Library/Social **não** permite forjar tokens. Rotação: novo par de chaves; access tokens expiram em `AccessTokenExpirationMinutes` (15) e refresh tokens são opacos, então sobrevivem à troca. (Migrado de HMAC-SHA256 simétrico nesta linha de endurecimento — ver `Docs/DEPLOYMENT-hardening.md` §5.)
 
 ### 1.4 API Endpoints
 
 | Método | Endpoint | Descrição | Auth |
 |--------|----------|-----------|------|
 | POST | `/api/v1/identity/auth/register` | Registrar usuário | - |
-| POST | `/api/v1/identity/auth/login` | Login (email ou username) | - |
+| POST | `/api/v1/identity/auth/login` | Login (email ou username) — retorna challenge se MFA | - |
+| POST | `/api/v1/identity/auth/mfa-login` | Completa o login com o segundo fator (TOTP/e-mail/recuperação) | - |
+| POST | `/api/v1/identity/auth/mfa-email/send` | Envia/reenvia o código de e-mail no login (requer challenge) | - |
 | POST | `/api/v1/identity/auth/google` | Login/cadastro com ID token do Google | - |
 | POST | `/api/v1/identity/auth/refresh` | Renovar token | - |
 | POST | `/api/v1/identity/auth/logout` | Logout | 🔒 |
-| GET | `/api/v1/identity/users/me` | Meu perfil | 🔒 |
+| POST | `/api/v1/identity/mfa/setup` · `/confirm` | Ativar MFA por **TOTP** (QR + confirmação) | 🔒 |
+| POST | `/api/v1/identity/mfa/email/setup` · `/email/confirm` | Ativar MFA por **e-mail** (envia código + confirmação) | 🔒 |
+| POST | `/api/v1/identity/mfa/disable` | Desativar MFA (exige código atual ou de recuperação) | 🔒 |
+| GET | `/api/v1/identity/users/me` | Meu perfil (inclui `MfaEnabled`/`MfaMethod`) | 🔒 |
 | DELETE | `/api/v1/identity/users/me` | Deletar conta | 🔒 |
 | GET | `/api/v1/identity/users/{userId}` | Perfil público | 🔓 |
 
@@ -218,6 +244,10 @@ CREATE TABLE users (
     username VARCHAR(30) NOT NULL UNIQUE,
     password_hash VARCHAR(255),          -- nullable: contas só-Google não têm senha
     email_confirmed_at TIMESTAMPTZ,
+    mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_method VARCHAR(16) NOT NULL DEFAULT 'None',   -- None | Totp | Email
+    totp_secret VARCHAR(512),            -- segredo TOTP criptografado (AES-256-GCM); null no método e-mail
+    mfa_enabled_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -250,9 +280,33 @@ CREATE TABLE external_logins (
 
 CREATE UNIQUE INDEX ix_external_logins_provider_provider_key ON external_logins(provider, provider_key);
 CREATE INDEX ix_external_logins_user_id ON external_logins(user_id);
+
+-- Tabela: mfa_recovery_codes (filhos do agregado User; valem p/ TOTP e e-mail)
+CREATE TABLE mfa_recovery_codes (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ
+);
+
+-- Tabela: mfa_email_codes (estado transitório, como login_attempts — sem FK p/ users)
+-- 1 código ativo por usuário (índice único); o texto nunca é persistido.
+CREATE TABLE mfa_email_codes (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempt_count INT NOT NULL DEFAULT 0,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE UNIQUE INDEX ix_mfa_email_codes_user_id ON mfa_email_codes(user_id);
 ```
 
-> **Nota:** o schema acima reflete a tabela `users` simplificada (perfil rico — name/bio/avatar — vive no Social via `UserProfile`). `email_confirmed_at`, lockout de login e tokens de reset/confirmação omitidos por brevidade.
+> **Nota:** o schema acima reflete a tabela `users` simplificada (perfil rico — name/bio/avatar — vive no Social via `UserProfile`). Lockout de login e tokens de reset/confirmação omitidos por brevidade.
 
 ---
 

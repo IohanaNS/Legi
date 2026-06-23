@@ -15,6 +15,7 @@ public class CompleteMfaLoginCommandHandlerTests
     private readonly Mock<IJwtTokenService> _jwtMock = new();
     private readonly Mock<ITotpService> _totpServiceMock = new();
     private readonly Mock<IMfaSecretProtector> _secretProtectorMock = new();
+    private readonly Mock<IMfaEmailCodeRepository> _emailCodeRepositoryMock = new();
     private readonly Mock<ISecureTokenFactory> _tokenFactoryMock = new();
     private readonly Mock<ISecurityAuditLogger> _auditLoggerMock = new();
 
@@ -23,6 +24,7 @@ public class CompleteMfaLoginCommandHandlerTests
         _jwtMock.Object,
         _totpServiceMock.Object,
         _secretProtectorMock.Object,
+        _emailCodeRepositoryMock.Object,
         _tokenFactoryMock.Object,
         _auditLoggerMock.Object);
 
@@ -31,6 +33,13 @@ public class CompleteMfaLoginCommandHandlerTests
         var user = UserFactory.Create();
         user.StartMfaEnrollment("enc", DateTime.UtcNow);
         user.ConfirmMfaEnrollment([recoveryHash], DateTime.UtcNow);
+        return user;
+    }
+
+    private static User EmailEnabledUser(string recoveryHash = "rec-hash")
+    {
+        var user = UserFactory.Create();
+        user.EnableEmailMfa([recoveryHash], DateTime.UtcNow);
         return user;
     }
 
@@ -120,5 +129,68 @@ public class CompleteMfaLoginCommandHandlerTests
 
         await Assert.ThrowsAsync<UnauthorizedException>(() =>
             CreateHandler().Handle(new CompleteMfaLoginCommand("tok", "123456", null), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Handle_IssuesTokens_AndConsumesCode_WithValidEmailCode()
+    {
+        var now = DateTime.UtcNow;
+        var user = EmailEnabledUser();
+        var emailCode = MfaEmailCode.Issue(user.Id, "h:123456", now.AddMinutes(10), now);
+        _jwtMock.Setup(x => x.ValidateMfaChallengeToken("tok")).Returns(user.Id);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _emailCodeRepositoryMock.Setup(x => x.GetActiveByUserIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emailCode);
+        _tokenFactoryMock.Setup(x => x.Hash(It.IsAny<string>())).Returns<string>(s => $"h:{s}");
+        SetupTokens();
+
+        var result = await CreateHandler().Handle(
+            new CompleteMfaLoginCommand("tok", "123456", "1.2.3.4"), CancellationToken.None);
+
+        Assert.Equal("access", result.Token);
+        Assert.True(emailCode.IsConsumed);
+        _emailCodeRepositoryMock.Verify(x => x.UpdateAsync(emailCode, It.IsAny<CancellationToken>()), Times.Once);
+        _auditLoggerMock.Verify(x => x.Record(
+            It.Is<SecurityAuditEvent>(e => e.Type == SecurityEventType.LoginSucceeded)), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_RegistersFailedAttempt_AndAuditsFailure_WhenEmailCodeWrong()
+    {
+        var now = DateTime.UtcNow;
+        var user = EmailEnabledUser();
+        var emailCode = MfaEmailCode.Issue(user.Id, "h:999999", now.AddMinutes(10), now);
+        _jwtMock.Setup(x => x.ValidateMfaChallengeToken("tok")).Returns(user.Id);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _emailCodeRepositoryMock.Setup(x => x.GetActiveByUserIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emailCode);
+        _tokenFactoryMock.Setup(x => x.Hash(It.IsAny<string>())).Returns<string>(s => $"h:{s}");
+
+        await Assert.ThrowsAsync<UnauthorizedException>(() =>
+            CreateHandler().Handle(new CompleteMfaLoginCommand("tok", "000000", null), CancellationToken.None));
+
+        Assert.Equal(1, emailCode.AttemptCount);
+        _emailCodeRepositoryMock.Verify(x => x.UpdateAsync(emailCode, It.IsAny<CancellationToken>()), Times.Once);
+        _auditLoggerMock.Verify(x => x.Record(
+            It.Is<SecurityAuditEvent>(e => e.Type == SecurityEventType.MfaChallengeFailed)), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_FallsBackToRecoveryCode_WhenNoActiveEmailCode()
+    {
+        var user = EmailEnabledUser("rec-hash");
+        _jwtMock.Setup(x => x.ValidateMfaChallengeToken("tok")).Returns(user.Id);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _emailCodeRepositoryMock.Setup(x => x.GetActiveByUserIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MfaEmailCode?)null);
+        _tokenFactoryMock.Setup(x => x.Hash(It.IsAny<string>())).Returns("rec-hash");
+        SetupTokens();
+
+        var result = await CreateHandler().Handle(
+            new CompleteMfaLoginCommand("tok", "ABCDE-FGHJK", null), CancellationToken.None);
+
+        Assert.Equal("access", result.Token);
+        _auditLoggerMock.Verify(x => x.Record(
+            It.Is<SecurityAuditEvent>(e => e.Type == SecurityEventType.RecoveryCodeUsed)), Times.Once);
     }
 }

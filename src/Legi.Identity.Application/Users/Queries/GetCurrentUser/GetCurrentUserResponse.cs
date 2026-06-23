@@ -6,7 +6,10 @@ public record GetCurrentUserResponse(
     string Username,
     DateTime CreatedAt,
     UserStatsDto Stats,
-    bool MfaEnabled = false
+    bool MfaEnabled = false,
+    // Active second-factor method as a string ("None" | "Totp" | "Email") so the client
+    // can render the right settings state without depending on enum numbering.
+    string MfaMethod = "None"
 );
 
 public record UserStatsDto(

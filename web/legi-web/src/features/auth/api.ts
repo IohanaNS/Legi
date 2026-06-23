@@ -19,10 +19,18 @@ export const authApi = {
     http.post<LoginResult>("/identity/auth/login", body).then((r) => r.data),
   mfaLogin: (mfaToken: string, code: string) =>
     http.post<AuthResponse>("/identity/auth/mfa-login", { mfaToken, code }).then((r) => r.data),
+  // Login challenge: email/re-send the one-time code for the email-MFA method.
+  sendMfaEmailCode: (mfaToken: string, language?: string) =>
+    http.post("/identity/auth/mfa-email/send", { mfaToken, language }),
   mfaSetup: () =>
     http.post<MfaSetupResponse>("/identity/mfa/setup").then((r) => r.data),
   mfaConfirm: (code: string) =>
     http.post<MfaConfirmResponse>("/identity/mfa/confirm", { code }).then((r) => r.data),
+  // Email-MFA enrollment: emails a code, then confirms it (returns recovery codes).
+  mfaEmailSetup: (language?: string) =>
+    http.post("/identity/mfa/email/setup", { language }),
+  mfaEmailConfirm: (code: string) =>
+    http.post<MfaConfirmResponse>("/identity/mfa/email/confirm", { code }).then((r) => r.data),
   mfaDisable: (code: string) =>
     http.post("/identity/mfa/disable", { code }),
   getCurrentUser: () =>

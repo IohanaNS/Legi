@@ -30,7 +30,8 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, G
             user.Username.Value,
             user.CreatedAt,
             stats,
-            user.MfaEnabled
+            user.MfaEnabled,
+            user.MfaMethod.ToString()
         );
     }
 }

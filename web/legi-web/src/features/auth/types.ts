@@ -51,10 +51,14 @@ export interface RegisterResponse {
   emailConfirmationRequired: true;
 }
 
+// The second-factor method a user has enrolled.
+export type MfaMethod = "Totp" | "Email";
+
 // Login returns either a session or, when MFA is enabled, a challenge to complete.
 export interface MfaChallenge {
   mfaRequired: true;
   mfaToken: string;
+  mfaMethod: MfaMethod;
 }
 
 export type LoginResult = AuthResponse | MfaChallenge;
@@ -78,4 +82,5 @@ export interface CurrentUserResponse {
   username: string;
   createdAt: string;
   mfaEnabled: boolean;
+  mfaMethod: "None" | MfaMethod;
 }

@@ -110,7 +110,8 @@ public class LoginCommandHandler(
                 ExpiresAt: default,
                 RefreshTokenExpiresAt: default,
                 MfaRequired: true,
-                MfaToken: jwtTokenService.GenerateMfaChallengeToken(user));
+                MfaToken: jwtTokenService.GenerateMfaChallengeToken(user),
+                MfaMethod: user.MfaMethod);
         }
 
         var (token, expiresAt) = jwtTokenService.GenerateAccessToken(user);

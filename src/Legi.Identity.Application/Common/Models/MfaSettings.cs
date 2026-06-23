@@ -13,4 +13,7 @@ public class MfaSettings
 
     /// <summary>Issuer shown in the authenticator app.</summary>
     public string Issuer { get; set; } = "BukiHub";
+
+    /// <summary>How long an emailed one-time code stays valid. Kept short to bound brute force.</summary>
+    public int EmailCodeLifetimeMinutes { get; set; } = 10;
 }

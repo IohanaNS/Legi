@@ -9,6 +9,7 @@ using Legi.Identity.Application.Auth.Commands.RefreshToken;
 using Legi.Identity.Application.Auth.Commands.Register;
 using Legi.Identity.Application.Auth.Commands.ResendConfirmation;
 using Legi.Identity.Application.Auth.Commands.ResetPassword;
+using Legi.Identity.Application.Auth.Commands.SendMfaEmailCode;
 using Legi.Identity.Application.Common.Exceptions;
 using Legi.Identity.Api.Security;
 using Legi.SharedKernel.Mediator;
@@ -75,7 +76,7 @@ public class AuthController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.MfaRequired)
-            return Ok(new MfaChallengeResponse(true, result.MfaToken!));
+            return Ok(new MfaChallengeResponse(true, result.MfaToken!, result.MfaMethod.ToString()));
 
         RefreshTokenCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAt, _environment);
 
@@ -111,6 +112,26 @@ public class AuthController : ControllerBase
             result.Username,
             result.Token,
             result.ExpiresAt));
+    }
+
+    /// <summary>
+    /// During an email-MFA login, emails (or re-sends) a one-time code. Requires the
+    /// challenge token from the login step.
+    /// </summary>
+    [HttpPost("mfa-email/send")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SendMfaEmailCode(
+        [FromBody] SendMfaEmailCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new SendMfaEmailCodeCommand(
+            request.MfaToken,
+            request.Language,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+        await _mediator.Send(command, cancellationToken);
+
+        return NoContent();
     }
 
     /// <summary>
@@ -277,7 +298,8 @@ public record RegisterRequest(
     string? Language = null);
 public record LoginRequest(string EmailOrUsername, string Password, string? TurnstileToken = null);
 public record CompleteMfaLoginRequest(string MfaToken, string Code);
-public record MfaChallengeResponse(bool MfaRequired, string MfaToken);
+public record SendMfaEmailCodeRequest(string MfaToken, string? Language = null);
+public record MfaChallengeResponse(bool MfaRequired, string MfaToken, string MfaMethod);
 public record GoogleSignInRequest(string IdToken);
 public record ForgotPasswordRequest(string Email, string? TurnstileToken = null, string? Language = null);
 public record ResetPasswordRequest(string Token, string NewPassword);

@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (body: LoginRequest) => {
     const result = await authApi.login(body);
     if (isMfaChallenge(result)) {
-      return { mfaRequired: true, mfaToken: result.mfaToken };
+      return { mfaRequired: true, mfaToken: result.mfaToken, mfaMethod: result.mfaMethod };
     }
     setUser(persist(result));
     return { mfaRequired: false };
@@ -74,6 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeMfaLogin = async (mfaToken: string, code: string) => {
     setUser(persist(await authApi.mfaLogin(mfaToken, code)));
+  };
+
+  const sendMfaEmailCode = async (mfaToken: string, language?: string) => {
+    await authApi.sendMfaEmailCode(mfaToken, language);
   };
 
   const loginWithGoogle = async (idToken: string) => {
@@ -105,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     completeMfaLogin,
+    sendMfaEmailCode,
     loginWithGoogle,
     register,
     logout,

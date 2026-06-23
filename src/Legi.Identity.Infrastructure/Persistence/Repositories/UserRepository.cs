@@ -14,6 +14,10 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
     {
         return await context.Users
             .Include(u => u.RefreshTokens)
+            // MFA disable and the recovery-code login fallback both consume from this
+            // collection; without it TryConsumeRecoveryCode sees an empty set and rejects
+            // every (otherwise valid) recovery code.
+            .Include(u => u.MfaRecoveryCodes)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 

@@ -9,13 +9,14 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Logo } from "../../../components/ui/Logo";
 import { LanguageToggle } from "../../../components/ui/LanguageToggle";
+import type { MfaMethod } from "../types";
 import { isTurnstileConfigured } from "../turnstile";
 import { TurnstileBox } from "./TurnstileBox";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation();
-  const { isAuthenticated, isLoading, login, completeMfaLogin } = useAuth();
+  const { isAuthenticated, isLoading, login, completeMfaLogin, sendMfaEmailCode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/feed";
@@ -28,7 +29,9 @@ export default function LoginPage() {
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaMethod, setMfaMethod] = useState<MfaMethod | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [resendTurnstileRequired, setResendTurnstileRequired] = useState(false);
   const [resendTurnstileToken, setResendTurnstileToken] = useState<string | null>(null);
   const [resendTurnstileResetKey, setResendTurnstileResetKey] = useState(0);
@@ -60,6 +63,11 @@ export default function LoginPage() {
       setTurnstileRequired(false);
       if (result.mfaRequired && result.mfaToken) {
         setMfaToken(result.mfaToken);
+        setMfaMethod(result.mfaMethod ?? "Totp");
+        // Email method: the user has no code yet, so request one immediately.
+        if (result.mfaMethod === "Email") {
+          emailCodeMutation.mutate(result.mfaToken);
+        }
         return;
       }
       navigate(from, { replace: true });
@@ -113,11 +121,24 @@ export default function LoginPage() {
     onSuccess: () => navigate(from, { replace: true }),
   });
 
+  const emailCodeMutation = useMutation({
+    mutationFn: (token: string) => sendMfaEmailCode(token, i18n.language),
+    // Start a 60s cooldown after each send (auto-send on entry counts too) so the
+    // resend button can't be spammed and stays under the server-side send limit.
+    onSuccess: () => setResendCooldown(60),
+  });
+
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate(from, { replace: true });
     }
   }, [from, isAuthenticated, isLoading, navigate]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
 
   const errorMessage = mutation.isError
     ? emailConfirmationRequired
@@ -143,13 +164,16 @@ export default function LoginPage() {
             <span className="font-serif text-2xl font-semibold text-stone-800 dark:text-stone-100">BukiHub</span>
           </div>
           <h1 className="font-serif text-xl font-semibold text-stone-800 dark:text-stone-100">{t("auth.mfaTitle")}</h1>
-          <p className="text-sm text-stone-600 dark:text-stone-400">{t("auth.mfaHint")}</p>
+          <p className="text-sm text-stone-600 dark:text-stone-400">
+            {mfaMethod === "Email" ? t("auth.mfaEmailHint") : t("auth.mfaHint")}
+          </p>
           <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); mfaMutation.mutate(); }}>
             <input
               className="w-full rounded-md border border-stone-300 dark:border-white/20 bg-white dark:bg-white/10 px-3 py-2 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 dark:focus:border-green-500 transition-colors"
               placeholder={t("auth.mfaCodePlaceholder")}
               value={mfaCode}
               onChange={(e) => setMfaCode(e.target.value)}
+              inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
             />
@@ -157,10 +181,38 @@ export default function LoginPage() {
             <Button type="submit" disabled={mfaMutation.isPending || !mfaCode.trim()} className="w-full">
               {t("auth.mfaVerify")}
             </Button>
+            {mfaMethod === "Email" && (
+              <div className="space-y-1 text-center">
+                <p className="text-sm text-stone-500 dark:text-stone-400">
+                  {t("auth.mfaEmailNotReceived")}{" "}
+                  <button
+                    type="button"
+                    className="text-green-700 dark:text-green-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                    disabled={emailCodeMutation.isPending || resendCooldown > 0}
+                    onClick={() => emailCodeMutation.mutate(mfaToken!)}
+                  >
+                    {resendCooldown > 0
+                      ? t("auth.mfaEmailResendIn", { seconds: resendCooldown })
+                      : t("auth.mfaEmailResend")}
+                  </button>
+                </p>
+                {emailCodeMutation.isSuccess && (
+                  <p className="text-sm text-green-700 dark:text-green-400">{t("auth.mfaEmailResent")}</p>
+                )}
+                {emailCodeMutation.isError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {isAxiosError(emailCodeMutation.error) && emailCodeMutation.error.response?.status === 429
+                      ? t("auth.mfaEmailRateLimited")
+                      : t("auth.mfaEmailSendError")}
+                  </p>
+                )}
+                <p className="text-xs text-stone-400 dark:text-stone-500">{t("auth.mfaEmailRecoveryFallback")}</p>
+              </div>
+            )}
             <button
               type="button"
               className="w-full text-sm text-stone-500 dark:text-stone-400 hover:underline"
-              onClick={() => { setMfaToken(null); setMfaCode(""); mfaMutation.reset(); }}
+              onClick={() => { setMfaToken(null); setMfaMethod(null); setMfaCode(""); setResendCooldown(0); mfaMutation.reset(); emailCodeMutation.reset(); }}
             >
               {t("auth.mfaBack")}
             </button>

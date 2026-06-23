@@ -19,7 +19,8 @@ public class User : BaseAuditableEntity
     public bool IsEmailConfirmed => EmailConfirmedAt.HasValue;
 
     public bool MfaEnabled { get; private set; }
-    public string? TotpSecret { get; private set; } // encrypted at rest; set during enrollment
+    public MfaMethod MfaMethod { get; private set; } = MfaMethod.None;
+    public string? TotpSecret { get; private set; } // encrypted at rest; set during TOTP enrollment (null for the email method)
     public DateTime? MfaEnabledAt { get; private set; }
 
     private readonly List<RefreshToken> _refreshTokens = new();
@@ -347,17 +348,40 @@ public class User : BaseAuditableEntity
             _mfaRecoveryCodes.Add(new MfaRecoveryCode(hash));
 
         MfaEnabled = true;
+        MfaMethod = MfaMethod.Totp;
         MfaEnabledAt = utcNow;
         UpdatedAt = utcNow;
     }
 
-    /// <summary>Disables MFA and clears the secret and all recovery codes.</summary>
+    /// <summary>
+    /// Activates email-code MFA, storing the freshly generated recovery-code hashes. Unlike
+    /// TOTP there is no shared secret; control of the inbox is proven by the confirmation code
+    /// verified in the handler. Requires a confirmed email (enforced by the handler).
+    /// </summary>
+    public void EnableEmailMfa(IEnumerable<string> recoveryCodeHashes, DateTime utcNow)
+    {
+        if (MfaEnabled)
+            throw new DomainException("MFA is already enabled");
+
+        _mfaRecoveryCodes.Clear();
+        foreach (var hash in recoveryCodeHashes)
+            _mfaRecoveryCodes.Add(new MfaRecoveryCode(hash));
+
+        MfaEnabled = true;
+        MfaMethod = MfaMethod.Email;
+        TotpSecret = null;
+        MfaEnabledAt = utcNow;
+        UpdatedAt = utcNow;
+    }
+
+    /// <summary>Disables MFA and clears the method, secret and all recovery codes.</summary>
     public void DisableMfa(DateTime utcNow)
     {
         if (!MfaEnabled)
             throw new DomainException("MFA is not enabled");
 
         MfaEnabled = false;
+        MfaMethod = MfaMethod.None;
         TotpSecret = null;
         MfaEnabledAt = null;
         _mfaRecoveryCodes.Clear();
