@@ -6,8 +6,8 @@ public static class DeleteAccountCommandFactory
 {
     private static readonly Guid DefaultUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    public static DeleteAccountCommand Create(Guid? userId = null)
+    public static DeleteAccountCommand Create(Guid? userId = null, string deletionToken = "delete-token")
     {
-        return new DeleteAccountCommand(userId ?? DefaultUserId);
+        return new DeleteAccountCommand(userId ?? DefaultUserId, deletionToken);
     }
 }

@@ -12,6 +12,7 @@ namespace Legi.Identity.Infrastructure.Security;
 public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenService
 {
     private const int MfaChallengeExpirationMinutes = 5;
+    private const int AccountDeletionChallengeExpirationMinutes = 5;
 
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
 
@@ -26,6 +27,7 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
     // Distinct from the access-token audience so a challenge token is rejected by the
     // resource APIs (which require the access-token audience).
     private string MfaChallengeAudience => $"{_jwtSettings.Audience}:mfa";
+    private string AccountDeletionChallengeAudience => $"{_jwtSettings.Audience}:account-deletion";
 
     public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user)
     {
@@ -74,6 +76,29 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
 
     public string GenerateMfaChallengeToken(User user)
     {
+        return GenerateChallengeToken(user, MfaChallengeAudience, MfaChallengeExpirationMinutes);
+    }
+
+    public Guid? ValidateMfaChallengeToken(string token)
+    {
+        return ValidateChallengeToken(token, MfaChallengeAudience);
+    }
+
+    public string GenerateAccountDeletionChallengeToken(User user)
+    {
+        return GenerateChallengeToken(
+            user,
+            AccountDeletionChallengeAudience,
+            AccountDeletionChallengeExpirationMinutes);
+    }
+
+    public Guid? ValidateAccountDeletionChallengeToken(string token)
+    {
+        return ValidateChallengeToken(token, AccountDeletionChallengeAudience);
+    }
+
+    private string GenerateChallengeToken(User user, string audience, int expirationMinutes)
+    {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -82,15 +107,15 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
 
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
-            audience: MfaChallengeAudience,
+            audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(MfaChallengeExpirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
             signingCredentials: _signingCredentials.Value);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public Guid? ValidateMfaChallengeToken(string token)
+    private Guid? ValidateChallengeToken(string token, string audience)
     {
         if (string.IsNullOrWhiteSpace(token))
             return null;
@@ -102,7 +127,7 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
                 ValidateIssuer = true,
                 ValidIssuer = _jwtSettings.Issuer,
                 ValidateAudience = true,
-                ValidAudience = MfaChallengeAudience,
+                ValidAudience = audience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = _publicKey.Value,

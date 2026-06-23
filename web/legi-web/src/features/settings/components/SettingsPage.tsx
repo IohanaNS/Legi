@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, KeyRound, Mail, Trash2, X } from "lucide-react";
@@ -11,12 +11,18 @@ import { TurnstileBox } from "../../auth/components/TurnstileBox";
 import { useAuth } from "../../auth/useAuth";
 import { MfaSection } from "./MfaSection";
 
+const secureInputClass =
+  "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 transition-colors focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20 dark:border-white/20 dark:bg-white/10 dark:text-stone-100 dark:placeholder:text-stone-400 dark:focus:border-green-500";
+
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { deleteAccount, user } = useAuth();
   const navigate = useNavigate();
+  const { data: currentUser } = useQuery({ queryKey: ["currentUser"], queryFn: authApi.getCurrentUser });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteMfaCode, setDeleteMfaCode] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileEnabled = isTurnstileConfigured();
@@ -26,9 +32,24 @@ export default function SettingsPage() {
     setTurnstileResetKey((current) => current + 1);
   }, []);
 
+  const resetDeleteVerification = useCallback(() => {
+    setDeletePassword("");
+    setDeleteMfaCode("");
+  }, []);
+
   const deleteMutation = useMutation({
-    mutationFn: deleteAccount,
+    mutationFn: async () => {
+      const challenge = await authApi.createAccountDeletionChallenge({
+        password: deletePassword.trim() || undefined,
+        mfaCode: deleteMfaCode.trim() || undefined,
+      });
+      await deleteAccount(challenge.deletionToken);
+    },
     onSuccess: () => navigate("/login", { replace: true }),
+  });
+
+  const deletionEmailCodeMutation = useMutation({
+    mutationFn: () => authApi.sendAccountDeletionEmailCode(i18n.language),
   });
 
   const passwordResetMutation = useMutation({
@@ -144,6 +165,8 @@ export default function SettingsPage() {
               variant="outline"
               onClick={() => {
                 deleteMutation.reset();
+                deletionEmailCodeMutation.reset();
+                resetDeleteVerification();
                 setConfirmOpen(true);
               }}
               disabled={deleteMutation.isPending}
@@ -162,8 +185,23 @@ export default function SettingsPage() {
         <DeleteAccountDialog
           isError={deleteMutation.isError}
           isPending={deleteMutation.isPending}
-          onCancel={() => setConfirmOpen(false)}
+          email={currentUser?.email ?? user?.email ?? ""}
+          hasPassword={currentUser?.hasPassword ?? true}
+          mfaEnabled={currentUser?.mfaEnabled ?? false}
+          mfaMethod={currentUser?.mfaMethod ?? "None"}
+          password={deletePassword}
+          mfaCode={deleteMfaCode}
+          emailCodeSent={deletionEmailCodeMutation.isSuccess}
+          isEmailCodeError={deletionEmailCodeMutation.isError}
+          isEmailCodePending={deletionEmailCodeMutation.isPending}
+          onCancel={() => {
+            setConfirmOpen(false);
+            resetDeleteVerification();
+          }}
           onConfirm={() => deleteMutation.mutate()}
+          onPasswordChange={setDeletePassword}
+          onMfaCodeChange={setDeleteMfaCode}
+          onSendEmailCode={() => deletionEmailCodeMutation.mutate()}
         />
       )}
 
@@ -352,19 +390,49 @@ function PasswordResetDialog({
 }
 
 interface DeleteAccountDialogProps {
+  email: string;
+  hasPassword: boolean;
+  mfaEnabled: boolean;
+  mfaMethod: "None" | "Totp" | "Email";
+  password: string;
+  mfaCode: string;
   isError: boolean;
   isPending: boolean;
+  emailCodeSent: boolean;
+  isEmailCodeError: boolean;
+  isEmailCodePending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  onPasswordChange: (value: string) => void;
+  onMfaCodeChange: (value: string) => void;
+  onSendEmailCode: () => void;
 }
 
 function DeleteAccountDialog({
+  email,
+  hasPassword,
+  mfaEnabled,
+  mfaMethod,
+  password,
+  mfaCode,
   isError,
   isPending,
+  emailCodeSent,
+  isEmailCodeError,
+  isEmailCodePending,
   onCancel,
   onConfirm,
+  onPasswordChange,
+  onMfaCodeChange,
+  onSendEmailCode,
 }: DeleteAccountDialogProps) {
   const { t } = useTranslation();
+  const hasReauthFactor = hasPassword || mfaEnabled;
+  const canSubmit =
+    hasReauthFactor &&
+    !isPending &&
+    (!hasPassword || !!password.trim()) &&
+    (!mfaEnabled || !!mfaCode.trim());
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -433,6 +501,77 @@ function DeleteAccountDialog({
               {t("settings.deleteError")}
             </p>
           )}
+          {!hasReauthFactor && (
+            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+              {t("settings.deleteRequiresReauth")}
+            </p>
+          )}
+
+          {hasPassword && (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                {t("settings.deletePasswordLabel")}
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => onPasswordChange(event.target.value)}
+                autoComplete="current-password"
+                disabled={isPending}
+                className={secureInputClass}
+                placeholder={t("settings.deletePasswordPlaceholder")}
+              />
+            </label>
+          )}
+
+          {mfaEnabled && (
+            <div className="space-y-2">
+              <p className="text-sm text-stone-600 dark:text-stone-300">
+                {mfaMethod === "Email"
+                  ? t("settings.deleteEmailMfaHint", { email })
+                  : t("settings.deleteTotpMfaHint")}
+              </p>
+              {mfaMethod === "Email" && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onSendEmailCode}
+                    disabled={isPending || isEmailCodePending}
+                    className="w-full sm:w-auto"
+                  >
+                    <Mail size={16} />
+                    {isEmailCodePending
+                      ? t("settings.deleteEmailCodePending")
+                      : t("settings.sendDeletionCode")}
+                  </Button>
+                  {emailCodeSent && (
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                      {t("settings.deletionCodeSent")}
+                    </span>
+                  )}
+                </div>
+              )}
+              {isEmailCodeError && (
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                  {t("settings.deletionCodeError")}
+                </p>
+              )}
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                  {t("settings.deleteMfaCodeLabel")}
+                </span>
+                <input
+                  value={mfaCode}
+                  onChange={(event) => onMfaCodeChange(event.target.value)}
+                  autoComplete="one-time-code"
+                  disabled={isPending}
+                  className={secureInputClass}
+                  placeholder={t("settings.deleteMfaCodePlaceholder")}
+                />
+              </label>
+            </div>
+          )}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
@@ -448,7 +587,7 @@ function DeleteAccountDialog({
               type="button"
               variant="danger"
               onClick={onConfirm}
-              disabled={isPending}
+              disabled={!canSubmit}
               className="w-full sm:w-auto"
             >
               <Trash2 size={16} />

@@ -12,7 +12,7 @@ export interface AuthContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   register: (body: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (deletionToken: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

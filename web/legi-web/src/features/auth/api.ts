@@ -1,5 +1,7 @@
 import { http, refreshSession } from "../../services/http";
 import type {
+  AccountDeletionChallengeRequest,
+  AccountDeletionChallengeResponse,
   AuthResponse,
   ConfirmEmailRequest,
   CurrentUserResponse,
@@ -50,6 +52,11 @@ export const authApi = {
   refresh: () => refreshSession(),
   logout: () =>
     http.post("/identity/auth/logout"),
-  deleteAccount: () =>
-    http.delete("/identity/users/me"),
+  sendAccountDeletionEmailCode: (language?: string) =>
+    http.post("/identity/users/me/deletion-email-code", { language }),
+  createAccountDeletionChallenge: (body: AccountDeletionChallengeRequest) =>
+    http.post<AccountDeletionChallengeResponse>("/identity/users/me/deletion-challenge", body)
+      .then((r) => r.data),
+  deleteAccount: (deletionToken: string) =>
+    http.delete("/identity/users/me", { data: { deletionToken } }),
 };

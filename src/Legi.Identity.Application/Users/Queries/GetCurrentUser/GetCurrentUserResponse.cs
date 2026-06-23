@@ -9,7 +9,8 @@ public record GetCurrentUserResponse(
     bool MfaEnabled = false,
     // Active second-factor method as a string ("None" | "Totp" | "Email") so the client
     // can render the right settings state without depending on enum numbering.
-    string MfaMethod = "None"
+    string MfaMethod = "None",
+    bool HasPassword = true
 );
 
 public record UserStatsDto(

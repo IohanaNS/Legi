@@ -457,6 +457,17 @@
         "confirmDelete": "Excluir conta",
         "deletePending": "Excluindo...",
         "deleteError": "Não foi possível excluir sua conta. Tente novamente.",
+        "deleteRequiresReauth": "A exclusão da conta exige senha ou MFA nesta conta.",
+        "deletePasswordLabel": "Senha",
+        "deletePasswordPlaceholder": "Digite sua senha",
+        "deleteMfaCodeLabel": "Código MFA ou de recuperação",
+        "deleteMfaCodePlaceholder": "Digite o código",
+        "deleteTotpMfaHint": "Digite um código atual do autenticador ou um dos seus códigos de recuperação.",
+        "deleteEmailMfaHint": "Envie um código para {{email}} e digite-o abaixo. Um código de recuperação também funciona.",
+        "sendDeletionCode": "Enviar código",
+        "deleteEmailCodePending": "Enviando...",
+        "deletionCodeSent": "Código enviado",
+        "deletionCodeError": "Não foi possível enviar o código de exclusão. Tente novamente.",
         "closeDialog": "Fechar confirmação de exclusão de conta"
     },
     "auth": {

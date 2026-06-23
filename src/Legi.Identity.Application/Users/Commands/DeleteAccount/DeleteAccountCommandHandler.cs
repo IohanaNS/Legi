@@ -9,10 +9,24 @@ namespace Legi.Identity.Application.Users.Commands.DeleteAccount;
 
 public class DeleteAccountCommandHandler(
     IUserRepository userRepository,
+    IJwtTokenService jwtTokenService,
     ISecurityAuditLogger auditLogger) : IRequestHandler<DeleteAccountCommand>
 {
+    private const string InvalidDeletionChallengeMessage = "Invalid or expired account deletion challenge.";
+
     public async Task Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
+        var verifiedUserId = jwtTokenService.ValidateAccountDeletionChallengeToken(request.DeletionToken);
+        if (verifiedUserId != request.UserId)
+        {
+            auditLogger.Record(new SecurityAuditEvent(
+                SecurityEventType.AccountDeletionChallengeFailed,
+                UserId: request.UserId,
+                Detail: "invalid-delete-token"));
+
+            throw new UnauthorizedException(InvalidDeletionChallengeMessage);
+        }
+
         // Get user
         var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
 

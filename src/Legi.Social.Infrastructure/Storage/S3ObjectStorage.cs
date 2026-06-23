@@ -70,6 +70,48 @@ public sealed class S3ObjectStorage : IObjectStorage
         }
     }
 
+    public async Task DeleteProfileImagesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await DeletePrefixAsync($"avatars/{userId}/", cancellationToken);
+        await DeletePrefixAsync($"banners/{userId}/", cancellationToken);
+    }
+
+    private async Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken)
+    {
+        try
+        {
+            string? continuationToken = null;
+            do
+            {
+                var listed = await _client.ListObjectsV2Async(new ListObjectsV2Request
+                {
+                    BucketName = _options.Bucket,
+                    Prefix = prefix,
+                    ContinuationToken = continuationToken
+                }, cancellationToken);
+
+                if (listed.S3Objects.Count > 0)
+                {
+                    await _client.DeleteObjectsAsync(new DeleteObjectsRequest
+                    {
+                        BucketName = _options.Bucket,
+                        Objects = listed.S3Objects
+                            .Select(o => new KeyVersion { Key = o.Key })
+                            .ToList()
+                    }, cancellationToken);
+                }
+
+                continuationToken = listed.IsTruncated
+                    ? listed.NextContinuationToken
+                    : null;
+            } while (continuationToken is not null);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete profile image objects under {Prefix}", prefix);
+        }
+    }
+
     /// <summary>Strips the public prefix; returns null for URLs this store does not own.</summary>
     private string? ToObjectKey(string url)
     {

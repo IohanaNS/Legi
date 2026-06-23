@@ -35,6 +35,9 @@ public class GetCurrentUserQueryHandlerTests
         Assert.Equal(user.Id, result.UserId);
         Assert.Equal(user.Email.Value, result.Email);
         Assert.Equal(user.Username.Value, result.Username);
+        Assert.False(result.MfaEnabled);
+        Assert.Equal("None", result.MfaMethod);
+        Assert.True(result.HasPassword);
         Assert.Equal(0, result.Stats.TotalBooks);
         Assert.Equal(0, result.Stats.TotalFollowers);
     }

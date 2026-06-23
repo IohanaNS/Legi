@@ -31,7 +31,8 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, G
             user.CreatedAt,
             stats,
             user.MfaEnabled,
-            user.MfaMethod.ToString()
+            user.MfaMethod.ToString(),
+            user.PasswordHash is not null
         );
     }
 }

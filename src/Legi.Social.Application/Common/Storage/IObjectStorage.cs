@@ -23,4 +23,9 @@ public interface IObjectStorage
     /// one this store owns.
     /// </summary>
     Task DeleteByUrlAsync(string url, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Best-effort deletion of all profile image objects owned by a user.
+    /// </summary>
+    Task DeleteProfileImagesAsync(Guid userId, CancellationToken cancellationToken);
 }

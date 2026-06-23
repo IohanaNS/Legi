@@ -17,4 +17,12 @@ public interface IJwtTokenService
 
     /// <summary>Validates an MFA challenge token and returns the user id, or null if invalid/expired.</summary>
     Guid? ValidateMfaChallengeToken(string token);
+
+    /// <summary>
+    /// Issues a short-lived token proving the user recently verified account deletion.
+    /// </summary>
+    string GenerateAccountDeletionChallengeToken(User user);
+
+    /// <summary>Validates an account deletion challenge token and returns the user id, or null if invalid/expired.</summary>
+    Guid? ValidateAccountDeletionChallengeToken(string token);
 }

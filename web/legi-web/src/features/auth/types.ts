@@ -83,4 +83,14 @@ export interface CurrentUserResponse {
   createdAt: string;
   mfaEnabled: boolean;
   mfaMethod: "None" | MfaMethod;
+  hasPassword: boolean;
+}
+
+export interface AccountDeletionChallengeRequest {
+  password?: string;
+  mfaCode?: string;
+}
+
+export interface AccountDeletionChallengeResponse {
+  deletionToken: string;
 }

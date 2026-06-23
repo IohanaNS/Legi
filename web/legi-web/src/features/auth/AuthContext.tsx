@@ -97,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLocalSession();
   };
 
-  const deleteAccount = async () => {
-    await authApi.deleteAccount();
+  const deleteAccount = async (deletionToken: string) => {
+    await authApi.deleteAccount(deletionToken);
     clearLocalSession();
   };
 

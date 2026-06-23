@@ -41,6 +41,38 @@ public class RateLimitConfigurationTests
     }
 
     [Fact]
+    public void IdentityAppSettings_ShouldConfigureAccountDeletionChallengeLockout()
+    {
+        // Arrange
+        var appSettings = LoadJson("src", "Legi.Identity.Api", "appsettings.json");
+        var lockout = appSettings.GetProperty("AccountDeletionChallengeLockout");
+
+        // Assert
+        Assert.InRange(lockout.GetProperty("MaxFailedAttempts").GetInt32(), 1, 10);
+        Assert.InRange(lockout.GetProperty("FailureWindowMinutes").GetInt32(), 1, 60);
+        Assert.InRange(lockout.GetProperty("LockoutDurationMinutes").GetInt32(), 1, 60);
+    }
+
+    [Fact]
+    public void IdentityAppSettings_ShouldConfigureAccountDeletionEndpointRateLimits()
+    {
+        // Arrange
+        var appSettings = LoadJson("src", "Legi.Identity.Api", "appsettings.json");
+        var emailCodeRule = FindRateLimitRule(
+            appSettings,
+            "POST:/api/v1/identity/users/me/deletion-email-code");
+        var challengeRule = FindRateLimitRule(
+            appSettings,
+            "POST:/api/v1/identity/users/me/deletion-challenge");
+
+        // Assert
+        Assert.Equal("5m", emailCodeRule.GetProperty("Period").GetString());
+        Assert.Equal(3, emailCodeRule.GetProperty("Limit").GetInt32());
+        Assert.Equal("1m", challengeRule.GetProperty("Period").GetString());
+        Assert.Equal(5, challengeRule.GetProperty("Limit").GetInt32());
+    }
+
+    [Fact]
     public void IdentityAppSettings_ShouldConfigureTurnstile()
     {
         // Arrange
@@ -64,6 +96,15 @@ public class RateLimitConfigurationTests
         // Assert
         Assert.Contains("\"127.0.0.1:5000:8080\"", compose);
         Assert.DoesNotContain("\"5000:8080\"", compose);
+    }
+
+    private static JsonElement FindRateLimitRule(JsonElement appSettings, string endpoint)
+    {
+        return appSettings
+            .GetProperty("IpRateLimiting")
+            .GetProperty("GeneralRules")
+            .EnumerateArray()
+            .Single(rule => rule.GetProperty("Endpoint").GetString() == endpoint);
     }
 
     private static JsonElement LoadJson(params string[] relativePath)

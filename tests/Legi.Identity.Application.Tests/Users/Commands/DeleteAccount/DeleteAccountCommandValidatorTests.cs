@@ -22,6 +22,20 @@ public class DeleteAccountCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_ShouldFail_WhenDeletionTokenIsEmpty()
+    {
+        // Arrange
+        var command = DeleteAccountCommandFactory.Create(deletionToken: string.Empty);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Deletion token is required");
+    }
+
+    [Fact]
     public void Validate_ShouldPass_WhenCommandIsValid()
     {
         // Arrange

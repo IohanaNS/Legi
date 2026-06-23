@@ -1,5 +1,7 @@
 using Legi.Social.Application.Common.Interfaces;
+using Legi.Social.Application.Common.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Legi.Social.Infrastructure.Persistence;
 
@@ -31,10 +33,17 @@ namespace Legi.Social.Infrastructure.Persistence;
 public sealed class UserDataPurger : IUserDataPurger
 {
     private readonly SocialDbContext _context;
+    private readonly IObjectStorage _objectStorage;
+    private readonly ILogger<UserDataPurger> _logger;
 
-    public UserDataPurger(SocialDbContext context)
+    public UserDataPurger(
+        SocialDbContext context,
+        IObjectStorage objectStorage,
+        ILogger<UserDataPurger> logger)
     {
         _context = context;
+        _objectStorage = objectStorage;
+        _logger = logger;
     }
 
     public async Task<UserPurgeResult> PurgeAsync(
@@ -43,6 +52,12 @@ public sealed class UserDataPurger : IUserDataPurger
         // === 1. Find the user's content — the join key for indirect cleanup. ===
         // Likes/Comments/FeedItems on the user's content don't carry the owner's
         // id; ContentSnapshot.OwnerId is the bridge. (Indexed as of Phase 3E.)
+        var profileMedia = await _context.UserProfiles
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => new ProfileMedia(p.AvatarUrl, p.BannerUrl))
+            .SingleOrDefaultAsync(cancellationToken);
+
         var ownedTargets = await _context.ContentSnapshots
             .Where(cs => cs.OwnerId == userId)
             .Select(cs => new { cs.TargetType, cs.TargetId })
@@ -145,6 +160,8 @@ public sealed class UserDataPurger : IUserDataPurger
             .Where(p => p.UserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
 
+        await DeleteProfileMediaAsync(userId, profileMedia, cancellationToken);
+
         return new UserPurgeResult(
             IndirectLikesDeleted: indirectLikes,
             IndirectCommentsDeleted: indirectComments,
@@ -159,5 +176,41 @@ public sealed class UserDataPurger : IUserDataPurger
             OwnNotificationsDeleted: ownNotificationsDeleted,
             IndirectNotificationsDeleted: indirectNotificationsDeleted,
             ProfileDeleted: profileDeleted);
+    }
+
+    private async Task DeleteProfileMediaAsync(
+        Guid userId,
+        ProfileMedia? profileMedia,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _objectStorage.DeleteProfileImagesAsync(userId, cancellationToken);
+
+            if (profileMedia is null)
+                return;
+
+            foreach (var url in profileMedia.Urls)
+                await _objectStorage.DeleteByUrlAsync(url, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete profile media for deleted user {UserId}", userId);
+        }
+    }
+
+    private sealed record ProfileMedia(string? AvatarUrl, string? BannerUrl)
+    {
+        public IEnumerable<string> Urls
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(AvatarUrl))
+                    yield return AvatarUrl;
+
+                if (!string.IsNullOrWhiteSpace(BannerUrl) && BannerUrl != AvatarUrl)
+                    yield return BannerUrl;
+            }
+        }
     }
 }

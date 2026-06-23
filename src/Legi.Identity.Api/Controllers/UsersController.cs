@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Legi.Identity.Api.Security;
 using Legi.SharedKernel.Mediator;
+using Legi.Identity.Application.Users.Commands.CreateAccountDeletionChallenge;
 using Legi.Identity.Application.Users.Commands.DeleteAccount;
+using Legi.Identity.Application.Users.Commands.SendAccountDeletionEmailCode;
 using Legi.Identity.Application.Users.Queries.GetCurrentUser;
 using Legi.Identity.Application.Users.Queries.GetPublicProfile;
 using Microsoft.AspNetCore.Authorization;
@@ -44,13 +46,55 @@ public class UsersController : ControllerBase
     [HttpDelete("me")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> DeleteMe(CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteMe(
+        [FromBody] DeleteAccountRequest? request,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new DeleteAccountCommand(userId);
+        var command = new DeleteAccountCommand(userId, request?.DeletionToken ?? string.Empty);
         await _mediator.Send(command, cancellationToken);
         RefreshTokenCookie.Delete(Response, _environment);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Emails a one-time MFA code for account deletion when the user uses email MFA.
+    /// </summary>
+    [Authorize]
+    [HttpPost("me/deletion-email-code")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SendDeletionEmailCode(
+        [FromBody] SendAccountDeletionEmailCodeRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var command = new SendAccountDeletionEmailCodeCommand(
+            GetCurrentUserId(),
+            request?.Language,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+        await _mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Verifies the current user can perform account deletion and returns a short-lived deletion token.
+    /// </summary>
+    [Authorize]
+    [HttpPost("me/deletion-challenge")]
+    [ProducesResponseType(typeof(AccountDeletionChallengeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AccountDeletionChallengeResponse>> CreateDeletionChallenge(
+        [FromBody] AccountDeletionChallengeRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var command = new CreateAccountDeletionChallengeCommand(
+            GetCurrentUserId(),
+            request?.Password,
+            request?.MfaCode,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await _mediator.Send(command, cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>
@@ -91,3 +135,7 @@ public class UsersController : ControllerBase
         return userId;
     }
 }
+
+public record AccountDeletionChallengeRequest(string? Password, string? MfaCode);
+public record DeleteAccountRequest(string DeletionToken);
+public record SendAccountDeletionEmailCodeRequest(string? Language = null);

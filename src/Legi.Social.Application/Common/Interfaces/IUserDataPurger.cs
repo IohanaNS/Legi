@@ -4,7 +4,7 @@ namespace Legi.Social.Application.Common.Interfaces;
 /// Coordinated bulk purge of all Social read-model data belonging to a deleted
 /// user. This is NOT aggregate persistence — it's a cross-table cleanup of
 /// read models (profiles, follows, likes, comments, content snapshots, feed
-/// items) plus follower-counter adjustments on OTHER users' profiles.
+/// items), public profile media, plus follower-counter adjustments on OTHER users' profiles.
 ///
 /// Implemented in Infrastructure because it issues bulk SQL (ExecuteDeleteAsync /
 /// ExecuteUpdateAsync) directly against the DbContext. The ordering of operations

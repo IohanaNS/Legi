@@ -91,6 +91,50 @@ public class JwtTokenServiceTests
     }
 
     [Fact]
+    public void AccountDeletionChallengeToken_RoundTrips_ToUserId()
+    {
+        var service = new JwtTokenService(Options.Create(SettingsWithKeys()));
+        var user = TestUser();
+
+        var token = service.GenerateAccountDeletionChallengeToken(user);
+
+        Assert.Equal(user.Id, service.ValidateAccountDeletionChallengeToken(token));
+    }
+
+    [Fact]
+    public void AccountDeletionChallengeToken_IsRejected_WhenValidatedAsMfaChallengeToken()
+    {
+        var service = new JwtTokenService(Options.Create(SettingsWithKeys()));
+        var token = service.GenerateAccountDeletionChallengeToken(TestUser());
+
+        Assert.Null(service.ValidateMfaChallengeToken(token));
+    }
+
+    [Fact]
+    public void AccountDeletionChallengeToken_IsRejected_WhenValidatedAsAnAccessToken()
+    {
+        var settings = SettingsWithKeys();
+        var service = new JwtTokenService(Options.Create(settings));
+        var token = service.GenerateAccountDeletionChallengeToken(TestUser());
+
+        var accessTokenValidation = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = settings.Issuer,
+            ValidateAudience = true,
+            ValidAudience = settings.Audience,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = settings.CreatePublicSigningKey(),
+            ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
+            ClockSkew = TimeSpan.Zero
+        };
+
+        Assert.ThrowsAny<SecurityTokenException>(() =>
+            new JwtSecurityTokenHandler().ValidateToken(token, accessTokenValidation, out _));
+    }
+
+    [Fact]
     public void GenerateAccessToken_ShouldIncludeUserRoleClaim_ForRegularUser()
     {
         var service = new JwtTokenService(Options.Create(SettingsWithKeys()));

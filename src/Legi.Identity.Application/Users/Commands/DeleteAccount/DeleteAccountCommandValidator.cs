@@ -9,5 +9,9 @@ public class DeleteAccountCommandValidator : AbstractValidator<DeleteAccountComm
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("UserId is required");
+
+        RuleFor(x => x.DeletionToken)
+            .NotEmpty()
+            .WithMessage("Deletion token is required");
     }
 }

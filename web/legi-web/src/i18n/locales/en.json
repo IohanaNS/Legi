@@ -457,6 +457,17 @@
         "confirmDelete": "Delete account",
         "deletePending": "Deleting...",
         "deleteError": "Couldn't delete your account. Please try again.",
+        "deleteRequiresReauth": "Account deletion requires a password or MFA on this account.",
+        "deletePasswordLabel": "Password",
+        "deletePasswordPlaceholder": "Enter your password",
+        "deleteMfaCodeLabel": "MFA or recovery code",
+        "deleteMfaCodePlaceholder": "Enter code",
+        "deleteTotpMfaHint": "Enter a current authenticator code or one of your recovery codes.",
+        "deleteEmailMfaHint": "Send a code to {{email}}, then enter it below. A recovery code also works.",
+        "sendDeletionCode": "Send code",
+        "deleteEmailCodePending": "Sending...",
+        "deletionCodeSent": "Code sent",
+        "deletionCodeError": "Couldn't send the deletion code. Please try again.",
         "closeDialog": "Close delete account confirmation"
     },
     "auth": {
