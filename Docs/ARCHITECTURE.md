@@ -176,8 +176,12 @@ MfaEmailCode (Entity/tabela própria — estado transitório, fora do agregado U
 
 **Regras:**
 - Máximo 5 refresh tokens ativos por usuário (LRU eviction)
+- Refresh tokens são opacos, gerados com 64 bytes aleatórios, persistidos somente como hash SHA-256 e entregues em cookie `HttpOnly`
+- Refresh token rotation em todo `/auth/refresh`: o token atual é revogado e substituído por um novo token
+- Reuso de refresh token já revogado é tratado como replay e revoga todos os refresh tokens ativos do usuário
 - Password: mínimo 8 chars, 1 maiúscula, 1 número
 - Ao trocar senha, todos refresh tokens são revogados
+- Logout revoga o refresh token atual; deleção de conta remove os tokens por cascade
 - **Login social (Google):** usuário pode ser criado sem senha (`PasswordHash` null) via `User.CreateFromExternalLogin(...)` — e-mail já confirmado (Google verifica). `AddExternalLogin(...)` vincula um provedor a uma conta existente (idempotente). Login por senha é rejeitado para contas sem senha.
 
 **Domain Events:**
@@ -199,6 +203,8 @@ MfaEmailCode (Entity/tabela própria — estado transitório, fora do agregado U
 > **Fluxo Google Sign-In:** `GoogleSignInCommand` recebe o ID token do Google (botão GIS no frontend). O handler valida o token e resolve o usuário em cascata: (1) por `ExternalLogin(google, sub)`; senão (2) por e-mail verificado → **vincula** automaticamente e confirma o e-mail; senão (3) cria conta nova sem senha com username gerado. Um único endpoint serve cadastro **e** login.
 
 > **Fluxo MFA (dois fatores):** o usuário ativa **um** método — **TOTP** (app autenticador, forte, segredo no dispositivo) **ou** **E-mail** (código de uso único enviado ao e-mail, menos atrito, mais fraco — o código cai na mesma caixa que controla o reset de senha). O método ativo fica em `User.MfaMethod` (`None`/`Totp`/`Email`); os códigos de recuperação valem para ambos. No login, após a senha, se `MfaEnabled` o handler retorna um **challenge token** (audience `{Audience}:mfa`, não serve como access token) em vez dos tokens; o cliente troca o challenge + código em `auth/mfa-login` (`CompleteMfaLoginCommand`). Para o método de e-mail, `auth/mfa-email/send` emite/reenvia o código (gated pelo challenge token). Códigos de e-mail são curtos por design — a segurança vem do **TTL curto + limite de tentativas + uso único** (tabela `mfa_email_codes`), não do tamanho. Detalhes/decisão: `Docs/IDENTITY-FEATURE-email-mfa.md`.
+
+> **Ciclo de refresh tokens:** login, Google sign-in e conclusão de MFA emitem um refresh token novo. O refresh usa `RotateRefreshTokenAsync` em transação com `SELECT ... FOR UPDATE`: valida o hash atual, rejeita expirado/e-mail não confirmado, revoga o token corrente e cria um novo. Se o token encontrado já estava revogado, o sistema considera replay e chama `RevokeAllRefreshTokens()`. Também revogamos todos os tokens ativos em reset/troca de senha e quando um Google Sign-In reivindica uma conta local ainda não confirmada; ao adicionar uma sessão acima do limite de 5, o token ativo mais antigo é revogado. Tokens expirados não são marcados como revogados: eles apenas deixam de ser ativos (`IsExpired`).
 
 ### 1.3 Infrastructure
 
