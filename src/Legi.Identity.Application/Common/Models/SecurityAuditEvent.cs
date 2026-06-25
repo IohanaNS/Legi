@@ -19,6 +19,7 @@ public enum SecurityEventType
     MfaChallengeFailed = 1010,
     RecoveryCodeUsed = 1011,
     AccountDeletionChallengeFailed = 1012,
+    UsernameChangeChallengesFailed = 1013,
 }
 
 /// <summary>

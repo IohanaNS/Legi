@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AtSign, CheckCircle2, KeyRound, Mail, Trash2, X } from "lucide-react";
+import type { AxiosError } from "axios";
 import { Button } from "../../../components/ui/Button";
 import { authApi } from "../../auth/api";
 import { isTurnstileConfigured } from "../../auth/turnstile";
@@ -141,7 +142,9 @@ export default function SettingsPage() {
               )}
               {usernameChangeMutation.isError && !usernameChangeOpen && (
                 <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-300">
-                  {t("settings.usernameError")}
+                  {(usernameChangeMutation.error as AxiosError | null)?.response?.status === 409
+                    ? t("settings.usernameConflict")
+                    : t("settings.usernameError")}
                 </p>
               )}
             </div>
@@ -266,7 +269,7 @@ export default function SettingsPage() {
           hasPassword={currentUser?.hasPassword ?? true}
           mfaEnabled={currentUser?.mfaEnabled ?? false}
           mfaMethod={currentUser?.mfaMethod ?? "None"}
-          isError={usernameChangeMutation.isError}
+          error={usernameChangeMutation.error}
           isPending={usernameChangeMutation.isPending}
           onCancel={() => setUsernameChangeOpen(false)}
           onConfirm={(newUsername, password, mfaCode) =>
@@ -464,7 +467,7 @@ interface UsernameChangeDialogProps {
   hasPassword: boolean;
   mfaEnabled: boolean;
   mfaMethod: "None" | "Totp" | "Email";
-  isError: boolean;
+  error: Error | null;
   isPending: boolean;
   onCancel: () => void;
   onConfirm: (newUsername: string, password?: string, mfaCode?: string) => void;
@@ -475,7 +478,7 @@ function UsernameChangeDialog({
   hasPassword,
   mfaEnabled,
   mfaMethod,
-  isError,
+  error,
   isPending,
   onCancel,
   onConfirm,
@@ -485,6 +488,7 @@ function UsernameChangeDialog({
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const hasReauthFactor = hasPassword || mfaEnabled;
+  const isConflict = (error as AxiosError | null)?.response?.status === 409;
 
   const emailCodeMutation = useMutation({
     mutationFn: () => authApi.sendUsernameChangeEmailCode(i18n.language),
@@ -546,9 +550,9 @@ function UsernameChangeDialog({
         </div>
 
         <div className="space-y-4 px-5 py-4">
-          {isError && (
+          {error && (
             <p className="text-sm font-medium text-red-700 dark:text-red-300">
-              {t("settings.usernameError")}
+              {isConflict ? t("settings.usernameConflict") : t("settings.usernameError")}
             </p>
           )}
           {!hasReauthFactor && (

@@ -38,7 +38,7 @@ public class CreateUsernameChangeChallengeCommandHandler(
         if (attempt?.IsLockedOut(now) == true)
         {
             auditLogger.Record(new SecurityAuditEvent(
-                SecurityEventType.AccountDeletionChallengeFailed,
+                SecurityEventType.UsernameChangeChallengesFailed,
                 UserId: request.UserId,
                 IpAddress: request.RemoteIpAddress,
                 Detail: "locked-out"));
@@ -152,7 +152,7 @@ public class CreateUsernameChangeChallengeCommandHandler(
     private void FailWithoutAttempt(CreateUsernameChangeChallengeCommand request, string detail)
     {
         auditLogger.Record(new SecurityAuditEvent(
-            SecurityEventType.AccountDeletionChallengeFailed,
+            SecurityEventType.UsernameChangeChallengesFailed,
             UserId: request.UserId,
             IpAddress: request.RemoteIpAddress,
             Detail: detail));
