@@ -12,29 +12,47 @@ required to go live safely. It accompanies `docker-compose.prod.yml` and
 
 ## 1. What the production compose changes vs. dev
 
-| Concern | Dev compose | Prod compose |
-|---|---|---|
-| ASP.NET environment | `Development` | **`Production`** → HTTPS redirect on, Swagger off, refresh cookie `Secure` flag set |
-| DB / RabbitMQ / MinIO ports | published to host | **not published** — internal Docker network only |
-| Credentials | hardcoded defaults | **required env vars**, stack aborts if any is missing/empty |
-| API containers | root, full caps | **non-root**, `cap_drop: ALL`, `no-new-privileges`, read-only rootfs, CPU/mem limits |
-| Public surface | every API + UI on all interfaces | **only the web tier**, bound to `127.0.0.1` |
+| Concern                     | Dev compose                      | Prod compose                                                                         |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
+| ASP.NET environment         | `Development`                    | **`Production`** → HTTPS redirect on, Swagger off, refresh cookie `Secure` flag set  |
+| DB / RabbitMQ / MinIO ports | published to host                | **not published** — internal Docker network only                                     |
+| Credentials                 | hardcoded defaults               | **file-based Docker secrets** (`./secrets`, not env vars); aborts if any is missing                          |
+| API containers              | root, full caps                  | **non-root**, `cap_drop: ALL`, `no-new-privileges`, read-only rootfs, CPU/mem limits |
+| Public surface              | every API + UI on all interfaces | **only the web tier**, bound to `127.0.0.1`                                          |
 
 ## 2. Deploy
 
 ```bash
 cp .env.prod.example .env.prod
-# Fill EVERY value. Generate each secret independently:
-#   openssl rand -base64 48
+# Fill the NON-SECRET config (hostnames, DB/bucket names, URLs, public site keys).
 $EDITOR .env.prod
+
+# Generate every SECRET as a file-based Docker secret under ./secrets (see §6).
+# Auto-generates the random ones; leaves placeholders for Turnstile/SMTP.
+./scripts/gen-prod-secrets.sh
+printf '%s' 'your-cloudflare-turnstile-secret' > secrets/Turnstile__SecretKey
+printf '%s' 'your-smtp-password'               > secrets/Smtp__Password
+chmod 644 secrets/*    # readable by the non-root API user (see note below)
+
+# Generate the self-signed cert that encrypts API↔Postgres traffic (see §6).
+./db/tls/gen-db-certs.sh
 
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The stack **fails closed**: a missing `Jwt__PrivateKey`/`Jwt__PublicKey`,
-`Mfa__EncryptionKey`, DB password, RabbitMQ or MinIO credential aborts startup
-instead of falling back to a dev default. `Mfa__EncryptionKey` is required by
-**identity-api only** (it encrypts TOTP secrets at rest — see §6).
+> Always write secret files with `printf '%s'` (no trailing newline). `AddKeyPerFile`
+> does not trim, so a stray `\n` corrupts base64 keys and connection strings.
+>
+> Secret files must be **world-readable (0644)** — docker-compose (non-Swarm)
+> bind-mounts them preserving the host mode/owner, and the API containers run as a
+> non-root user whose uid doesn't match, so a `0600` file is unreadable. The
+> `./secrets` directory is `0700`, so this stays safe on the host.
+
+The stack **fails closed**: the secret _files_ are required — a missing
+`./secrets/Jwt__PrivateKey`, `Mfa__EncryptionKey`, DB password, RabbitMQ or MinIO
+credential aborts `docker compose up` instead of falling back to a dev default.
+Non-secret required config still uses `${VAR:?}` in the compose file.
+`Mfa__EncryptionKey` and `Jwt__PrivateKey` are mounted into **identity-api only**.
 
 ## 3. TLS termination (required)
 
@@ -136,10 +154,40 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   TOTP enrolments (users must re-enrol), so treat it like the JWT private key: generate
   once, back it up encrypted, do not rotate casually. Enrol/confirm/disable and the
   second-factor login are rate-limited (see `IpRateLimiting` in identity appsettings).
-- **Secrets manager.** A `.env.prod` file on disk is better than committed
-  defaults, but env vars are visible via `docker inspect` and `/proc`. Move to
-  Docker secrets, Vault, or your cloud's KMS when you can.
-- **TLS to Postgres** (`sslmode=require`) and encryption at rest.
+- **TLS to Postgres — implemented.** Inter-container DB traffic is encrypted: each
+  prod `*-db` runs with `ssl=on` and every API connects with
+  `SSL Mode=Require;Trust Server Certificate=true`, so a passive sniffer on the
+  Docker bridge sees only ciphertext. Generate the (self-signed, shared) certificate
+  once before deploy: `./db/tls/gen-db-certs.sh` — it writes the gitignored
+  `db/tls/server.{crt,key}` that the compose mounts into all four databases. A small
+  entrypoint wrapper (`db/tls/pg-tls-entrypoint.sh`) installs the key with the
+  owner/permission Postgres requires (the raw bind-mount is owned by the host UID,
+  which Postgres rejects). The cert is **not** chain-validated
+  (`Trust Server Certificate=true`): the goal is confidentiality against sniffing,
+  not server-identity proof — every DB is on the same host behind an internal-only
+  network, so an active MITM is out of scope. To rotate:
+  `./db/tls/gen-db-certs.sh --force` then recreate the db containers. Want a stronger
+  guarantee? Distribute the cert as a CA to the APIs and switch the clients to
+  `VerifyFull`, and/or force `hostssl` in `pg_hba.conf` to reject any cleartext
+  connection server-side. Consider **encryption at rest** for the data volumes too.
+- **Docker secrets — implemented.** Secrets are no longer environment variables
+  (which leak via `docker inspect` and `/proc/<pid>/environ`). Every sensitive
+  value — the JWT keys, MFA key, all DB/RabbitMQ/MinIO passwords, the API
+  connection strings, and the Turnstile/SMTP secrets — is a file-based Docker
+  secret under `./secrets`, mounted read-only into `/run/secrets`. The infra
+  images read theirs via `*_FILE` env conventions; the four .NET APIs read theirs
+  via `AddKeyPerFile("/run/secrets")` (a file named `Jwt__PublicKey` becomes config
+  key `Jwt:PublicKey`). Generate the whole set with **`./scripts/gen-prod-secrets.sh`**
+  — it auto-generates the secrets we own (RS256 keypair, MFA key, every DB
+  password, RabbitMQ, MinIO) and composes the connection strings; it leaves
+  placeholder files for the externally-issued ones (`Turnstile__SecretKey`,
+  `Smtp__Password`) to fill in. It is idempotent (never rotates a live DB password);
+  pass `--force` only for a fresh deploy on empty volumes. The files are `0644`
+  (the API containers run non-root and must read them) inside a `0700` directory,
+  and `./secrets` is gitignored. **Limitation:** on a single VM these files still
+  sit on the same host disk — invisible to `docker inspect`, but *not*
+  host-compromise protection. For that, graduate to **Vault or your cloud's KMS**
+  (e.g. AWS Secrets Manager) once a deploy target is chosen.
 - **Backups** of all four DB volumes + MinIO, with a **tested restore**.
 - **Edge protection / WAF** (e.g. Cloudflare) in front of the host proxy for
   DDoS absorption and a second rate-limiting layer.
@@ -165,22 +213,24 @@ you already use. Set DNS records to **Proxied** (orange cloud) and SSL/TLS mode 
 
 Then lock the origin so attackers can't bypass Cloudflare by hitting the raw IP:
 
-- **Cloud firewall** (Oracle *Security Lists* / Lightsail firewall / cloud SG):
-  allow inbound **443** and **80** *only from Cloudflare's published IP ranges*;
+- **Cloud firewall** (Oracle _Security Lists_ / Lightsail firewall / cloud SG):
+  allow inbound **443** and **80** _only from Cloudflare's published IP ranges_;
   allow **22** only from your IP (or close it entirely and use a bastion / Tailscale).
   Everything else: denied.
 - **Host firewall** as defence-in-depth (`ufw` on Ubuntu):
-  ```bash
-  sudo ufw default deny incoming
-  sudo ufw default allow outgoing
-  sudo ufw allow 22/tcp           # restrict to your IP if you can
-  sudo ufw allow 80,443/tcp
-  sudo ufw enable
-  ```
-  > **Docker + ufw gotcha:** Docker writes iptables rules directly and a published
-  > port can bypass `ufw`. The prod compose avoids this by binding web to
-  > `127.0.0.1:8080` (not `0.0.0.0`), so Caddy on the host — not Docker — is what
-  > faces the network. Keep it that way; never publish a container on `0.0.0.0`.
+
+    ```bash
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw allow 22/tcp           # restrict to your IP if you can
+    sudo ufw allow 80,443/tcp
+    sudo ufw enable
+    ```
+
+    > **Docker + ufw gotcha:** Docker writes iptables rules directly and a published
+    > port can bypass `ufw`. The prod compose avoids this by binding web to
+    > `127.0.0.1:8080` (not `0.0.0.0`), so Caddy on the host — not Docker — is what
+    > faces the network. Keep it that way; never publish a container on `0.0.0.0`.
 
 ### 6.2 SSH
 
@@ -190,9 +240,11 @@ PasswordAuthentication no
 PermitRootLogin no
 KbdInteractiveAuthentication no
 ```
+
 Key-based auth only, log in as a non-root sudo user, then `sudo systemctl reload ssh`.
 Add **fail2ban** (`sudo apt install fail2ban`) to throttle SSH brute force, and
 **unattended-upgrades** for automatic security patches:
+
 ```bash
 sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades
 ```
@@ -200,11 +252,13 @@ sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-u
 ### 6.3 Origin TLS (Caddy)
 
 Caddy fronts the loopback-bound web container and auto-manages certificates:
+
 ```
 yourdomain.com {
     reverse_proxy 127.0.0.1:8080
 }
 ```
+
 With Cloudflare in **Full (strict)** mode, use a Cloudflare Origin certificate (or
 let Caddy obtain a Let's Encrypt cert via DNS-01). Caddy sends `X-Forwarded-Proto`,
 which the APIs now honor (section 4).
@@ -216,11 +270,11 @@ managed backup. Protect against both data loss and instance loss:
 
 - Nightly `pg_dump` of all four databases to Oracle Object Storage (free tier) or
   any off-box bucket. Example cron (one line per DB via the running containers):
-  ```bash
-  docker exec legi-identity-db pg_dump -U "$IDENTITY_DB_USER" "$IDENTITY_DB_NAME" \
-    | gzip > /backups/identity-$(date +%F).sql.gz
-  # repeat for catalog/library/social, then upload /backups to object storage
-  ```
+    ```bash
+    docker exec legi-identity-db pg_dump -U "$IDENTITY_DB_USER" "$IDENTITY_DB_NAME" \
+      | gzip > /backups/identity-$(date +%F).sql.gz
+    # repeat for catalog/library/social, then upload /backups to object storage
+    ```
 - Mirror the MinIO buckets (`mc mirror`) to the same off-box storage.
 - **Test the restore** before launch — an untested backup is not a backup.
 - Keep `.env.prod` backed up **separately and encrypted** — it holds every secret,
@@ -235,9 +289,11 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 
 ## 8. Pre-launch checklist
 
-- [ ] `.env.prod` filled; no `CHANGE_ME` left; every secret unique and random
-- [ ] JWT RS256 keypair generated; `Jwt__PrivateKey` set on identity-api ONLY
-- [ ] `Mfa__EncryptionKey` generated (`openssl rand -base64 32`), set on identity-api; backed up encrypted
+- [ ] `.env.prod` filled (non-secret config); no `CHANGE_ME` left
+- [ ] `./scripts/gen-prod-secrets.sh` run; no `REPLACE_ME_*` left in `./secrets` (Turnstile/SMTP filled, no trailing newline); files are `0644`
+- [ ] Secrets are files, not env vars: `docker inspect legi-identity-api | grep -i privatekey` returns nothing
+- [ ] JWT RS256 keypair in `./secrets`; `Jwt__PrivateKey` mounted into identity-api ONLY
+- [ ] `Mfa__EncryptionKey` in `./secrets`, mounted into identity-api; backed up encrypted
 - [ ] `docker compose --env-file .env.prod -f docker-compose.prod.yml config` succeeds
 - [ ] Cloudflare proxying domain; SSL/TLS = Full (strict)
 - [ ] Origin firewall allows 443/80 only from Cloudflare IPs; SSH restricted
@@ -245,10 +301,11 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 - [ ] Host TLS (Caddy) serving HTTPS; HTTP→HTTPS redirect verified
 - [ ] No infra ports reachable from outside the host (`nmap` the public IP)
 - [ ] DB runtime role is non-superuser (`\du` shows no Superuser on `*_app`)
+- [ ] Postgres TLS cert generated (`./db/tls/gen-db-certs.sh`); a DB session over TCP shows SSL (`SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid();`)
 - [ ] No container published on `0.0.0.0` (web is `127.0.0.1` only)
 - [ ] Forwarded headers verified: rate limiting throttles by real client IP
 - [ ] Turnstile enabled with production keys; login lockout verified
 - [ ] SMTP working; SPF/DKIM/DMARC set on the sending domain
 - [ ] Nightly DB + MinIO backups running off-box; **restore tested**
-- [ ] `.env.prod` backed up separately and encrypted
+- [ ] `.env.prod` **and `./secrets`** backed up separately and encrypted (they hold every secret)
 - [ ] `Jwt__AccessTokenExpirationMinutes` kept short (15)

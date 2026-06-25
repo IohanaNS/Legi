@@ -28,6 +28,12 @@ else
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Docker secrets (production): each file under /run/secrets becomes a config key,
+// e.g. /run/secrets/ConnectionStrings__CatalogDatabase -> ConnectionStrings:CatalogDatabase.
+// Added last so it takes precedence over environment variables, keeping secrets out
+// of `docker inspect` and /proc/<pid>/environ. optional:true -> a no-op in dev.
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
+
 // ===== Add Services =====
 
 // Application & Infrastructure layers

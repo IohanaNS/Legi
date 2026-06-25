@@ -30,6 +30,12 @@ else
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Docker secrets (production): each file under /run/secrets becomes a config key,
+// e.g. /run/secrets/Jwt__PrivateKey -> Jwt:PrivateKey. Added last so it takes
+// precedence over environment variables, keeping secrets out of `docker inspect`
+// and /proc/<pid>/environ. optional:true -> a no-op in dev (the dir is absent).
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
+
 // Add layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

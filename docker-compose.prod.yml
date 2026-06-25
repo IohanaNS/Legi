@@ -43,6 +43,14 @@ x-infra-hardening: &infra-hardening
   security_opt:
     - no-new-privileges:true
 
+# Postgres TLS: an entrypoint wrapper installs the host-mounted cert/key with the
+# perms Postgres requires, then enables `ssl=on`. The APIs connect with
+# `SSL Mode=Require;Trust Server Certificate=true` (see each ConnectionStrings__*),
+# encrypting inter-container DB traffic. Generate the cert once with
+# `./db/tls/gen-db-certs.sh`. See Docs/DEPLOYMENT-hardening.md §6.
+x-pg-tls: &pg-tls
+  entrypoint: ["/usr/local/bin/pg-tls-entrypoint.sh"]
+
 x-api-env: &api-jwt-env
   ASPNETCORE_ENVIRONMENT: Production
   # Forwarded headers are handled explicitly in each API's Program.cs (trusting only
@@ -51,8 +59,9 @@ x-api-env: &api-jwt-env
   # would register the middleware a second time and double-strip X-Forwarded-For.
   # If your Docker bridge subnet isn't in 10/8, 172.16/12 or 192.168/16, set
   # ForwardedHeaders__KnownNetworks__0 to its CIDR. See Docs/DEPLOYMENT-hardening.md.
-  # Public key — every service needs it to validate tokens (shared via this anchor).
-  Jwt__PublicKey: ${Jwt__PublicKey:?Jwt__PublicKey is required}
+  # Secrets (Jwt__PublicKey, RabbitMq__Password, ConnectionStrings__*, Storage keys,
+  # Mfa/Turnstile/Smtp) are delivered as Docker secrets under /run/secrets and read
+  # via AddKeyPerFile in each Program.cs — NOT as env vars. See §6 / ./secrets.
   Jwt__Issuer: ${Jwt__Issuer:?Jwt__Issuer is required}
   Jwt__Audience: ${Jwt__Audience:?Jwt__Audience is required}
   Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-15}
@@ -61,26 +70,31 @@ x-api-env: &api-jwt-env
   RabbitMq__Port: 5672
   RabbitMq__VirtualHost: /
   RabbitMq__Username: ${RabbitMq__Username:?RabbitMq__Username is required}
-  RabbitMq__Password: ${RabbitMq__Password:?RabbitMq__Password is required}
 
 services:
   # ---- Databases (internal only — no published ports) -----------------------
   identity-db:
-    <<: *infra-hardening
+    <<: [*infra-hardening, *pg-tls]
     image: postgres:16-alpine
     container_name: legi-identity-db
     environment:
       # Bootstrap superuser — used only to create the app role on first init; the
       # application never connects with it.
       POSTGRES_USER: ${IDENTITY_DB_ADMIN_USER:?IDENTITY_DB_ADMIN_USER is required}
-      POSTGRES_PASSWORD: ${IDENTITY_DB_ADMIN_PASSWORD:?IDENTITY_DB_ADMIN_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/identity_db_admin_password
       POSTGRES_DB: ${IDENTITY_DB_NAME:-legi_identity}
       # Non-superuser role the API actually uses at runtime (created by the init script).
       APP_DB_USER: ${IDENTITY_DB_USER:?IDENTITY_DB_USER is required}
-      APP_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
+      APP_DB_PASSWORD_FILE: /run/secrets/identity_db_app_password
+    secrets:
+      - identity_db_admin_password
+      - identity_db_app_password
     volumes:
       - identity_db_data:/var/lib/postgresql/data
       - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
+      - ./db/tls/pg-tls-entrypoint.sh:/usr/local/bin/pg-tls-entrypoint.sh:ro
+      - ./db/tls/server.crt:/etc/postgres-tls/server.crt:ro
+      - ./db/tls/server.key:/etc/postgres-tls/server.key:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${IDENTITY_DB_ADMIN_USER}"]
       interval: 10s
@@ -90,21 +104,27 @@ services:
       - legi-network
 
   catalog-db:
-    <<: *infra-hardening
+    <<: [*infra-hardening, *pg-tls]
     image: postgres:16-alpine
     container_name: legi-catalog-db
     environment:
       # Bootstrap superuser — used only to create the app role on first init; the
       # application never connects with it.
       POSTGRES_USER: ${CATALOG_DB_ADMIN_USER:?CATALOG_DB_ADMIN_USER is required}
-      POSTGRES_PASSWORD: ${CATALOG_DB_ADMIN_PASSWORD:?CATALOG_DB_ADMIN_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/catalog_db_admin_password
       POSTGRES_DB: ${CATALOG_DB_NAME:-legi_catalog}
       # Non-superuser role the API actually uses at runtime (created by the init script).
       APP_DB_USER: ${CATALOG_DB_USER:?CATALOG_DB_USER is required}
-      APP_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD is required}
+      APP_DB_PASSWORD_FILE: /run/secrets/catalog_db_app_password
+    secrets:
+      - catalog_db_admin_password
+      - catalog_db_app_password
     volumes:
       - catalog_db_data:/var/lib/postgresql/data
       - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
+      - ./db/tls/pg-tls-entrypoint.sh:/usr/local/bin/pg-tls-entrypoint.sh:ro
+      - ./db/tls/server.crt:/etc/postgres-tls/server.crt:ro
+      - ./db/tls/server.key:/etc/postgres-tls/server.key:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${CATALOG_DB_ADMIN_USER}"]
       interval: 10s
@@ -114,21 +134,27 @@ services:
       - legi-network
 
   library-db:
-    <<: *infra-hardening
+    <<: [*infra-hardening, *pg-tls]
     image: postgres:16-alpine
     container_name: legi-library-db
     environment:
       # Bootstrap superuser — used only to create the app role on first init; the
       # application never connects with it.
       POSTGRES_USER: ${LIBRARY_DB_ADMIN_USER:?LIBRARY_DB_ADMIN_USER is required}
-      POSTGRES_PASSWORD: ${LIBRARY_DB_ADMIN_PASSWORD:?LIBRARY_DB_ADMIN_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/library_db_admin_password
       POSTGRES_DB: ${LIBRARY_DB_NAME:-legi_library}
       # Non-superuser role the API actually uses at runtime (created by the init script).
       APP_DB_USER: ${LIBRARY_DB_USER:?LIBRARY_DB_USER is required}
-      APP_DB_PASSWORD: ${LIBRARY_DB_PASSWORD:?LIBRARY_DB_PASSWORD is required}
+      APP_DB_PASSWORD_FILE: /run/secrets/library_db_app_password
+    secrets:
+      - library_db_admin_password
+      - library_db_app_password
     volumes:
       - library_db_data:/var/lib/postgresql/data
       - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
+      - ./db/tls/pg-tls-entrypoint.sh:/usr/local/bin/pg-tls-entrypoint.sh:ro
+      - ./db/tls/server.crt:/etc/postgres-tls/server.crt:ro
+      - ./db/tls/server.key:/etc/postgres-tls/server.key:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${LIBRARY_DB_ADMIN_USER}"]
       interval: 10s
@@ -138,21 +164,27 @@ services:
       - legi-network
 
   social-db:
-    <<: *infra-hardening
+    <<: [*infra-hardening, *pg-tls]
     image: postgres:16-alpine
     container_name: legi-social-db
     environment:
       # Bootstrap superuser — used only to create the app role on first init; the
       # application never connects with it.
       POSTGRES_USER: ${SOCIAL_DB_ADMIN_USER:?SOCIAL_DB_ADMIN_USER is required}
-      POSTGRES_PASSWORD: ${SOCIAL_DB_ADMIN_PASSWORD:?SOCIAL_DB_ADMIN_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/social_db_admin_password
       POSTGRES_DB: ${SOCIAL_DB_NAME:-legi_social}
       # Non-superuser role the API actually uses at runtime (created by the init script).
       APP_DB_USER: ${SOCIAL_DB_USER:?SOCIAL_DB_USER is required}
-      APP_DB_PASSWORD: ${SOCIAL_DB_PASSWORD:?SOCIAL_DB_PASSWORD is required}
+      APP_DB_PASSWORD_FILE: /run/secrets/social_db_app_password
+    secrets:
+      - social_db_admin_password
+      - social_db_app_password
     volumes:
       - social_db_data:/var/lib/postgresql/data
       - ./db/init/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
+      - ./db/tls/pg-tls-entrypoint.sh:/usr/local/bin/pg-tls-entrypoint.sh:ro
+      - ./db/tls/server.crt:/etc/postgres-tls/server.crt:ro
+      - ./db/tls/server.key:/etc/postgres-tls/server.key:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${SOCIAL_DB_ADMIN_USER}"]
       interval: 10s
@@ -168,8 +200,10 @@ services:
     container_name: legi-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RabbitMq__Username:?RabbitMq__Username is required}
-      RABBITMQ_DEFAULT_PASS: ${RabbitMq__Password:?RabbitMq__Password is required}
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/RabbitMq__Password
       RABBITMQ_DEFAULT_VHOST: /
+    secrets:
+      - RabbitMq__Password
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -187,8 +221,11 @@ services:
     container_name: legi-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${Storage__AccessKey:?Storage__AccessKey is required}
-      MINIO_ROOT_PASSWORD: ${Storage__SecretKey:?Storage__SecretKey is required}
+      MINIO_ROOT_USER_FILE: /run/secrets/Storage__AccessKey
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/Storage__SecretKey
+    secrets:
+      - Storage__AccessKey
+      - Storage__SecretKey
     volumes:
       - minio_data:/data
     healthcheck:
@@ -205,14 +242,19 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    # Credentials come from Docker secrets ($$ escapes the $ so the shell — not
+    # Compose — reads the files at runtime). Bucket names are non-secret env.
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 ${Storage__AccessKey} ${Storage__SecretKey};
+      mc alias set local http://minio:9000 $$(cat /run/secrets/Storage__AccessKey) $$(cat /run/secrets/Storage__SecretKey);
       mc mb --ignore-existing local/${Storage__Bucket:-legi-media};
       mc anonymous set download local/${Storage__Bucket:-legi-media};
       mc mb --ignore-existing local/${Storage__CoversBucket:-legi-covers};
       mc anonymous set download local/${Storage__CoversBucket:-legi-covers};
       "
+    secrets:
+      - Storage__AccessKey
+      - Storage__SecretKey
     networks:
       - legi-network
 
@@ -225,14 +267,11 @@ services:
     container_name: legi-identity-api
     environment:
       <<: *api-jwt-env
-      # Private signing key — ONLY Identity holds it (it mints tokens). The other
-      # services get just the public key and can validate but never forge a token.
-      Jwt__PrivateKey: ${Jwt__PrivateKey:?Jwt__PrivateKey is required (Identity only)}
-      # Encrypts users' TOTP/MFA secrets at rest (base64-encoded 32-byte key).
-      Mfa__EncryptionKey: ${Mfa__EncryptionKey:?Mfa__EncryptionKey is required (Identity only)}
-      ConnectionStrings__IdentityDb: Host=identity-db;Port=5432;Database=${IDENTITY_DB_NAME:-legi_identity};Username=${IDENTITY_DB_USER};Password=${IDENTITY_DB_PASSWORD}
+      # Jwt__PrivateKey (mints tokens — Identity ONLY), Jwt__PublicKey, Mfa__EncryptionKey
+      # (encrypts TOTP secrets at rest), ConnectionStrings__IdentityDb, RabbitMq__Password,
+      # Turnstile__SecretKey and Smtp__Password are all delivered via Docker secrets
+      # (see the `secrets:` list below + the top-level `secrets:` block).
       Turnstile__Enabled: ${Turnstile__Enabled:-true}
-      Turnstile__SecretKey: ${Turnstile__SecretKey:?Turnstile__SecretKey is required (or set Turnstile__Enabled=false)}
       Turnstile__SiteVerifyUrl: ${Turnstile__SiteVerifyUrl:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
       Turnstile__AllowedHostnames__0: ${Turnstile__AllowedHostnames__0:?Turnstile__AllowedHostnames__0 is required (your public hostname)}
       Turnstile__RequireForRegistration: ${Turnstile__RequireForRegistration:-true}
@@ -246,11 +285,18 @@ services:
       Smtp__Host: ${Smtp__Host:?Smtp__Host is required in production}
       Smtp__Port: ${Smtp__Port:-587}
       Smtp__Username: ${Smtp__Username:?Smtp__Username is required}
-      Smtp__Password: ${Smtp__Password:?Smtp__Password is required}
       Smtp__FromAddress: ${Smtp__FromAddress:?Smtp__FromAddress is required}
       Smtp__FromName: ${Smtp__FromName:-BukiHub}
       Smtp__UseStartTls: ${Smtp__UseStartTls:-true}
       RabbitMq__ClientProvidedName: legi-identity
+    secrets:
+      - Jwt__PublicKey
+      - Jwt__PrivateKey
+      - Mfa__EncryptionKey
+      - ConnectionStrings__IdentityDb
+      - RabbitMq__Password
+      - Turnstile__SecretKey
+      - Smtp__Password
     depends_on:
       identity-db:
         condition: service_healthy
@@ -267,15 +313,20 @@ services:
     container_name: legi-catalog-api
     environment:
       <<: *api-jwt-env
-      ConnectionStrings__CatalogDatabase: Host=catalog-db;Port=5432;Database=${CATALOG_DB_NAME:-legi_catalog};Username=${CATALOG_DB_USER};Password=${CATALOG_DB_PASSWORD}
+      # ConnectionStrings__CatalogDatabase, RabbitMq__Password and the Storage keys
+      # arrive via Docker secrets (see the `secrets:` list below).
       ExternalServices__GoogleBooks__Enabled: ${ExternalServices__GoogleBooks__Enabled:-true}
       ExternalServices__GoogleBooks__ApiKey: ${ExternalServices__GoogleBooks__ApiKey:-}
       Storage__Endpoint: http://minio:9000
       Storage__Bucket: ${Storage__CoversBucket:-legi-covers}
-      Storage__AccessKey: ${Storage__AccessKey}
-      Storage__SecretKey: ${Storage__SecretKey}
       Storage__PublicBasePath: /covers
       RabbitMq__ClientProvidedName: legi-catalog
+    secrets:
+      - Jwt__PublicKey
+      - ConnectionStrings__CatalogDatabase
+      - RabbitMq__Password
+      - Storage__AccessKey
+      - Storage__SecretKey
     depends_on:
       catalog-db:
         condition: service_healthy
@@ -294,8 +345,12 @@ services:
     container_name: legi-library-api
     environment:
       <<: *api-jwt-env
-      ConnectionStrings__LibraryDatabase: Host=library-db;Port=5432;Database=${LIBRARY_DB_NAME:-legi_library};Username=${LIBRARY_DB_USER};Password=${LIBRARY_DB_PASSWORD}
+      # ConnectionStrings__LibraryDatabase and RabbitMq__Password arrive via Docker secrets.
       RabbitMq__ClientProvidedName: legi-library
+    secrets:
+      - Jwt__PublicKey
+      - ConnectionStrings__LibraryDatabase
+      - RabbitMq__Password
     depends_on:
       library-db:
         condition: service_healthy
@@ -312,13 +367,18 @@ services:
     container_name: legi-social-api
     environment:
       <<: *api-jwt-env
-      ConnectionStrings__SocialDatabase: Host=social-db;Port=5432;Database=${SOCIAL_DB_NAME:-legi_social};Username=${SOCIAL_DB_USER};Password=${SOCIAL_DB_PASSWORD}
+      # ConnectionStrings__SocialDatabase, RabbitMq__Password and the Storage keys
+      # arrive via Docker secrets (see the `secrets:` list below).
       Storage__Endpoint: http://minio:9000
       Storage__Bucket: ${Storage__Bucket:-legi-media}
-      Storage__AccessKey: ${Storage__AccessKey}
-      Storage__SecretKey: ${Storage__SecretKey}
       Storage__PublicBasePath: /media
       RabbitMq__ClientProvidedName: legi-social
+    secrets:
+      - Jwt__PublicKey
+      - ConnectionStrings__SocialDatabase
+      - RabbitMq__Password
+      - Storage__AccessKey
+      - Storage__SecretKey
     depends_on:
       social-db:
         condition: service_healthy
@@ -359,6 +419,56 @@ volumes:
   social_db_data:
   rabbitmq_data:
   minio_data:
+
+# ---- Docker secrets --------------------------------------------------------
+# File-based secrets (non-Swarm Compose): each value is a file under ./secrets,
+# bind-mounted read-only into /run/secrets/<name> in the services that need it.
+# Unlike env vars they are NOT visible in `docker inspect` or /proc/<pid>/environ.
+# Populate ./secrets with `./scripts/gen-prod-secrets.sh` (auto-generates the
+# random ones, leaves placeholders for Turnstile/SMTP). The directory is gitignored.
+# Names with `__` map to .NET config keys via AddKeyPerFile (Jwt__PublicKey ->
+# Jwt:PublicKey); the lowercase *_db_*_password files are read by the DB containers.
+secrets:
+  Jwt__PublicKey:
+    file: ./secrets/Jwt__PublicKey
+  Jwt__PrivateKey:
+    file: ./secrets/Jwt__PrivateKey
+  Mfa__EncryptionKey:
+    file: ./secrets/Mfa__EncryptionKey
+  ConnectionStrings__IdentityDb:
+    file: ./secrets/ConnectionStrings__IdentityDb
+  ConnectionStrings__CatalogDatabase:
+    file: ./secrets/ConnectionStrings__CatalogDatabase
+  ConnectionStrings__LibraryDatabase:
+    file: ./secrets/ConnectionStrings__LibraryDatabase
+  ConnectionStrings__SocialDatabase:
+    file: ./secrets/ConnectionStrings__SocialDatabase
+  identity_db_admin_password:
+    file: ./secrets/identity_db_admin_password
+  identity_db_app_password:
+    file: ./secrets/identity_db_app_password
+  catalog_db_admin_password:
+    file: ./secrets/catalog_db_admin_password
+  catalog_db_app_password:
+    file: ./secrets/catalog_db_app_password
+  library_db_admin_password:
+    file: ./secrets/library_db_admin_password
+  library_db_app_password:
+    file: ./secrets/library_db_app_password
+  social_db_admin_password:
+    file: ./secrets/social_db_admin_password
+  social_db_app_password:
+    file: ./secrets/social_db_app_password
+  RabbitMq__Password:
+    file: ./secrets/RabbitMq__Password
+  Storage__AccessKey:
+    file: ./secrets/Storage__AccessKey
+  Storage__SecretKey:
+    file: ./secrets/Storage__SecretKey
+  Turnstile__SecretKey:
+    file: ./secrets/Turnstile__SecretKey
+  Smtp__Password:
+    file: ./secrets/Smtp__Password
 
 networks:
   legi-network:

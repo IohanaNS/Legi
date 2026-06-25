@@ -17,7 +17,14 @@
 set -euo pipefail
 
 : "${APP_DB_USER:?APP_DB_USER is required}"
-: "${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}"
+
+# The app-role password may be supplied directly (APP_DB_PASSWORD) or, when using
+# Docker secrets, as a file path (APP_DB_PASSWORD_FILE). The file is written with no
+# trailing newline; read it verbatim so it matches the connection-string secret.
+if [ -n "${APP_DB_PASSWORD_FILE:-}" ]; then
+    APP_DB_PASSWORD="$(cat "$APP_DB_PASSWORD_FILE")"
+fi
+: "${APP_DB_PASSWORD:?APP_DB_PASSWORD or APP_DB_PASSWORD_FILE is required}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     DO \$do\$
