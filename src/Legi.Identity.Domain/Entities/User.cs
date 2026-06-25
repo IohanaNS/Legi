@@ -239,6 +239,13 @@ public class User : BaseAuditableEntity
             t.TokenHash == tokenHash && t.IsActive);
     }
 
+    public void ChangeUsername(Username newUsername)
+    {
+        Username = newUsername;
+        UpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new Events.UserUsernameChangedDomainEvent(Id, newUsername.Value));
+    }
+
     public void UpdatePassword(string newPasswordHash)
     {
         PasswordHash = newPasswordHash;

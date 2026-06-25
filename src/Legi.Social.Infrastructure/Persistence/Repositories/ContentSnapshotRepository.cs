@@ -85,4 +85,14 @@ public class ContentSnapshotRepository(SocialDbContext context) : IContentSnapsh
             context.ContentSnapshots.Remove(snapshot);
         }
     }
+
+    public Task BulkUpdateOwnerUsernameAsync(
+        Guid ownerId, string newUsername, CancellationToken cancellationToken = default)
+    {
+        return context.ContentSnapshots
+            .Where(cs => cs.OwnerId == ownerId)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(cs => cs.OwnerUsername, newUsername),
+                cancellationToken);
+    }
 }

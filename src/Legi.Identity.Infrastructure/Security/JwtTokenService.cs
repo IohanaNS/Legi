@@ -13,6 +13,7 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
 {
     private const int MfaChallengeExpirationMinutes = 5;
     private const int AccountDeletionChallengeExpirationMinutes = 5;
+    private const int UsernameChangeChallengeExpirationMinutes = 5;
 
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
 
@@ -28,6 +29,7 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
     // resource APIs (which require the access-token audience).
     private string MfaChallengeAudience => $"{_jwtSettings.Audience}:mfa";
     private string AccountDeletionChallengeAudience => $"{_jwtSettings.Audience}:account-deletion";
+    private string UsernameChangeChallengeAudience => $"{_jwtSettings.Audience}:username-change";
 
     public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user)
     {
@@ -95,6 +97,19 @@ public class JwtTokenService(IOptions<JwtSettings> jwtSettings) : IJwtTokenServi
     public Guid? ValidateAccountDeletionChallengeToken(string token)
     {
         return ValidateChallengeToken(token, AccountDeletionChallengeAudience);
+    }
+
+    public string GenerateUsernameChangeChallengeToken(User user)
+    {
+        return GenerateChallengeToken(
+            user,
+            UsernameChangeChallengeAudience,
+            UsernameChangeChallengeExpirationMinutes);
+    }
+
+    public Guid? ValidateUsernameChangeChallengeToken(string token)
+    {
+        return ValidateChallengeToken(token, UsernameChangeChallengeAudience);
     }
 
     private string GenerateChallengeToken(User user, string audience, int expirationMinutes)

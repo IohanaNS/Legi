@@ -23,4 +23,11 @@ public interface IContentSnapshotRepository
     /// (decision 8.1.3). Idempotent: missing row is a no-op.
     /// </summary>
     Task StageDeleteByTargetAsync(InteractableType targetType, Guid targetId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk-updates OwnerUsername for every content snapshot owned by <paramref name="ownerId"/>
+    /// via ExecuteUpdateAsync (immediate SQL, outside the change tracker).
+    /// Idempotent — safe to replay if the integration event is redelivered.
+    /// </summary>
+    Task BulkUpdateOwnerUsernameAsync(Guid ownerId, string newUsername, CancellationToken cancellationToken = default);
 }

@@ -13,6 +13,7 @@ export interface AuthContextValue {
   register: (body: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   deleteAccount: (deletionToken: string) => Promise<void>;
+  updateUsername: (newUsername: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

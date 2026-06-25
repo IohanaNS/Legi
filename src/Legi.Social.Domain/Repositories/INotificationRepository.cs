@@ -22,4 +22,11 @@ public interface INotificationRepository
     /// via ExecuteUpdateAsync (immediate, outside the change tracker).
     /// </summary>
     Task MarkAllAsReadAsync(Guid recipientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk-updates ActorUsername for every notification where the actor is <paramref name="actorId"/>
+    /// via ExecuteUpdateAsync (immediate SQL, outside the change tracker).
+    /// Idempotent — safe to replay if the integration event is redelivered.
+    /// </summary>
+    Task BulkUpdateActorUsernameAsync(Guid actorId, string newUsername, CancellationToken cancellationToken = default);
 }

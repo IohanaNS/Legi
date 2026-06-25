@@ -40,4 +40,17 @@ public class UserProfileRepository(SocialDbContext context) : IUserProfileReposi
         if (!exists)
             await context.UserProfiles.AddAsync(profile, cancellationToken);
     }
+
+    public async Task StageUpdateUsernameAsync(
+        Guid userId, string newUsername, CancellationToken cancellationToken = default)
+    {
+        var profile = await context.UserProfiles
+            .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+
+        if (profile is null)
+            return;
+
+        profile.UpdateUsername(newUsername);
+        context.UserProfiles.Update(profile);
+    }
 }

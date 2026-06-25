@@ -36,4 +36,14 @@ public class NotificationRepository(SocialDbContext context) : INotificationRepo
                     .SetProperty(n => n.ReadAt, now),
                 cancellationToken);
     }
+
+    public Task BulkUpdateActorUsernameAsync(
+        Guid actorId, string newUsername, CancellationToken cancellationToken = default)
+    {
+        return context.Notifications
+            .Where(n => n.ActorId == actorId)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(n => n.ActorUsername, newUsername),
+                cancellationToken);
+    }
 }

@@ -17,4 +17,13 @@ public interface IUserProfileRepository
     /// (see MESSAGING-ARCHITECTURE-decisions.md, decision 8.1).
     /// </summary>
     Task StageCreateIfMissingAsync(UserProfile profile, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Loads the profile for <paramref name="userId"/>, calls
+    /// <see cref="UserProfile.UpdateUsername"/> on it, and marks it modified
+    /// in the change tracker — without saving. No-op when the profile does not
+    /// exist yet (the UserRegistered event will carry the correct username).
+    /// Does not save; the IntegrationEventDispatcher owns the commit.
+    /// </summary>
+    Task StageUpdateUsernameAsync(Guid userId, string newUsername, CancellationToken cancellationToken = default);
 }
