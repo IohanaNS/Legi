@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, KeyRound, Mail, Trash2, X } from "lucide-react";
+import { AlertTriangle, AtSign, CheckCircle2, KeyRound, Mail, Trash2, X } from "lucide-react";
+import type { AxiosError } from "axios";
 import { Button } from "../../../components/ui/Button";
 import { authApi } from "../../auth/api";
 import { isTurnstileConfigured } from "../../auth/turnstile";
@@ -16,11 +17,12 @@ const secureInputClass =
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { deleteAccount, user } = useAuth();
+  const { deleteAccount, updateUsername, user } = useAuth();
   const navigate = useNavigate();
   const { data: currentUser } = useQuery({ queryKey: ["currentUser"], queryFn: authApi.getCurrentUser });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
+  const [usernameChangeOpen, setUsernameChangeOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteMfaCode, setDeleteMfaCode] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -50,6 +52,20 @@ export default function SettingsPage() {
 
   const deletionEmailCodeMutation = useMutation({
     mutationFn: () => authApi.sendAccountDeletionEmailCode(i18n.language),
+  });
+
+  const usernameChangeMutation = useMutation({
+    mutationFn: async ({ newUsername, password, mfaCode }: { newUsername: string; password?: string; mfaCode?: string }) => {
+      const challenge = await authApi.createUsernameChangeChallenge({
+        password: password?.trim() || undefined,
+        mfaCode: mfaCode?.trim() || undefined,
+      });
+      return authApi.changeUsername({ newUsername: newUsername.trim(), challengeToken: challenge.challengeToken });
+    },
+    onSuccess: (result) => {
+      updateUsername(result.newUsername);
+      setUsernameChangeOpen(false);
+    },
   });
 
   const passwordResetMutation = useMutation({
@@ -103,6 +119,48 @@ export default function SettingsPage() {
               value={user?.email ?? ""}
               className="min-w-0 flex-1 bg-transparent text-sm text-stone-800 outline-none dark:text-stone-100"
             />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-stone-200 bg-white p-5 dark:border-dark-raised dark:bg-dark-card">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-stone-800 dark:text-stone-100">
+                {t("settings.usernameSectionTitle")}
+              </h3>
+              <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                {t("settings.usernameDescription")}
+              </p>
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-stone-700 dark:text-stone-300">
+                <AtSign size={14} className="shrink-0 text-stone-400 dark:text-stone-500" />
+                <span className="font-mono">{user?.username ?? ""}</span>
+              </div>
+              {usernameChangeMutation.isSuccess && !usernameChangeOpen && (
+                <p className="mt-3 text-sm font-medium text-green-700 dark:text-green-300">
+                  {t("settings.usernameSuccess")}
+                </p>
+              )}
+              {usernameChangeMutation.isError && !usernameChangeOpen && (
+                <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-300">
+                  {(usernameChangeMutation.error as AxiosError | null)?.response?.status === 409
+                    ? t("settings.usernameConflict")
+                    : t("settings.usernameError")}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                usernameChangeMutation.reset();
+                setUsernameChangeOpen(true);
+              }}
+              disabled={usernameChangeMutation.isPending}
+              className="shrink-0"
+            >
+              <AtSign size={16} />
+              {t("settings.changeUsernameButton")}
+            </Button>
           </div>
         </div>
 
@@ -202,6 +260,21 @@ export default function SettingsPage() {
           onPasswordChange={setDeletePassword}
           onMfaCodeChange={setDeleteMfaCode}
           onSendEmailCode={() => deletionEmailCodeMutation.mutate()}
+        />
+      )}
+
+      {usernameChangeOpen && (
+        <UsernameChangeDialog
+          email={currentUser?.email ?? user?.email ?? ""}
+          hasPassword={currentUser?.hasPassword ?? true}
+          mfaEnabled={currentUser?.mfaEnabled ?? false}
+          mfaMethod={currentUser?.mfaMethod ?? "None"}
+          error={usernameChangeMutation.error}
+          isPending={usernameChangeMutation.isPending}
+          onCancel={() => setUsernameChangeOpen(false)}
+          onConfirm={(newUsername, password, mfaCode) =>
+            usernameChangeMutation.mutate({ newUsername, password, mfaCode })
+          }
         />
       )}
 
@@ -381,6 +454,213 @@ function PasswordResetDialog({
                 </Button>
               </>
             )}
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+interface UsernameChangeDialogProps {
+  email: string;
+  hasPassword: boolean;
+  mfaEnabled: boolean;
+  mfaMethod: "None" | "Totp" | "Email";
+  error: Error | null;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: (newUsername: string, password?: string, mfaCode?: string) => void;
+}
+
+function UsernameChangeDialog({
+  email,
+  hasPassword,
+  mfaEnabled,
+  mfaMethod,
+  error,
+  isPending,
+  onCancel,
+  onConfirm,
+}: UsernameChangeDialogProps) {
+  const { t, i18n } = useTranslation();
+  const [newUsername, setNewUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const hasReauthFactor = hasPassword || mfaEnabled;
+  const isConflict = (error as AxiosError | null)?.response?.status === 409;
+
+  const emailCodeMutation = useMutation({
+    mutationFn: () => authApi.sendUsernameChangeEmailCode(i18n.language),
+  });
+
+  const canSubmit =
+    hasReauthFactor &&
+    !isPending &&
+    !!newUsername.trim() &&
+    (!hasPassword || !!password.trim()) &&
+    (!mfaEnabled || !!mfaCode.trim());
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onCancel();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isPending, onCancel]);
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 bg-black/45 px-4 py-8 backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isPending) onCancel();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="username-change-title"
+        className="mx-auto mt-16 w-full max-w-md overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl dark:border-dark-raised dark:bg-dark-card"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4 dark:border-dark-raised">
+          <h2
+            id="username-change-title"
+            className="text-base font-semibold text-stone-900 dark:text-stone-100"
+          >
+            {t("settings.usernameChangeDialogTitle")}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            aria-label={t("settings.closeUsernameDialog")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800 disabled:pointer-events-none disabled:opacity-50 dark:text-stone-400 dark:hover:bg-dark-raised dark:hover:text-stone-100"
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          {error && (
+            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+              {isConflict ? t("settings.usernameConflict") : t("settings.usernameError")}
+            </p>
+          )}
+          {!hasReauthFactor && (
+            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+              {t("settings.usernameRequiresReauth")}
+            </p>
+          )}
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+              {t("settings.newUsernameLabel")}
+            </span>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(event) => setNewUsername(event.target.value)}
+              autoComplete="username"
+              disabled={isPending}
+              className={secureInputClass}
+              placeholder={t("settings.newUsernamePlaceholder")}
+            />
+          </label>
+
+          {hasPassword && (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                {t("settings.usernamePasswordLabel")}
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                disabled={isPending}
+                className={secureInputClass}
+                placeholder={t("settings.usernamePasswordPlaceholder")}
+              />
+            </label>
+          )}
+
+          {mfaEnabled && (
+            <div className="space-y-2">
+              <p className="text-sm text-stone-600 dark:text-stone-300">
+                {mfaMethod === "Email"
+                  ? t("settings.usernameMfaHintEmail", { email })
+                  : t("settings.usernameMfaHintTotp")}
+              </p>
+              {mfaMethod === "Email" && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => emailCodeMutation.mutate()}
+                    disabled={isPending || emailCodeMutation.isPending}
+                    className="w-full sm:w-auto"
+                  >
+                    <Mail size={16} />
+                    {emailCodeMutation.isPending
+                      ? t("settings.usernameEmailCodePending")
+                      : t("settings.sendUsernameCode")}
+                  </Button>
+                  {emailCodeMutation.isSuccess && (
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                      {t("settings.usernameCodeSent")}
+                    </span>
+                  )}
+                </div>
+              )}
+              {emailCodeMutation.isError && (
+                <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                  {t("settings.usernameCodeError")}
+                </p>
+              )}
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                  {t("settings.usernameMfaCodeLabel")}
+                </span>
+                <input
+                  value={mfaCode}
+                  onChange={(event) => setMfaCode(event.target.value)}
+                  autoComplete="one-time-code"
+                  disabled={isPending}
+                  className={secureInputClass}
+                  placeholder={t("settings.usernameMfaCodePlaceholder")}
+                />
+              </label>
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isPending}
+              className="w-full sm:w-auto"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => onConfirm(newUsername, password || undefined, mfaCode || undefined)}
+              disabled={!canSubmit}
+              className="w-full sm:w-auto"
+            >
+              <AtSign size={16} />
+              {isPending ? t("settings.usernameChangePending") : t("settings.confirmUsernameChange")}
+            </Button>
           </div>
         </div>
       </section>

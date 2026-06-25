@@ -94,3 +94,21 @@ export interface AccountDeletionChallengeRequest {
 export interface AccountDeletionChallengeResponse {
   deletionToken: string;
 }
+
+export interface UsernameChangeChallengeRequest {
+  password?: string;
+  mfaCode?: string;
+}
+
+export interface UsernameChangeChallengeResponse {
+  challengeToken: string;
+}
+
+export interface ChangeUsernameRequest {
+  newUsername: string;
+  challengeToken: string;
+}
+
+export interface ChangeUsernameResponse {
+  newUsername: string;
+}

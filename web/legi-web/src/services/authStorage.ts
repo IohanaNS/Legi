@@ -75,6 +75,10 @@ export const authStorage = {
       });
     }
   },
+  patchUsername: (newUsername: string) => {
+    const user = readStoredUser();
+    if (user) writeStoredUser({ ...user, username: newUsername });
+  },
   clear: () => {
     accessToken = null;
     clearLegacyBearerSecrets();

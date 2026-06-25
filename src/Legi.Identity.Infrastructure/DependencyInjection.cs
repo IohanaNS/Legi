@@ -3,6 +3,7 @@ using Legi.Identity.Application.Auth.Commands.Login;
 using Legi.Identity.Application.Common.Interfaces;
 using Legi.Identity.Application.Common.Models;
 using Legi.Identity.Application.Users.Commands.CreateAccountDeletionChallenge;
+using Legi.Identity.Application.Users.Commands.CreateUsernameChangeChallenge;
 using Legi.Identity.Domain.Repositories;
 using Legi.Identity.Infrastructure.Email;
 using Legi.Identity.Infrastructure.Persistence;
@@ -57,6 +58,15 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton(sp => sp.GetRequiredService<
             Microsoft.Extensions.Options.IOptions<AccountDeletionChallengeLockoutSettings>>().Value);
+
+        services.AddOptions<UsernameChangeChallengeSettings>()
+            .Bind(configuration.GetSection(UsernameChangeChallengeSettings.SectionName))
+            .Validate(
+                UsernameChangeChallengeSettings.HasValidSettings,
+                UsernameChangeChallengeSettings.ValidationMessage)
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<UsernameChangeChallengeSettings>>().Value);
 
         services.AddOptions<TurnstileSettings>()
             .Bind(configuration.GetSection(TurnstileSettings.SectionName))

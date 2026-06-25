@@ -65,6 +65,12 @@ public class UserRepository(IdentityDbContext context) : IUserRepository
             .FirstOrDefaultAsync(u => u.Username.Value == normalizedUsername, cancellationToken);
     }
 
+    public async Task<bool> ExistsWithUsernameAsync(string username, CancellationToken cancellationToken = default)
+    {
+        var normalized = username.Trim().ToLowerInvariant();
+        return await context.Users.AnyAsync(u => u.Username.Value == normalized, cancellationToken);
+    }
+
     public async Task<User?> GetByEmailOrUsernameAsync(string emailOrUsername, CancellationToken cancellationToken = default)
     {
         var normalized = emailOrUsername.Trim().ToLowerInvariant();

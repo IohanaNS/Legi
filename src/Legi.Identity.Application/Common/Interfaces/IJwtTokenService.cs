@@ -25,4 +25,12 @@ public interface IJwtTokenService
 
     /// <summary>Validates an account deletion challenge token and returns the user id, or null if invalid/expired.</summary>
     Guid? ValidateAccountDeletionChallengeToken(string token);
+
+    /// <summary>
+    /// Issues a short-lived token proving the user recently verified a username change.
+    /// </summary>
+    string GenerateUsernameChangeChallengeToken(User user);
+
+    /// <summary>Validates a username-change challenge token and returns the user id, or null if invalid/expired.</summary>
+    Guid? ValidateUsernameChangeChallengeToken(string token);
 }

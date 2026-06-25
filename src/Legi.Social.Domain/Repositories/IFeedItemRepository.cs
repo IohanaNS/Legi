@@ -26,4 +26,11 @@ public interface IFeedItemRepository
     /// the inbox row (decision 8.1.3). Idempotent: no rows is a no-op.
     /// </summary>
     Task StageDeleteByReferenceAsync(Guid referenceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk-updates ActorUsername for every feed item belonging to <paramref name="actorId"/>
+    /// via ExecuteUpdateAsync (immediate SQL, outside the change tracker).
+    /// Idempotent — safe to replay if the integration event is redelivered.
+    /// </summary>
+    Task BulkUpdateActorUsernameAsync(Guid actorId, string newUsername, CancellationToken cancellationToken = default);
 }

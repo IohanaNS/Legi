@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IUserDataPurger, UserDataPurger>();
         services.AddIntegrationEventConsumer<UserRegisteredIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<UserDeletedIntegrationEvent, SocialDbContext>();
+        services.AddIntegrationEventConsumer<UserUsernameChangedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<BookCreatedIntegrationEvent, SocialDbContext>();
         services.AddIntegrationEventConsumer<BookUpdatedIntegrationEvent, SocialDbContext>();
 

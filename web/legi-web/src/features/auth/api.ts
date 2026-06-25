@@ -3,6 +3,8 @@ import type {
   AccountDeletionChallengeRequest,
   AccountDeletionChallengeResponse,
   AuthResponse,
+  ChangeUsernameRequest,
+  ChangeUsernameResponse,
   ConfirmEmailRequest,
   CurrentUserResponse,
   ForgotPasswordRequest,
@@ -14,6 +16,8 @@ import type {
   RegisterResponse,
   ResendConfirmationRequest,
   ResetPasswordRequest,
+  UsernameChangeChallengeRequest,
+  UsernameChangeChallengeResponse,
 } from "./types";
 
 export const authApi = {
@@ -59,4 +63,11 @@ export const authApi = {
       .then((r) => r.data),
   deleteAccount: (deletionToken: string) =>
     http.delete("/identity/users/me", { data: { deletionToken } }),
+  sendUsernameChangeEmailCode: (language?: string) =>
+    http.post("/identity/users/me/username-change-email-code", { language }),
+  createUsernameChangeChallenge: (body: UsernameChangeChallengeRequest) =>
+    http.post<UsernameChangeChallengeResponse>("/identity/users/me/username-change-challenge", body)
+      .then((r) => r.data),
+  changeUsername: (body: ChangeUsernameRequest) =>
+    http.put<ChangeUsernameResponse>("/identity/users/me/username", body).then((r) => r.data),
 };

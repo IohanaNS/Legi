@@ -69,4 +69,14 @@ public class FeedItemRepository(SocialDbContext context) : IFeedItemRepository
             context.FeedItems.RemoveRange(items);
         }
     }
+
+    public Task BulkUpdateActorUsernameAsync(
+        Guid actorId, string newUsername, CancellationToken cancellationToken = default)
+    {
+        return context.FeedItems
+            .Where(fi => fi.ActorId == actorId)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(fi => fi.ActorUsername, newUsername),
+                cancellationToken);
+    }
 }

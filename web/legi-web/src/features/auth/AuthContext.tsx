@@ -102,6 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLocalSession();
   };
 
+  const updateUsername = useCallback((newUsername: string) => {
+    setUser((prev) => (prev ? { ...prev, username: newUsername } : prev));
+    authStorage.patchUsername(newUsername);
+  }, []);
+
   // React Compiler memoizes this; manual useMemo is redundant here.
   const value: AuthContextValue = {
     user,
@@ -114,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     deleteAccount,
+    updateUsername,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
