@@ -198,14 +198,17 @@ services:
     <<: *infra-hardening
     image: rabbitmq:4-management-alpine
     container_name: legi-rabbitmq
+    # RabbitMQ 4.x rejects RABBITMQ_DEFAULT_PASS_FILE (removed). A wrapper reads the
+    # password secret into plain RABBITMQ_DEFAULT_PASS instead — see the script.
+    entrypoint: ["/usr/local/bin/secret-entrypoint.sh"]
     environment:
       RABBITMQ_DEFAULT_USER: ${RabbitMq__Username:?RabbitMq__Username is required}
-      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/RabbitMq__Password
       RABBITMQ_DEFAULT_VHOST: /
     secrets:
       - RabbitMq__Password
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/secret-entrypoint.sh:/usr/local/bin/secret-entrypoint.sh:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 15s

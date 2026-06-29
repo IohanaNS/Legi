@@ -174,8 +174,10 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   (which leak via `docker inspect` and `/proc/<pid>/environ`). Every sensitive
   value — the JWT keys, MFA key, all DB/RabbitMQ/MinIO passwords, the API
   connection strings, and the Turnstile/SMTP secrets — is a file-based Docker
-  secret under `./secrets`, mounted read-only into `/run/secrets`. The infra
-  images read theirs via `*_FILE` env conventions; the four .NET APIs read theirs
+  secret under `./secrets`, mounted read-only into `/run/secrets`. Postgres and
+  MinIO read theirs via `*_FILE` env conventions; RabbitMQ 4.x removed
+  `RABBITMQ_DEFAULT_PASS_FILE`, so a small wrapper (`rabbitmq/secret-entrypoint.sh`)
+  reads the secret into the plain env var instead; the four .NET APIs read theirs
   via `AddKeyPerFile("/run/secrets")` (a file named `Jwt__PublicKey` becomes config
   key `Jwt:PublicKey`). Generate the whole set with **`./scripts/gen-prod-secrets.sh`**
   — it auto-generates the secrets we own (RS256 keypair, MFA key, every DB

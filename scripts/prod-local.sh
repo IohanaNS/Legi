@@ -366,7 +366,17 @@ google_status() {
   fi
 }
 
+# docker-compose.prod.yml now consumes Docker secrets (./secrets) and a Postgres TLS
+# cert (./db/tls). Generate both from the throwaway .env.prod.local before any compose
+# call so the local stack mirrors prod. gen-prod-secrets.sh reuses the env file's
+# values (so existing local DB volumes keep authenticating) and is idempotent.
+ensure_secrets_and_certs() {
+  LEGI_SECRETS_ENV_FILE="$ENV_FILE" ./scripts/gen-prod-secrets.sh >/dev/null
+  ./db/tls/gen-db-certs.sh >/dev/null
+}
+
 compose() {
+  ensure_secrets_and_certs
   docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" -f "$LOCAL_COMPOSE_FILE" "$@"
 }
 
