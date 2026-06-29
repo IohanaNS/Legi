@@ -1,0 +1,14 @@
+# Runs legi-backup.service nightly at 03:00 (host local time).
+# Install + enable: see legi-backup.service header.
+[Unit]
+Description=Nightly BukiHub backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Run on next boot if the VM was off at 03:00 (don't silently skip a day).
+Persistent=true
+# Spread load / avoid every box firing at the same instant.
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

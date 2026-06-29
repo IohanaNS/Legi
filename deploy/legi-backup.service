@@ -1,0 +1,23 @@
+# BukiHub nightly backup — triggered by legi-backup.timer (do not enable directly).
+#
+# Install on the production host:
+#   sudo cp deploy/legi-backup.{service,timer} /etc/systemd/system/
+#   # edit User= and the /opt/legi paths below to match your install
+#   sudo systemctl daemon-reload && sudo systemctl enable --now legi-backup.timer
+#
+# See Docs/DEPLOYMENT-hardening.md §6.4.
+[Unit]
+Description=BukiHub backup (Postgres dumps + MinIO mirror)
+Documentation=file:///opt/legi/Docs/DEPLOYMENT-hardening.md
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Must be a user in the `docker` group that owns the checkout. Edit to match.
+User=legi
+WorkingDirectory=/opt/legi
+# Optional knobs (BACKUP_RETENTION_DAYS, BACKUP_UPLOAD_CMD for off-box shipping).
+# The leading `-` makes the file optional.
+EnvironmentFile=-/etc/legi/backup.env
+ExecStart=/opt/legi/scripts/backup.sh

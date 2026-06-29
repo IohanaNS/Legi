@@ -116,8 +116,10 @@ Put both in `.env.prod`. The prod compose injects `Jwt__PublicKey` into every AP
 (shared anchor) but `Jwt__PrivateKey` only into `identity-api` — keep the private
 key out of every other service and out of the frontend. To rotate, issue a new
 keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes`
-(15), and refresh tokens are opaque so they survive the change. The dev keypair in
-`.env.example` is a committed throwaway for local use only — never deploy it.
+(15), and refresh tokens are opaque so they survive the change. For local dev, the
+`Jwt__PublicKey`/`Jwt__PrivateKey` fields in `.env.example` are intentionally **empty**
+— run `./scripts/gen-dev-keys.sh` to generate a throwaway keypair into your gitignored
+`.env`. No private key is ever committed.
 
 ## 6. Recommended follow-ups (defense in depth)
 
@@ -190,7 +192,9 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   sit on the same host disk — invisible to `docker inspect`, but *not*
   host-compromise protection. For that, graduate to **Vault or your cloud's KMS**
   (e.g. AWS Secrets Manager) once a deploy target is chosen.
-- **Backups** of all four DB volumes + MinIO, with a **tested restore**.
+- **Backups — scripted (`./scripts/backup.sh` / `./scripts/restore.sh`).** See §6.4;
+  the local round-trip restore is verified. Still **schedule it off-box** and back up
+  the secrets separately.
 - **Edge protection / WAF** (e.g. Cloudflare) in front of the host proxy for
   DDoS absorption and a second rate-limiting layer.
 - **Tighten DB/broker capabilities** further once a known-good cap set is verified.
@@ -268,19 +272,52 @@ which the APIs now honor (section 4).
 ### 6.4 Backups (non-negotiable on a free VM)
 
 A free Always-Free VM can be **reclaimed by Oracle if idle**, and there is no
-managed backup. Protect against both data loss and instance loss:
+managed backup. Protect against both data loss and instance loss.
 
-- Nightly `pg_dump` of all four databases to Oracle Object Storage (free tier) or
-  any off-box bucket. Example cron (one line per DB via the running containers):
-    ```bash
-    docker exec legi-identity-db pg_dump -U "$IDENTITY_DB_USER" "$IDENTITY_DB_NAME" \
-      | gzip > /backups/identity-$(date +%F).sql.gz
-    # repeat for catalog/library/social, then upload /backups to object storage
-    ```
-- Mirror the MinIO buckets (`mc mirror`) to the same off-box storage.
-- **Test the restore** before launch — an untested backup is not a backup.
-- Keep `.env.prod` backed up **separately and encrypted** — it holds every secret,
-  so store it apart from the data backups; leaking it compromises everything.
+**`./scripts/backup.sh`** captures everything into one timestamped directory under
+`./backups`: a `pg_dump -Fc` (compressed custom format) of all four databases plus an
+`mc mirror` of the MinIO buckets. It targets the fixed container names (so it works
+for both `docker-compose.prod.yml` and the prod-local stack) and dumps over Postgres'
+local trust socket (no password). `BACKUP_RETENTION_DAYS` (default 14) prunes old runs.
+
+```bash
+./scripts/backup.sh                       # -> ./backups/<timestamp>/
+```
+
+**Schedule it (systemd timer).** The repo ships `deploy/legi-backup.{service,timer}`
+(nightly at 03:00, `Persistent=true` so a missed run after downtime still fires):
+
+```bash
+sudo cp deploy/legi-backup.{service,timer} /etc/systemd/system/
+# edit User= and the /opt/legi paths in the .service to match your install
+sudo systemctl daemon-reload
+sudo systemctl enable --now legi-backup.timer
+systemctl list-timers legi-backup.timer     # confirm next run
+journalctl -u legi-backup.service            # see results
+```
+
+> Until you install that timer, **backups are not generated automatically** — the
+> script only runs on demand.
+
+- **Ship it off-box** (object storage / another host) — a backup on the same VM does
+  not survive instance loss. Set `BACKUP_UPLOAD_CMD` (the timer reads it from an
+  optional `/etc/legi/backup.env`) so each run uploads itself, e.g.:
+  ```bash
+  # /etc/legi/backup.env
+  BACKUP_RETENTION_DAYS=14
+  BACKUP_UPLOAD_CMD='rclone copy "$BACKUP_DIR" remote:legi-backups/$(basename "$BACKUP_DIR")'
+  ```
+- **Restore** with `./scripts/restore.sh <backup-dir> [--yes]`: it stops the APIs,
+  `pg_restore --clean`s each database (ownership preserved → the app role still owns
+  its schema), mirrors the buckets back, and restarts the APIs. **DESTRUCTIVE** — it
+  overwrites current data. The DB containers must be running first (their app roles
+  are created on init; the dumps contain no roles).
+- **Test the restore** before launch — an untested backup is not a backup. The local
+  round-trip (wipe a table → `restore.sh` → data recovered, APIs healthy) is verified;
+  rehearse it on a throwaway box for full instance-loss recovery.
+- Keep `.env.prod`, `./secrets` and `./db/tls` backed up **separately and encrypted** —
+  they are NOT in the data backup, yet a restored DB is unusable without them (and the
+  MFA/JWT keys decrypt user data). Store them apart; leaking them compromises everything.
 
 ### 6.5 Stay portable (AWS-ready)
 

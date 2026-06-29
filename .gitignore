@@ -76,3 +76,6 @@ test-curls.sh
 **/.claude/agent-memory/
 # Claude memory index files anywhere
 **/MEMORY.md
+
+# Local backups (scripts/backup.sh — contains data, never commit)
+/backups/
