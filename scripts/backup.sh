@@ -24,8 +24,11 @@ SERVICES="identity catalog library social"
 BUCKETS="legi-media legi-covers"
 
 require_container() {
-  docker inspect "$1" >/dev/null 2>&1 \
-    || { echo "ERROR: container '$1' is not running — start the stack first." >&2; exit 1; }
+  # Must be actually RUNNING — `docker inspect` alone passes for a stopped container.
+  if [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" != "true" ]; then
+    echo "ERROR: container '$1' is not running — start the stack first." >&2
+    exit 1
+  fi
 }
 
 echo "Backing up to $DEST ..."
@@ -55,8 +58,11 @@ docker run --rm --network "container:legi-minio" \
   -v "$(cd "$DEST/minio" && pwd):/out" \
   --entrypoint sh minio/mc -c '
     set -e
+    # No `|| true`: a failed mirror (MinIO down, bad creds) must abort the backup —
+    # set -e here exits non-zero, which the host set -e propagates. An empty bucket
+    # mirrors successfully, so this only fails on a real error.
     for b in $BUCKETS; do
-      mc mirror --quiet --overwrite --remove "m/$b" "/out/$b" || true
+      mc mirror --quiet --overwrite --remove "m/$b" "/out/$b"
     done
   '
 

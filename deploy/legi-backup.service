@@ -14,6 +14,9 @@ After=docker.service
 
 [Service]
 Type=oneshot
+# Backups can outlast the default ~90s start timeout as data grows; don't let systemd
+# SIGTERM a dump mid-flight (which would leave a truncated backup).
+TimeoutStartSec=0
 # Must be a user in the `docker` group that owns the checkout. Edit to match.
 User=legi
 WorkingDirectory=/opt/legi

@@ -47,9 +47,11 @@ fi
 # Read one value from the env file by key. Everything after the first `=` is the
 # literal value (no quote/space processing) — matching how `docker compose
 # --env-file` reads it, and unlike `source`, which would choke on values containing
-# spaces (e.g. `Smtp__FromName=BukiHub Local`). Last assignment wins.
+# spaces (e.g. `Smtp__FromName=BukiHub Local`). Last assignment wins. `tr -d '\r'`
+# strips CRLF endings (a hand-edited .env.prod from Windows/scp) so a stray carriage
+# return never rides into a base64 key, connection string or password.
 env_get() {
-  sed -n "s/^$1=//p" "$ENV_FILE" | tail -n1
+  sed -n "s/^$1=//p" "$ENV_FILE" | tail -n1 | tr -d '\r'
 }
 
 SECRETS_DIR=secrets
@@ -103,7 +105,9 @@ rand_b64() { openssl rand -base64 32 | tr -d '\n'; }
 echo "Generating secrets in $SECRETS_DIR/ (FORCE=$FORCE) ..."
 
 # ---- JWT RS256 keypair ------------------------------------------------------
-if [ ! -f "$SECRETS_DIR/Jwt__PrivateKey" ] || [ "$FORCE" -eq 1 ]; then
+# Run if EITHER key file is missing (not just the private one) so a partially-deleted
+# pair is repaired; write_secret keeps whichever file already exists.
+if [ ! -f "$SECRETS_DIR/Jwt__PrivateKey" ] || [ ! -f "$SECRETS_DIR/Jwt__PublicKey" ] || [ "$FORCE" -eq 1 ]; then
   env_priv="$(env_get Jwt__PrivateKey)"; env_pub="$(env_get Jwt__PublicKey)"
   if [ -n "$env_priv" ] && [ -n "$env_pub" ]; then
     write_secret Jwt__PrivateKey "$env_priv"

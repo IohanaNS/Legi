@@ -198,8 +198,12 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
 - **Edge protection / WAF** (e.g. Cloudflare) in front of the host proxy for
   DDoS absorption and a second rate-limiting layer.
 - **Tighten DB/broker capabilities** further once a known-good cap set is verified.
-- **Unprivileged nginx image** (`nginxinc/nginx-unprivileged`) + read-only rootfs
-  for the web tier.
+- **Unprivileged nginx web tier — implemented.** The web container uses
+  `nginxinc/nginx-unprivileged` (runs as uid 101, never root) and gets the same
+  lockdown as the APIs: `cap_drop: ALL`, `no-new-privileges`, read-only rootfs with a
+  single tmpfs at `/tmp` (the image puts the pid and all temp paths there).
+  nginx listens on **8080** (a non-root process can't bind <1024); the host TLS proxy
+  and the compose port mapping front it. No container in the prod stack now runs as root.
 
 ## 7. Single-VM host hardening (Oracle Cloud A1 / any VPS)
 

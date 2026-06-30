@@ -11,8 +11,10 @@ ARG VITE_GOOGLE_CLIENT_ID=
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN yarn build
 
-FROM nginx:alpine
+# Unprivileged nginx: runs as uid 101 (nginx), never root. It listens on 8080 (a
+# non-root process cannot bind <1024) — see nginx.conf and the compose port mapping.
+FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

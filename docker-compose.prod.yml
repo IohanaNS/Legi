@@ -395,6 +395,15 @@ services:
   # ---- Web tier (the ONLY published port — bind to loopback, TLS proxy fronts it)
   web:
     restart: unless-stopped
+    # Unprivileged nginx (uid 101) + the same lockdown as the APIs: no extra Linux
+    # capabilities, no privilege escalation, read-only rootfs. The image puts the pid
+    # and ALL temp paths (client_body/proxy/fastcgi/uwsgi/scgi) under /tmp, so that one
+    # tmpfs is the only writable mount needed. Listens on 8080 (non-root can't bind <1024).
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
     build:
@@ -405,7 +414,7 @@ services:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     container_name: legi-web
     ports:
-      - "127.0.0.1:${WEB_HTTP_PORT:-8080}:80"
+      - "127.0.0.1:${WEB_HTTP_PORT:-8080}:8080"
     depends_on:
       - identity-api
       - catalog-api
