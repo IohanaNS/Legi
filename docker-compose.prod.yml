@@ -42,6 +42,12 @@ x-infra-hardening: &infra-hardening
   restart: unless-stopped
   security_opt:
     - no-new-privileges:true
+  # Drop every Linux capability by default. Postgres and RabbitMQ add back only the
+  # five their entrypoints need to chown the data dir and gosu-drop to the service
+  # user (see each service's cap_add). MinIO needs none (it stays root over its own
+  # files on a high port). Verified against each image with an empty volume.
+  cap_drop:
+    - ALL
 
 # Postgres TLS: an entrypoint wrapper installs the host-mounted cert/key with the
 # perms Postgres requires, then enables `ssl=on`. The APIs connect with
@@ -50,6 +56,17 @@ x-infra-hardening: &infra-hardening
 # `./db/tls/gen-db-certs.sh`. See Docs/DEPLOYMENT-hardening.md §6.
 x-pg-tls: &pg-tls
   entrypoint: ["/usr/local/bin/pg-tls-entrypoint.sh"]
+
+# The capabilities Postgres/RabbitMQ add back on top of cap_drop:ALL: CHOWN/FOWNER/
+# DAC_OVERRIDE to fix the data-dir ownership/perms, SETGID/SETUID for the entrypoint's
+# gosu drop to the service user. Verified minimal — removing any breaks startup.
+x-db-caps: &db-caps
+  cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    - SETGID
+    - SETUID
 
 x-api-env: &api-jwt-env
   ASPNETCORE_ENVIRONMENT: Production
@@ -74,7 +91,7 @@ x-api-env: &api-jwt-env
 services:
   # ---- Databases (internal only — no published ports) -----------------------
   identity-db:
-    <<: [*infra-hardening, *pg-tls]
+    <<: [*infra-hardening, *pg-tls, *db-caps]
     image: postgres:16-alpine
     container_name: legi-identity-db
     environment:
@@ -104,7 +121,7 @@ services:
       - legi-network
 
   catalog-db:
-    <<: [*infra-hardening, *pg-tls]
+    <<: [*infra-hardening, *pg-tls, *db-caps]
     image: postgres:16-alpine
     container_name: legi-catalog-db
     environment:
@@ -134,7 +151,7 @@ services:
       - legi-network
 
   library-db:
-    <<: [*infra-hardening, *pg-tls]
+    <<: [*infra-hardening, *pg-tls, *db-caps]
     image: postgres:16-alpine
     container_name: legi-library-db
     environment:
@@ -164,7 +181,7 @@ services:
       - legi-network
 
   social-db:
-    <<: [*infra-hardening, *pg-tls]
+    <<: [*infra-hardening, *pg-tls, *db-caps]
     image: postgres:16-alpine
     container_name: legi-social-db
     environment:
@@ -195,7 +212,7 @@ services:
 
   # ---- Message broker (internal only — management UI NOT exposed) -----------
   rabbitmq:
-    <<: *infra-hardening
+    <<: [*infra-hardening, *db-caps]
     image: rabbitmq:4-management-alpine
     container_name: legi-rabbitmq
     # RabbitMQ 4.x rejects RABBITMQ_DEFAULT_PASS_FILE (removed). A wrapper reads the
@@ -242,6 +259,14 @@ services:
   minio-init:
     image: minio/mc:latest
     container_name: legi-minio-init
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # cap_drop:ALL stops mc creating its default config dir (/root/.mc); point it at
+    # the writable /tmp instead.
+    environment:
+      MC_CONFIG_DIR: /tmp/.mc
     depends_on:
       minio:
         condition: service_healthy

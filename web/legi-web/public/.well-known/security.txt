@@ -1,0 +1,10 @@
+# BukiHub vulnerability-disclosure contact — RFC 9116 (https://www.rfc-editor.org/rfc/rfc9116).
+#
+# BEFORE DEPLOY, replace every `yourdomain.com` with your real domain, set a contact
+# you actually monitor, and bump `Expires` (it MUST be under one year out; refresh it
+# on a calendar reminder — an expired security.txt is treated as invalid). Served at
+# https://yourdomain.com/.well-known/security.txt (Vite copies public/ verbatim).
+Contact: mailto:security@yourdomain.com
+Expires: 2027-06-30T00:00:00.000Z
+Preferred-Languages: en, pt-BR
+Canonical: https://yourdomain.com/.well-known/security.txt

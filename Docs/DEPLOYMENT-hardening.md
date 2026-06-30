@@ -195,9 +195,20 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
 - **Backups — scripted (`./scripts/backup.sh` / `./scripts/restore.sh`).** See §6.4;
   the local round-trip restore is verified. Still **schedule it off-box** and back up
   the secrets separately.
+- **Vulnerability disclosure + threat model — implemented.** A `security.txt`
+  (RFC 9116) ships at `web/legi-web/public/.well-known/security.txt` → served at
+  `/.well-known/security.txt`; **fill in the real domain/contact and refresh `Expires`
+  before deploy** (it's a template). `Docs/THREAT-MODEL.md` records assets, trust
+  boundaries, threats↔controls, and the risks we knowingly accept — revisit it whenever
+  an auth flow or trust boundary changes.
 - **Edge protection / WAF** (e.g. Cloudflare) in front of the host proxy for
   DDoS absorption and a second rate-limiting layer.
-- **Tighten DB/broker capabilities** further once a known-good cap set is verified.
+- **DB/broker/object-store capabilities — tightened.** Every infra container runs
+  `cap_drop: ALL`. Postgres and RabbitMQ add back only the five their entrypoints need
+  (`CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID` — chown the data dir + gosu-drop
+  to the service user); MinIO and the mc init container need none. Verified against each
+  image on an empty volume and live (all infra healthy, data intact). Tighten further
+  (e.g. seccomp profiles) later if desired.
 - **Unprivileged nginx web tier — implemented.** The web container uses
   `nginxinc/nginx-unprivileged` (runs as uid 101, never root) and gets the same
   lockdown as the APIs: `cap_drop: ALL`, `no-new-privileges`, read-only rootfs with a
@@ -352,3 +363,5 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 - [ ] Nightly DB + MinIO backups running off-box; **restore tested**
 - [ ] `.env.prod` **and `./secrets`** backed up separately and encrypted (they hold every secret)
 - [ ] `Jwt__AccessTokenExpirationMinutes` kept short (15)
+- [ ] `security.txt` real domain/contact filled in, `Expires` < 1 year out
+- [ ] `Docs/THREAT-MODEL.md` reviewed for any new auth flow / endpoint since last launch
