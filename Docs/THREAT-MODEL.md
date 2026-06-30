@@ -116,8 +116,11 @@ Internet ──TLS──> Cloudflare ──TLS──> Caddy (host) ──> nginx
 
 ## 5. Residual & accepted risks
 
-- **Secrets are plaintext files on the VM.** Invisible to `docker inspect`, but a host
-  compromise reads them. *Accepted for launch; graduate to Vault/cloud KMS (B5).*
+- **Secrets at rest.** Encrypted source of truth (`secrets.sops.env`, SOPS+age) — safe
+  to commit/back up. The *runtime* `./secrets` plaintext is materialised by `decrypt`
+  (mount it on tmpfs so it never hits persistent disk). Residual: a live-host compromise
+  can read the decrypted files and the age key; mitigated by LUKS + encrypted backups,
+  not eliminated. *Accepted for a single VM — see DEPLOYMENT-hardening.md "Secrets at rest".*
 - **No access-token revocation list.** A stolen access token is valid until it expires
   (≤15 min). *Accepted — refresh revocation + short TTL bound it.*
 - **Self-signed Postgres TLS, not chain-validated** (`Trust Server Certificate=true`):

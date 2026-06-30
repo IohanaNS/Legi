@@ -188,10 +188,33 @@ keypair: existing access tokens expire within `Jwt__AccessTokenExpirationMinutes
   `Smtp__Password`) to fill in. It is idempotent (never rotates a live DB password);
   pass `--force` only for a fresh deploy on empty volumes. The files are `0644`
   (the API containers run non-root and must read them) inside a `0700` directory,
-  and `./secrets` is gitignored. **Limitation:** on a single VM these files still
-  sit on the same host disk — invisible to `docker inspect`, but *not*
-  host-compromise protection. For that, graduate to **Vault or your cloud's KMS**
-  (e.g. AWS Secrets Manager) once a deploy target is chosen.
+  and `./secrets` is gitignored.
+- **Secrets at rest — SOPS + age (chosen over Vault/KMS).** The plaintext `./secrets`
+  files are the *runtime* form; the *source of truth* is `secrets.sops.env`, a SOPS-
+  encrypted bundle that is safe to commit and back up (it is ciphertext). Manage it
+  with **`./scripts/secrets.sh`**: `init` (one-time — create your age keypair +
+  `.sops.yaml`), `encrypt` (`./secrets/*` → `secrets.sops.env`), `decrypt`
+  (`secrets.sops.env` → `./secrets/*` on the server before `compose up`). The age
+  **private** key lives at `$SOPS_AGE_KEY_FILE` (default `~/.config/sops/age/keys.txt`),
+  never in the repo — back it up in a password manager; losing it makes the bundle
+  unrecoverable. For true at-rest protection, **mount `./secrets` on a tmpfs** on the
+  server so decrypted plaintext never touches persistent disk.
+
+  *Why SOPS+age, not Vault or a cloud KMS:* on a single VM you cannot escape the
+  "secret zero" problem — the box must obtain the plaintext at boot, so something it
+  can reach holds the decryption key. Vault would only **relocate** that key (to its
+  unseal key) while adding a stateful service to seal/unseal, back up and secure — a
+  new SPOF in front of the data, for no real gain at this scale. SOPS+age is a CLI
+  (no service, no SPOF), vendor-neutral, and git-friendly. It also **stays portable**:
+  if we later move to AWS/GCP, SOPS swaps its key backend to that cloud's KMS without
+  changing this workflow. Graduate to a managed secrets manager / Vault only when there
+  are multiple hosts or people, automated rotation, or audit/compliance requirements —
+  none of which apply yet.
+- **Encryption at rest for the host.** Enable **full-disk encryption (LUKS)** on the VM
+  and **encrypt the off-box backups** of `secrets.sops.env`/`.env.prod` (the backup
+  script's `BACKUP_UPLOAD_CMD` can pipe through `age`/`gpg`). This closes the
+  "stolen disk snapshot / reclaimed Oracle volume / leaked backup" path that on-disk
+  secrets otherwise expose.
 - **Backups — scripted (`./scripts/backup.sh` / `./scripts/restore.sh`).** See §6.4;
   the local round-trip restore is verified. Still **schedule it off-box** and back up
   the secrets separately.
@@ -362,6 +385,8 @@ box, copy the compose + `.env.prod`, restore the DB dumps, repoint Cloudflare DN
 - [ ] SMTP working; SPF/DKIM/DMARC set on the sending domain
 - [ ] Nightly DB + MinIO backups running off-box; **restore tested**
 - [ ] `.env.prod` **and `./secrets`** backed up separately and encrypted (they hold every secret)
+- [ ] `secrets.sops.env` committed; age private key backed up (password manager); `./secrets` on tmpfs on the server
+- [ ] Full-disk encryption (LUKS) on the VM
 - [ ] `Jwt__AccessTokenExpirationMinutes` kept short (15)
 - [ ] `security.txt` real domain/contact filled in, `Expires` < 1 year out
 - [ ] `Docs/THREAT-MODEL.md` reviewed for any new auth flow / endpoint since last launch
